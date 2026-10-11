@@ -2,6 +2,10 @@
 
 ## 1. Executive Summary
 
+```mermaid
+
+```
+
 `invorc` is a sovereign, pure-Rust document intelligence engine designed to extract typed, structured data from heterogeneous documents—such as invoices, receipts, and bank statements—supplied as single PDFs, multi-page PDFs, individual images, or sets of images.
 
 The architecture is founded on zero-FFI, pure-Rust principles, eliminating external C/C++ dependencies (like Tesseract, Poppler, OpenCV, PyTorch, or llama.cpp) and heavy runtime microservice overhead.
@@ -76,18 +80,24 @@ The engine operates on a clean two-step paradigm:
 
 The technical specification is organized into the following modular documents:
 
-| Document                                                                                                                                                                | Focus & Component                                                                                | Primary Crates & Technologies                                           |
-|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------------------------------------------------------------------------------------|:------------------------------------------------------------------------|
-| **[01. Ingestion and Intelligent Routing](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/01_INGESTION_AND_ROUTING.md)**                                       | PDF parsing, text-vs-image routing, multi-file and multi-page batch handling                     | `pdf_oxide`, `lopdf`, `image`, `rayon`                                  |
-| **[02. Rasterization and Preprocessing](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/02_RASTERIZATION_AND_PREPROCESSING.md)**                               | Pure-Rust PDF rendering (tiny-skia), image normalization, deskew, binarization, SIMD resizing    | `pdf_oxide` (`rendering`), `imageproc`, `oximedia`, `fast_image_resize` |
-| **[03. OCR and Spatial Text Extraction](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/03_OCR_AND_SPATIAL_EXTRACTION.md)**                                    | Multi-lingual text detection (DBNet) & recognition (CRNN), 50 languages, spatial mapping         | `rusto-rs` (PP-OCRv6), `ocrs`, `rayon`                                  |
-| **[04. LLM and Local/Embedded Backends](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/04_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)**                               | Modular LLM backend design, Cargo feature flags, local-first inference (1-bit / Candle / ONNX)   | `oxibonsai`, `candle`, `tract`, `mistral.rs`, `rig-core`                |
-| **[05. Structured Extraction and Constrained Decoding](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/05_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)** | Compile-time schema extraction, logits processors, DFA token masking, self-repair loops          | `schemars`, `typedlm`, `serde`, `serde_json`                            |
-| **[06. End-to-End Invoice Example](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/06_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)**                                 | Complete Rust code walkthrough using `InvoiceData`, custom schemas, and multi-image processing   | End-to-end integration and API consumption                              |
-| **[07. Development Plan & Roadmap](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/07_DEVELOPMENT_PLAN.md)**                                                   | Phased monorepo roadmap, milestones, feature deliverables, and unit/integration/fuzz test suites | Engineering execution roadmap                                           |
-| **[08. Benchmark & Crate Comparison](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/08_BENCHMARK_AND_COMPARISON.md)**                                         | Deep-dive crate review, zero-FFI audit, latency profiles, and comparison vs. Python/C++ stacks   | Performance & competitive analysis                                      |
-| **[09. Image Stitching & Overlap Deduplication](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/09_IMAGE_STITCHING_AND_DEDUPLICATION.md)**                     | Dual-layer visual keypoint stitching (FAST/RANSAC) and fuzzy spatial text overlap reconciliation | `imageproc`, `oximedia`, `strsim`, `rayon`                              |
-| **[10. RAG & Large Document Retrieval](file:///Users/yasuomaidana/RustRoverProjects/invorc/docs/10_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)**                               | Optional in-memory layout-aware vector retrieval for massive (10–100+ page) document bundles       | `candle-core`, `hnsw_rs`, `tantivy`, `strsim`                           |
+| Document | Focus & Component | Primary Crates & Technologies |
+|:---|:---|:---|
+| **[01. Development Plan & Roadmap](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/01_DEVELOPMENT_PLAN.md)** | Phased monorepo roadmap, single-responsibility tickets, acceptance criteria & test scenarios | Engineering execution roadmap |
+| **[02. Design Patterns & Architecture](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/02_DESIGN_PATTERNS_AND_ARCHITECTURE.md)** | Rust design patterns evaluation, crate topology, consumer integration & justification | docula monorepo design |
+| **[03. Ingestion and Intelligent Routing](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/03_INGESTION_AND_ROUTING.md)** | PDF parsing, text-vs-image routing, multi-file and multi-page batch handling | pdf_oxide, lopdf, image, rayon |
+| **[04. Rasterization and Preprocessing](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/04_RASTERIZATION_AND_PREPROCESSING.md)** | Pure-Rust PDF rendering (tiny-skia), image normalization, deskew, binarization, SIMD resizing | pdf_oxide, imageproc, oximedia, fast_image_resize |
+| **[05. OCR and Spatial Text Extraction](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/05_OCR_AND_SPATIAL_EXTRACTION.md)** | Multi-lingual text detection (DBNet) & recognition (CRNN), 50 languages, spatial mapping | rusto-rs (PP-OCRv6), ocrs, rayon |
+| **[06. LLM and Local/Embedded Backends](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)** | Modular LLM backend design, Cargo feature flags, local-first inference (1-bit / Candle / ONNX) | oxibonsai, candle, tract, mistral.rs, rig-core |
+| **[07. Structured Extraction and Constrained Decoding](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)** | Compile-time schema extraction, logits processors, DFA token masking, self-repair loops | schemars, typedlm, serde, serde_json |
+| **[08. End-to-End Invoice Example](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)** | Complete Rust code walkthrough using InvoiceData, custom schemas, and multi-image processing | End-to-end integration and API consumption |
+| **[09. Benchmark & Crate Comparison](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/09_BENCHMARK_AND_COMPARISON.md)** | Deep-dive crate review, zero-FFI audit, latency profiles, and comparison vs. Python/C++ stacks | Performance & competitive analysis |
+| **[10. Image Stitching & Overlap Deduplication](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/10_IMAGE_STITCHING_AND_DEDUPLICATION.md)** | Dual-layer visual keypoint stitching (FAST/RANSAC) and fuzzy spatial text overlap reconciliation | imageproc, oximedia, strsim, rayon |
+| **[11. RAG & Large Document Retrieval](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)** | Optional in-memory layout-aware vector retrieval for massive (10–100+ page) document bundles | candle-core, hnsw_rs, tantivy, strsim |
+| **[12. Few-Shot & Exemplar Management](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)** | Dual-stage exemplar retrieval (fast layout fingerprint + HNSW fallback) and dynamic prompt injection | docula-exemplar, hnsw_rs, strsim, serde_json |
+| **[13. Human-in-the-Loop & Active Learning](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)** | Triage gates, immutable correction triad capture, two-tier storage (/data/corrections/ vs /data/examples/) | docula-hitl, uuid, chrono, sha2 |
+| **[14. Edge Compliance & Optical Codes](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md)** | Struct-level doc annotations (/// @censor, @decode, @mask), non-storing fields, pure-Rust QR/barcode | rxing, image, schemars, regex |
+| **[15. Consumer Configuration & TOML Strategy](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/15_CONSUMER_CONFIGURATION_AND_TOML.md)** | In-memory safe defaults, DoculaConfig builder, custom TOML paths, embedded app configuration | docula-core, toml, serde |
+| **[16. Multi-Lingual OCR & Language Asset Management](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md)** | 50+ script handling, ocr-latin vs ocr-multilingual feature gating, mmap2 zero-copy memory mapping | docula-ocr, rusto-rs, ocrs, memmap2 |
 
 ---
 
@@ -97,15 +107,18 @@ The crate architecture is fully configurable via Cargo feature flags. Embedded a
 
 ```toml
 [features]
-default = ["local-embedded", "ocr-multilingual"]
+default = ["local-embedded", "ocr-multilingual", "optical-codes"]
 
 # Core Execution Engines
 local-embedded   = ["oxibonsai", "candle-core"] # Pure-Rust local inference
 local-onnx       = ["tract-core", "tract-onnx"] # Pure-Rust ONNX execution
 local-vlm        = ["candle-transformers"]      # Vision-Language Models (Qwen2.5-VL / Florence-2)
 
-# Optional Retrieval-Augmented Generation for Massive Packets
-rag              = ["dep:invorc-rag"]
+# Optional Retrieval & Active Learning
+rag              = ["dep:docula-rag"]
+exemplars        = ["dep:docula-exemplar"]      # Dual-stage few-shot exemplar injection
+hitl             = ["dep:docula-hitl"]          # Active learning triage & correction triads
+optical-codes    = ["dep:rxing"]                # Pure-Rust QR and 1D barcode scanning
 
 # Cloud & Gateway Fallbacks (Optional)
 remote-openai    = ["rig-core/openai"]
@@ -120,6 +133,6 @@ ocr-latin-fast   = ["ocrs"]                     # Pure-Rust Latin OCR via RTen
 
 ## 5. Architectural Guarantees
 
-1. **Pure Rust Sovereignty (Zero-FFI):** No C/C++ compilation steps, no `libtesseract`, `libleptonica`, `libpoppler`, or `libvips` dynamic linking.
+1. **Pure Rust Sovereignty (Zero-FFI):** No C/C++ compilation steps, no `libtesseract`, `libleptonica`, `libpoppler`, `libzbar`, or `libvips` dynamic linking.
 2. **Memory Safety & Parallelism:** Concurrency via `rayon` and `tokio`, avoiding unsafe foreign pointer manipulations.
-3. **Deterministic Type Safety:** Output is mathematically guaranteed to deserialize into the target Rust structure.
+3. **Deterministic Type Safety & Compliance:** Output is mathematically guaranteed to deserialize into the target Rust structure with deterministic PII sanitization.
