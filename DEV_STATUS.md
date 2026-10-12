@@ -1,6 +1,6 @@
 # Dev Status
 
-**Current Focus:** `DOC-201` (Tiny-Skia Pure-Rust Rasterizer)
+**Current Focus:** `DOC-202` (Image Filter Chain: Deskew & Binarize)
 
 ### Milestone 1: Core Foundation & Config
 - [x] DOC-101 Spatial Geometry & DocumentSource (`docula-core`)
@@ -8,7 +8,7 @@
 - [x] DOC-103 Zero-Storage RAII NonStored<T> (`docula-core`)
 
 ### Milestone 2: Preprocess & Ingestion
-- [ ] DOC-201 Tiny-Skia Pure-Rust Rasterizer (`docula-preprocess`) *(IN PROGRESS)*
+- [x] DOC-201 Tiny-Skia Pure-Rust Rasterizer (`docula-preprocess`)
 - [ ] DOC-202 Image Filter Chain: Deskew & Binarize (`docula-preprocess`)
 - [ ] DOC-203 PDF Inspector & Routing Heuristics (`docula-ingest`)
 
@@ -28,8 +28,7 @@
 - [ ] DOC-502 Dual-Stage Exemplar Retrieval (`docula-exemplar`)
 
 ### Milestone 6: Active Learning & Feedback
-- [ ] DOC-601 Triage Gates & CorrectionTriads (`docula-hitl`)
-- [ ] DOC-602 Tiered Storage & Promotion Engine (`docula-hitl`)
+- [ ] DOC-601 Triage Gates & CorrectionTriads (`docula-hitl`)\n- [ ] DOC-602 Tiered Storage & Promotion Engine (`docula-hitl`)
 
 ### Milestone 7: Advanced Vision (Codes & Cropping)
 - [ ] DOC-701 Pure-Rust Optical Code Mapper (`docula-vision-codes`)

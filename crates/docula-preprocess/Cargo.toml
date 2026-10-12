@@ -1,0 +1,17 @@
+[package]
+name = "docula-preprocess"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Pure-Rust document rasterization, computer vision filters, and preprocessing for docula"
+
+[dependencies]
+docula-core = { path = "../docula-core" }
+pdf_oxide = { version = "0.3", features = ["rendering"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+thiserror = { version = "2.0" }
+base64 = { version = "0.23" }
+
+[dev-dependencies]
+tempfile = "3.27.0"

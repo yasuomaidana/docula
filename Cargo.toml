@@ -3,6 +3,7 @@ resolver = "2"
 members = [
     ".",
     "crates/docula-core",
+    "crates/docula-preprocess",
 ]
 
 [workspace.dependencies]
@@ -16,3 +17,4 @@ edition = "2024"
 
 [dependencies]
 docula-core = { path = "crates/docula-core" }
+docula-preprocess = { path = "crates/docula-preprocess" }
