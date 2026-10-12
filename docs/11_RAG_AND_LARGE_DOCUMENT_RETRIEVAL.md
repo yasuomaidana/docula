@@ -19,9 +19,9 @@ flowchart TD
     
     ContextCheck -- "No (1-5 Pages)" --> DirectStep2["Direct Step 2: Full Spatial Layout to LLM"]
     
-    ContextCheck -- "Yes (>5 Pages / Large Packet)" --> RAGPipeline["invorc-rag: Schema-Guided Retrieval Pipeline"]
+    ContextCheck -- "Yes (>5 Pages / Large Packet)" --> RAGPipeline["Docula-rag: Schema-Guided Retrieval Pipeline"]
     
-    subgraph RAGPipeline["invorc-rag: Pure-Rust In-Memory Retrieval"]
+    subgraph RAGPipeline["Docula-rag: Pure-Rust In-Memory Retrieval"]
         Chunker["1. Spatial & Table-Aware Chunker (Preserves Table Grids)"]
         Embedder["2. Pure-Rust Embedder (Candle: bge-small / all-MiniLM)"]
         Index["3. In-Memory Vector Store & BM25 Hybrid Index (hnsw_rs)"]
@@ -39,29 +39,29 @@ flowchart TD
 
 ## 2. Where to Place RAG in the Monorepo
 
-We place RAG as a dedicated optional crate: **`crates/invorc-rag/`**.
+We place RAG as a dedicated optional crate: **`crates/Docula-rag/`**.
 
 ```text
-invorc/
+Docula/
 ├── crates/
-│   ├── invorc-core/
-│   ├── invorc-ingest/
-│   ├── invorc-preprocess/
-│   ├── invorc-ocr/
-│   ├── invorc-rag/          # <-- Dedicated Optional RAG & Indexing Crate
-│   ├── invorc-llm/
-│   ├── invorc-schema/
-│   └── invorc/              # Facade exposing extract_structure_rag::<T>()
+│   ├── Docula-core/
+│   ├── Docula-ingest/
+│   ├── Docula-preprocess/
+│   ├── Docula-ocr/
+│   ├── Docula-rag/          # <-- Dedicated Optional RAG & Indexing Crate
+│   ├── Docula-llm/
+│   ├── Docula-schema/
+│   └── Docula/              # Facade exposing extract_structure_rag::<T>()
 ```
 
-In the execution pipeline, `invorc-rag` sits squarely between **Step 1 (Spatial Text Extraction)** and **Step 2 (Constrained LLM Decoding)**.
+In the execution pipeline, `Docula-rag` sits squarely between **Step 1 (Spatial Text Extraction)** and **Step 2 (Constrained LLM Decoding)**.
 
 ---
 
-## 3. How `invorc-rag` Works in Pure Rust (Zero-FFI)
+## 3. How `Docula-rag` Works in Pure Rust (Zero-FFI)
 
 ### 3.1 Spatial & Table-Aware Chunking
-Standard RAG chunkers split text by character length, which destroys invoice table borders. `invorc-rag` implements **Layout-Aware Chunking**:
+Standard RAG chunkers split text by character length, which destroys invoice table borders. `Docula-rag` implements **Layout-Aware Chunking**:
 * Tables are kept intact as unified Markdown/coordinate blocks.
 * Document pages and sections are indexed with spatial bounding box headers (e.g. `[PAGE 12: Balance Sheet Table]`).
 
@@ -72,7 +72,7 @@ To maintain the pure-Rust, zero-C-dependency mandate:
 * **Optional Keyword Search (`tantivy`):** Pure-Rust Lucene-equivalent for exact keyword lookups (e.g. searching exact invoice numbers or tax IDs).
 
 ### 3.3 Schema-Driven Query Formulation
-Instead of requiring the user to type natural language search queries, `invorc-rag` inspects the target Rust struct `T` via `schemars`:
+Instead of requiring the user to type natural language search queries, `Docula-rag` inspects the target Rust struct `T` via `schemars`:
 1. It reads each struct field and its `#[schemars(description = "...")]` attribute.
 2. It generates targeted retrieval embeddings for each field cluster (e.g., "vendor payment remittance details", "transaction line item table", "tax summary").
 3. It retrieves the top-$k$ relevant spatial blocks.
@@ -89,14 +89,14 @@ In `Cargo.toml`:
 default = ["local-embedded"]
 
 # Optional RAG Feature
-rag = ["dep:invorc-rag"]
+rag = ["dep:Docula-rag"]
 
 [dependencies]
 # Feature-gated sub-crate
-invorc-rag = { path = "crates/invorc-rag", optional = true }
+Docula-rag = { path = "crates/Docula-rag", optional = true }
 ```
 
-Within `invorc-rag/Cargo.toml`:
+Within `Docula-rag/Cargo.toml`:
 
 | Crate | Target Version | Purpose |
 | :--- | :--- | :--- |
@@ -112,13 +112,13 @@ Within `invorc-rag/Cargo.toml`:
 ### Mode A: Standard Direct Extraction (Default for Invoices & Receipts)
 ```rust
 // 1-5 pages: Instantaneous, zero vector overhead
-let invoice: InvoiceData = invorc::extract_structure(doc_source, &backend).await?;
+let invoice: InvoiceData = Docula::extract_structure(doc_source, &backend).await?;
 ```
 
 ### Mode B: RAG-Powered Extraction for Massive Document Bundles
 ```rust
 #[cfg(feature = "rag")]
-use invorc_rag::RagConfig;
+use Docula_rag::RagConfig;
 
 // 50-page financial packet: RAG retrieves only relevant pages for each schema field
 let config = RagConfig {
@@ -127,7 +127,7 @@ let config = RagConfig {
     hybrid_bm25: true,
 };
 
-let audit_report: AuditSummary = invorc::extract_structure_with_rag(
+let audit_report: AuditSummary = Docula::extract_structure_with_rag(
     doc_source,
     &backend,
     config,
@@ -138,7 +138,7 @@ let audit_report: AuditSummary = invorc::extract_structure_with_rag(
 
 ## 6. Summary Comparison: Direct Pipeline vs. RAG Pipeline
 
-| Dimension                      | Default Two-Step Pipeline                  | Optional RAG Pipeline (`invorc-rag`)                     |
+| Dimension                      | Default Two-Step Pipeline                  | Optional RAG Pipeline (`Docula-rag`)                     |
 |:-------------------------------|:-------------------------------------------|:---------------------------------------------------------|
 | **Best Used For**              | Invoices, receipts, 1–5 page statements    | 10–100+ page contracts, annual reports, mortgage packets |
 | **Memory Overhead**            | Minimal (<35 MB baseline)                  | +50 MB (In-memory embedding model & vector index)        |

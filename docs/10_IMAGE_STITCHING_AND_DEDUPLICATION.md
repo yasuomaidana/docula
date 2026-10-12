@@ -8,7 +8,7 @@ Handling multi-image sets presents two major challenges:
 1. **Geometric & Visual Distortion:** Photos have slight perspective shifts, uneven zoom, shadows, and angular skew.
 2. **Duplicate Line Items & Hallucinated Repeats:** Overlapping regions capture identical line items twice. If fed blindly into Step 2, the LLM will duplicate financial entries (e.g., doubling the invoice total or repeating line items).
 
-`invorc` solves this using a **Dual-Layer Merge Strategy**:
+`Docula` solves this using a **Dual-Layer Merge Strategy**:
 1. **Layer A: Geometric / Visual Keypoint Stitching** (Pixel Level)
 2. **Layer B: Fuzzy Spatial Text Overlap & Line-Item Deduplication** (OCR & Spatial Level)
 
@@ -66,7 +66,7 @@ flowchart TD
 
 ### 3.1 Layer A: Visual Keypoint Stitching (Pixel Level)
 
-When consecutive camera captures have sufficient visual overlap (>15%), `invorc` stitches them into a single vertical canvas before running OCR:
+When consecutive camera captures have sufficient visual overlap (>15%), `Docula` stitches them into a single vertical canvas before running OCR:
 
 1. **Feature Extraction:** FAST corner detector detects distinctive keypoints in the bottom $30\%$ of Image $N$ and the top $30\%$ of Image $N+1$.
 2. **Homography Estimation:** A pure-Rust RANSAC algorithm fits a vertical affine transformation matrix:
@@ -77,7 +77,7 @@ When consecutive camera captures have sufficient visual overlap (>15%), `invorc`
 
 ### 3.2 Layer B: Spatial Text Overlap & Deduplication (OCR Level)
 
-If photos suffer from extreme perspective changes or varied focal distances, visual stitching may introduce blur. In this case, `invorc` executes **Spatial Text Overlap Reconciliation**:
+If photos suffer from extreme perspective changes or varied focal distances, visual stitching may introduce blur. In this case, `Docula` executes **Spatial Text Overlap Reconciliation**:
 
 1. **Independent Parallel OCR:** Each image is processed through PP-OCRv6 independently, generating separate spatial text blocks.
 2. **$N$-Gram Sliding Window Search:** The engine extracts a rolling window of text lines from the bottom of Document $N$ and compares them against lines from the top of Document $N+1$.

@@ -4,13 +4,13 @@
 
 The **Structured Extraction & Constrained Decoding** module is the mathematical core of Step 2. Its mission is to transform spatial text into a concrete, strongly typed Rust data structure `T` supplied by the user (such as `InvoiceData`, `BankStatement`, or any custom domain model).
 
-Standard LLM prompting ("Return JSON matching this format") is inherently non-deterministic and prone to syntax errors (unclosed brackets, trailing commas, incorrect field names, string instead of float). `invorc` solves this through **Logits-Level Grammar Enforcement (Constrained Decoding)** and **Automated Self-Repair Loops**.
+Standard LLM prompting ("Return JSON matching this format") is inherently non-deterministic and prone to syntax errors (unclosed brackets, trailing commas, incorrect field names, string instead of float). `Docula` solves this through **Logits-Level Grammar Enforcement (Constrained Decoding)** and **Automated Self-Repair Loops**.
 
 ```mermaid
 sequenceDiagram
     autonumber
     participant UserApp as User Application (Rust Struct T)
-    participant Engine as invorc Pipeline
+    participant Engine as Docula Pipeline
     participant SchemaEngine as schemars
     participant LLM as Local LLM Engine
     participant LogitsProc as typedlm DFA Logits Processor
@@ -55,7 +55,7 @@ The user interacts with a single high-level typed function:
 pub async fn extract_structure<T>(
     source: DocumentSource,
     backend: &dyn LlmBackend,
-) -> Result<T, InvorcError>
+) -> Result<T, DoculaError>
 where
     T: schemars::JsonSchema + serde::de::DeserializeOwned + Send + Sync,
 {
@@ -94,16 +94,16 @@ $$L_i \leftarrow -\infty$$
 
 5. This guarantees $e^{-\infty} = 0$, giving invalid tokens zero probability. The generated text stream is guaranteed to be syntactically and structurally valid JSON.
 
-### 3.3 Optional Integrity Validation & Feedback: `InvorcValidate` Trait
+### 3.3 Optional Integrity Validation & Feedback: `DocuValidate` Trait
 
 Validation and feedback loops are completely **optional**:
 - **Default Behavior (Raw Output):** Any struct `T` implementing `JsonSchema + DeserializeOwned` can be extracted directly with `extract_structure::<T>()`. The engine performs constrained decoding, deserializes the JSON, and immediately returns the raw output with zero validation overhead.
-- **Optional Integrity Validation:** If domain-specific consistency checks are desired (such as verifying arithmetic `sum(line_items.total) == total_amount` or date format rules), the struct implements the `InvorcValidate` trait.
+- **Optional Integrity Validation:** If domain-specific consistency checks are desired (such as verifying arithmetic `sum(line_items.total) == total_amount` or date format rules), the struct implements the `DocuValidate` trait.
 
 ```rust
 /// Optional integrity validation trait.
-/// If not implemented for a struct, invorc simply returns the raw extracted output.
-pub trait InvorcValidate {
+/// If not implemented for a struct, Docula simply returns the raw extracted output.
+pub trait DocuValidate {
     /// Validates internal field integrity, arithmetic consistency, or business rules.
     fn validate_integrity(&self) -> Result<(), Vec<ValidationError>>;
 }
@@ -117,14 +117,14 @@ pub struct ValidationError {
 #### How the Optional Self-Repair Flow Works
 
 ```rust
-/// Extracts a struct, and if it implements InvorcValidate, performs optional integrity checks.
+/// Extracts a struct, and if it implements DocuValidate, performs optional integrity checks.
 pub async fn extract_structure_validated<T>(
     source: DocumentSource,
     backend: &dyn LlmBackend,
     max_retries: usize,
-) -> Result<T, InvorcError>
+) -> Result<T, DoculaError>
 where
-    T: schemars::JsonSchema + serde::de::DeserializeOwned + InvorcValidate + Send + Sync,
+    T: schemars::JsonSchema + serde::de::DeserializeOwned + DocuValidate + Send + Sync,
 {
     // Step 1: Extract raw instance via constrained decoding
     let mut instance: T = extract_structure(source, backend).await?;

@@ -4,6 +4,8 @@
 
 This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **8-Milestone phased execution model** across a 13-crate Cargo Monorepo Workspace.
 
+Optical Code Detection (QR / 1D Barcodes) and Visual Region Cropping (Document Screenshots / ROI Crops) are scheduled for **Milestone 7 (Advanced Vision)** as the latest functional capabilities. However, all foundational abstractions (`BoundingBox` pixel projection, `ImageCrop` value objects, `RegionCropper` trait, and schema reflection tags) are engineered **from Day 0 in Milestone 1 and Milestone 2** to guarantee zero breaking changes or hard refactoring when Milestone 7 lands.
+
 ```mermaid
 gantt
     title docula Granular Engineering Roadmap (16-Week Implementation)
@@ -15,14 +17,13 @@ gantt
     DOC-102 DoculaConfig & Layered Loader (docula-core)     :active, m1_2, after m1_1, 5d
     DOC-103 Zero-Storage RAII NonStored<T> (docula-core)   :m1_3, after m1_2, 4d
 
-    section Milestone 2: Preprocess, Vision & Ingest
+    section Milestone 2: Preprocess & Ingestion
     DOC-201 Tiny-Skia Pure-Rust Rasterizer (docula-preprocess) :m2_1, after m1_3, 6d
     DOC-202 Image Filter Chain: Deskew & Binarize              :m2_2, after m2_1, 6d
-    DOC-203 Pure-Rust Optical Code Mapper (docula-vision-codes):m2_3, after m2_2, 5d
-    DOC-204 PDF Inspector & Routing Heuristics (docula-ingest) :m2_4, after m2_3, 5d
+    DOC-203 PDF Inspector & Routing Heuristics (docula-ingest) :m2_3, after m2_2, 5d
 
     section Milestone 3: OCR, Spatial & Compliance
-    DOC-301 PP-OCRv6 DBNet & CRNN Multi-Lingual (docula-ocr)   :m3_1, after m2_4, 7d
+    DOC-301 PP-OCRv6 DBNet & CRNN Multi-Lingual (docula-ocr)   :m3_1, after m2_3, 7d
     DOC-302 Spatial Reading-Order Clustering (docula-ocr)      :m3_2, after m3_1, 5d
     DOC-303 Compliance Action Tags & Redactor (docula-compliance):m3_3, after m3_2, 6d
     DOC-304 Multi-Lingual Mmap Asset Manager (docula-ocr)      :m3_4, after m3_3, 5d
@@ -40,13 +41,14 @@ gantt
     DOC-601 Triage Gates & CorrectionTriads (docula-hitl)      :m6_1, after m5_2, 6d
     DOC-602 Tiered Storage & Promotion Engine (docula-hitl)    :m6_2, after m6_1, 5d
 
-    section Milestone 7: Developer Facade & CLI
-    DOC-701 High-Level DoculaPipeline & Self-Repair (docula)   :m7_1, after m6_2, 7d
-    DOC-702 Terminal CLI Utility (docula-cli)                  :m7_2, after m7_1, 5d
+    section Milestone 7: Advanced Vision (Codes & Cropping)
+    DOC-701 Pure-Rust Optical Code Mapper (docula-vision-codes):m7_1, after m6_2, 6d
+    DOC-702 Document Screenshots & Region Cropper (docula-preprocess):m7_2, after m7_1, 6d
 
-    section Milestone 8: Benchmarks & FFI Elimination
-    DOC-801 cargo-geiger Zero-FFI Safety Audit                 :m8_1, after m7_2, 4d
-    DOC-802 Criterion Latency & Multi-Page Fuzz Suite          :m8_2, after m8_1, 5d
+    section Milestone 8: Developer Surface, CLI & Benchmarks
+    DOC-801 High-Level DoculaPipeline & Self-Repair (docula)   :m8_1, after m7_2, 6d
+    DOC-802 Terminal CLI Utility (docula-cli)                  :m8_2, after m8_1, 5d
+    DOC-803 cargo-geiger Zero-FFI Safety & Criterion Benchmarks:m8_3, after m8_2, 4d
 ```
 
 ---
@@ -74,16 +76,18 @@ docula/
 │   ├── 11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md
 │   ├── 12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md
 │   ├── 13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md
-│   ├── 14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md
+│   ├── 14_COMPLIANCE_AND_NON_STORING.md
 │   ├── 15_CONSUMER_CONFIGURATION_AND_TOML.md
-│   └── 16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md
+│   ├── 16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md
+│   ├── 17_OPTICAL_CODE_EXTRACTION.md
+│   └── 18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md
 ├── data/
 │   ├── corrections/            # Tier 1: Cold Storage (Append-only immutable JSONL)
 │   └── examples/               # Tier 2: Curated Few-Shot Pool
 ├── crates/
-│   ├── docula-core/            # Core primitives, BoundingBox, NonStored<T>, DoculaConfig
-│   ├── docula-preprocess/      # Tiny-skia rendering, Hough deskew, binarization, stitching
-│   ├── docula-vision-codes/    # Pure-Rust rxing 1D & QR barcode detector
+│   ├── docula-core/            # Core primitives, BoundingBox, ImageCrop, NonStored<T>, DoculaConfig
+│   ├── docula-preprocess/      # Tiny-skia rendering, Hough deskew, binarization, stitching, region crops
+│   ├── docula-vision-codes/    # Pure-Rust rxing 1D & QR barcode detector (Milestone 7)
 │   ├── docula-schema/          # schemars JSON Schema reflection, typedlm DFA masking
 │   ├── docula-ingest/          # lopdf hierarchy inspection, routing heuristics
 │   ├── docula-ocr/             # PP-OCRv6 DBNet detection, CRNN 50-language recognition
@@ -105,14 +109,31 @@ docula/
 
 ### Milestone 1: Core Foundation & Consumer Configuration (`docula-core`)
 
-#### Ticket DOC-101: Spatial Coordinate Primitives & Universal Input Abstraction
-* **Reference Spec:** [`03_INGESTION_AND_ROUTING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/03_INGESTION_AND_ROUTING.md)
-* **Single Responsibility:** Implement spatial geometry primitives (`BoundingBox`, `Point`, `SpatialSpan`, `Polygon`) and universal input source `DocumentSource`.
-* **Design Pattern:** **Value Object Pattern** (immutable, normalized spatial coordinates $[0.0, 1.0]$).
+#### Ticket DOC-101: Spatial Coordinate Primitives & Universal Input Abstraction (Day 0 Vision Ready)
+* **Reference Spec:** [`03_INGESTION_AND_ROUTING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/03_INGESTION_AND_ROUTING.md), [`18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)
+* **Single Responsibility:** Implement spatial geometry primitives (`BoundingBox`, `Point`, `SpatialSpan`, `Polygon`), universal input source `DocumentSource`, and Day 0 visual crop abstractions (`ImageCrop`, `RegionCropper` trait).
+* **Design Pattern:** **Value Object Pattern** (immutable, normalized spatial coordinates $[0.0, 1.0]$) & **Strategy Pattern**.
 * **Structures:**
   ```rust
   pub struct Point { pub x: f32, pub y: f32 }
+  pub struct PixelRect { pub x: u32, pub y: u32, pub width: u32, pub height: u32 }
   pub struct BoundingBox { pub top_left: Point, pub bottom_right: Point }
+  
+  #[derive(Clone, Debug, Serialize, Deserialize)]
+  pub struct ImageCrop {
+      pub page_index: usize,
+      pub bbox: BoundingBox,
+      pub width: u32,
+      pub height: u32,
+      pub encoded_data: String,
+      pub mime_type: String,
+  }
+
+  pub trait RegionCropper: Send + Sync {
+      fn capture_page(&self, page_index: usize, dpi: u32, format: CropFormat) -> Result<ImageCrop, DoculaError>;
+      fn crop_region(&self, page_index: usize, bbox: &BoundingBox, padding: f32, format: CropFormat) -> Result<ImageCrop, DoculaError>;
+  }
+
   pub enum DocumentSource {
       PdfBytes(Vec<u8>),
       PdfPath(PathBuf),
@@ -123,11 +144,13 @@ docula/
   ```
 * **Acceptance Criteria:**
   1. `BoundingBox::area()`, `intersection()`, and `union()` calculate geometric overlaps.
-  2. `DocumentSource` supports zero-copy byte slices and file paths.
-  3. `BoundingBox` implements `Serialize` and `Deserialize`.
+  2. `BoundingBox::to_pixel_rect(w, h)` converts normalized coordinates into pixel coordinates clamped to $[0, w] \times [0, h]$.
+  3. `BoundingBox::with_padding(fraction)` expands bounding box safely within $[0.0, 1.0]$.
+  4. `DocumentSource` supports zero-copy byte slices and file paths.
 * **Test Scenarios:**
   * `test_bbox_intersection_disjoint`: Non-overlapping boxes return `None`.
   * `test_bbox_intersection_contained`: Nested box returns inner box.
+  * `test_bbox_to_pixel_rect_clamping`: Extreme boxes ($x > 1.0$) clamp to valid image boundaries.
   * `test_document_source_from_bytes`: Construct `DocumentSource::PdfBytes` and verify byte payload integrity.
 
 #### Ticket DOC-102: Consumer-Driven `DoculaConfig` & Layered Loader
@@ -156,7 +179,7 @@ docula/
   * `test_config_from_toml_str_malformed`: Pass malformed TOML and assert typed `ConfigError::ParseFailure`.
 
 #### Ticket DOC-103: Zero-Storage RAII Smart Pointer `NonStored<T>`
-* **Reference Spec:** [`14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md)
+* **Reference Spec:** [`14_COMPLIANCE_AND_NON_STORING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_AND_NON_STORING.md)
 * **Single Responsibility:** Create `NonStored<T>` wrapper that implements `Deref`, zeroes memory on drop, and is omitted from persistent serialization.
 * **Design Pattern:** **RAII Smart Pointer Pattern** & **Type-Level Erasure**.
 * **Structures:**
@@ -176,23 +199,28 @@ docula/
 
 ---
 
-### Milestone 2: Preprocessing, Optical Codes & Ingestion (`docula-preprocess`, `docula-vision-codes`, `docula-ingest`)
+### Milestone 2: Preprocessing & Ingestion (`docula-preprocess`, `docula-ingest`)
 
-#### Ticket DOC-201: Pure-Rust PDF Rasterization Bridge
+#### Ticket DOC-201: Pure-Rust PDF Rasterization Bridge & Page Pixmap Buffer
 * **Reference Spec:** [`04_RASTERIZATION_AND_PREPROCESSING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/04_RASTERIZATION_AND_PREPROCESSING.md)
-* **Single Responsibility:** Render PDF pages into memory-backed RGBA pixmaps using `pdf_oxide` (`tiny-skia` renderer).
+* **Single Responsibility:** Render PDF pages into memory-backed RGBA pixmaps using `pdf_oxide` (`tiny-skia` renderer) with zero-copy sub-image view capability.
 * **Design Pattern:** **Strategy Pattern** (concrete rasterization strategy).
 * **Structures:**
   ```rust
+  pub struct PageRasterBuffer {
+      pub page_index: usize,
+      pub image: RgbaImage,
+      pub dpi: u32,
+  }
   pub struct TinySkiaRasterizer;
   impl Rasterizer for TinySkiaRasterizer {
-      fn render_page(&self, pdf_bytes: &[u8], page_idx: usize, dpi: u32) -> Result<RgbaImage, PreprocessError>;
+      fn render_page(&self, pdf_bytes: &[u8], page_idx: usize, dpi: u32) -> Result<PageRasterBuffer, PreprocessError>;
   }
   ```
 * **Acceptance Criteria:**
   1. Renders single and multi-page PDFs to memory buffers at configurable DPI (150/300 DPI).
   2. Zero linkage against Poppler, MuPDF, or external C dynamic libraries.
-  3. Fails cleanly with `PreprocessError::InvalidPdf` on corrupt input.
+  3. Returns `PageRasterBuffer` ready for OCR and downstream ROI cropping.
 * **Test Scenarios:**
   * `test_render_single_page_pdf`: Render 1-page sample at 300 DPI; assert resulting dimensions match expected pixels.
   * `test_render_invalid_pdf_bytes`: Pass random bytes; assert graceful error return.
@@ -207,7 +235,7 @@ docula/
       fn apply(&self, img: &mut RgbaImage) -> Result<(), PreprocessError>;
   }
   pub struct PreprocessingFilterChain {
-      filters: Vec<Box<dyn ImageFilter>>,
+      filters: Vec<Box<dyn ImageFilter>>,\
   }
   ```
 * **Acceptance Criteria:**
@@ -218,27 +246,7 @@ docula/
   * `test_deskew_rotated_image`: Pass image rotated by $15^\circ$; assert detected angle is $15^\circ \pm 0.5^\circ$.
   * `test_simd_resize_aspect_ratio`: Scale $1920\times 1080$ to width 960; verify height is 540.
 
-#### Ticket DOC-203: Pure-Rust Optical Code Spatial Detector (`docula-vision-codes`)
-* **Reference Spec:** [`14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md)
-* **Single Responsibility:** Detect QR codes and 1D barcodes on rendered images using `rxing` and extract bounding boxes and payloads.
-* **Design Pattern:** **Strategy Pattern** & **Adapter Pattern** (adapting `rxing` results to `docula-core` geometry).
-* **Structures:**
-  ```rust
-  pub struct OpticalCodeResult {
-      pub code_type: CodeType,
-      pub payload: String,
-      pub bbox: BoundingBox,
-  }
-  ```
-* **Acceptance Criteria:**
-  1. Detects QR, Aztec, PDF417, and Code 128 barcodes.
-  2. Returns normalized bounding box coordinates matching the page coordinate space.
-  3. Returns decoded text payloads.
-* **Test Scenarios:**
-  * `test_detect_qr_code`: Pass image with QR code containing `"https://example.com"`; assert payload and bbox.
-  * `test_detect_no_barcode`: Pass plain text image; assert empty result vector without error.
-
-#### Ticket DOC-204: PDF Object Tree Inspector & Routing Classifier (`docula-ingest`)
+#### Ticket DOC-203: PDF Object Tree Inspector & Routing Classifier (`docula-ingest`)
 * **Reference Spec:** [`03_INGESTION_AND_ROUTING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/03_INGESTION_AND_ROUTING.md)
 * **Single Responsibility:** Inspect PDF object trees with `lopdf` to classify pages as born-digital or rasterized.
 * **Design Pattern:** **Routing Heuristic / Decision Strategy Pattern**.
@@ -302,12 +310,12 @@ docula/
   * `test_multiline_invoice_header`: Verify invoice header lines are properly ordered from top to bottom.
 
 #### Ticket DOC-303: Compliance Action Tag Processor & Pixel Blackout (`docula-compliance`)
-* **Reference Spec:** [`14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md)
-* **Single Responsibility:** Execute schema directives (`@censor`, `@mask`, `@decode`, `@ignore`) and sanitize PII.
+* **Reference Spec:** [`14_COMPLIANCE_AND_NON_STORING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_AND_NON_STORING.md)
+* **Single Responsibility:** Execute schema directives (`@censor`, `@ignore`, `@non-storing`) and sanitize PII before storage.
 * **Design Pattern:** **Command / Action Strategy Pattern**.
 * **Structures:**
   ```rust
-  pub enum ActionDirective { Censor, Mask, Decode, Ignore }
+  pub enum ActionDirective { Censor, Ignore, NonStoring }
   pub struct ComplianceRedactor;
   impl ComplianceRedactor {
       pub fn apply_blackout(image: &mut RgbaImage, bbox: &BoundingBox);
@@ -316,9 +324,8 @@ docula/
   ```
 * **Acceptance Criteria:**
   1. `@censor`: Overwrites pixels in bounding box with pure black (`[0, 0, 0, 255]`) and purges text spans from layout map.
-  2. `@mask`: Extracts raw visual artifact without decoded text.
-  3. `@decode`: Injects decoded optical payload into text layer and drops pixels.
-  4. Deterministic regex masks IBANs, Credit Cards, and SSNs.
+  2. Deterministic regex masks IBANs, Credit Cards, and SSNs.
+  3. Precedence invariant: censored regions are redacted before any visual crops or screenshots are exported.
 * **Test Scenarios:**
   * `test_blackout_boundary_pixels`: Assert pixel values inside bbox are `[0, 0, 0, 255]` and pixels outside remain untouched.
   * `test_purge_text_span_overlap`: Assert spans falling inside censored bbox are removed from layout.
@@ -349,18 +356,9 @@ docula/
 * **Reference Spec:** [`07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)
 * **Single Responsibility:** Compile `schemars` JSON Schema AST into a Deterministic Finite Automaton (DFA) state machine.
 * **Design Pattern:** **Visitor Pattern** (traversing schema AST) & **State Machine Pattern** (DFA tracking).
-* **Structures:**
-  ```rust
-  pub struct DfaStateMachine;
-  impl DfaStateMachine {
-      pub fn from_json_schema(schema: &serde_json::Value) -> Result<Self, SchemaError>;
-      pub fn advance(&mut self, token: TokenId) -> Result<(), DfaError>;
-      pub fn allowed_tokens(&self, vocab: &Vocabulary) -> BitSet;
-  }
-  ```
 * **Acceptance Criteria:**
   1. Recursively compiles objects, arrays, strings, numbers, booleans, and enums into DFA transitions.
-  2. Queries vocabulary to return a bitset of valid next tokens for any DFA state.
+  2. Day 0 directive registry recognizes `/// @crop`, `/// @screenshot`, `/// @decode`, `/// @censor`, `/// @ignore`.
 * **Test Scenarios:**
   * `test_dfa_nested_object_compilation`: Compile struct with nested fields; verify initial state permits `{`.
   * `test_dfa_invalid_transition`: Attempt to advance with an invalid token; assert transition failure.
@@ -369,17 +367,9 @@ docula/
 * **Reference Spec:** [`07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)
 * **Single Responsibility:** Intercept autoregressive LLM token logits and set invalid out-of-grammar token logits to $-\infty$.
 * **Design Pattern:** **Decorator / Interceptor Pattern**.
-* **Structures:**
-  ```rust
-  pub struct DfaLogitsProcessor { state_machine: DfaStateMachine }
-  impl LogitsProcessor for DfaLogitsProcessor {
-      fn process_logits(&mut self, logits: &mut [f32], vocab: &Vocabulary);
-  }
-  ```
 * **Acceptance Criteria:**
   1. Invalid tokens according to DFA state receive $-\infty$ (`f32::NEG_INFINITY`).
   2. Valid tokens retain their raw logit scores.
-  3. DFA state advances when the sampled token is confirmed.
 * **Test Scenarios:**
   * `test_masking_disallows_illegal_tokens`: Tokens not in the grammar bitset are masked to $-\infty$.
   * `test_complete_token_sequence_yields_valid_json`: Generate simulated token stream; assert `serde_json::from_str` succeeds.
@@ -388,21 +378,9 @@ docula/
 * **Reference Spec:** [`06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)
 * **Single Responsibility:** Define `LlmBackend` trait and provide pure-Rust implementations (`oxibonsai` 1-bit, `candle` GGUF, `tract` ONNX).
 * **Design Pattern:** **Strategy Pattern**.
-* **Structures:**
-  ```rust
-  #[async_trait]
-  pub trait LlmBackend: Send + Sync {
-      async fn complete(
-          &self,
-          prompt: &str,
-          logits_processor: Option<&mut dyn LogitsProcessor>,
-      ) -> Result<String, LlmError>;
-  }
-  ```
 * **Acceptance Criteria:**
   1. Feature flags `local-embedded` (`oxibonsai`), `local-candle`, `local-onnx` compile cleanly.
-  2. Pass `LogitsProcessor` dynamically into autoregressive generation loops.
-  3. Air-gapped execution with zero network socket allocation in local modes.
+  2. Air-gapped execution with zero network socket allocation in local modes.
 * **Test Scenarios:**
   * `test_mock_llm_backend`: Test prompt completion using deterministic mock backend.
   * `test_logits_processor_called_per_token`: Verify logits processor is invoked on every generated token.
@@ -415,36 +393,17 @@ docula/
 * **Reference Spec:** [`11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)
 * **Single Responsibility:** Chunk 10–100+ page document sets while preserving table grid structures, and compute dense vector embeddings using `candle-core`.
 * **Design Pattern:** **Chunker Strategy Pattern**.
-* **Structures:**
-  ```rust
-  pub struct SpatialChunker;
-  pub struct RagChunk { pub page_idx: usize, pub content: String, pub bbox: BoundingBox }
-  ```
 * **Acceptance Criteria:**
   1. Preserves table cells without splitting table rows across arbitrary token boundaries.
   2. Pure-Rust embedding generation (`bge-small` / `all-MiniLM`) using `candle`.
-* **Test Scenarios:**
-  * `test_chunk_preserves_table_grid`: Verify multi-column table stays in a single chunk.
-  * `test_embedding_dimension`: Assert generated vector matches expected dimension (e.g. 384-d).
 
 #### Ticket DOC-502: Dual-Stage Exemplar Retrieval Engine (`docula-exemplar`)
 * **Reference Spec:** [`12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)
 * **Single Responsibility:** Implement Stage 1 fast geometric fingerprint matching (<1ms) and Stage 2 HNSW vector fallback for few-shot prompt injection.
 * **Design Pattern:** **Dual-Stage Hierarchical Cache Pattern**.
-* **Structures:**
-  ```rust
-  pub struct ExemplarRetriever;
-  impl ExemplarRetriever {
-      pub fn retrieve_exemplars(&self, layout: &SpatialLayoutMap, top_k: usize) -> Vec<ExemplarPair>;
-  }
-  ```
 * **Acceptance Criteria:**
   1. Stage 1 computes 64-bit spatial layout fingerprint and executes Hamming distance match ($< 500\,\mu\text{s}$).
   2. Stage 2 executes HNSW cosine similarity search when Stage 1 does not hit.
-  3. Dynamic prompt builder caps injected exemplars to 1–2 examples to prevent prompt bloat.
-* **Test Scenarios:**
-  * `test_stage1_fingerprint_exact_match`: Match identical layout within $< 100\,\mu\text{s}$.
-  * `test_stage2_hnsw_fallback`: Query altered layout; verify fallback retrieves nearest semantic exemplar.
 
 ---
 
@@ -454,102 +413,96 @@ docula/
 * **Reference Spec:** [`13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)
 * **Single Responsibility:** Intercept extractions failing confidence thresholds or domain validation, and flag for review.
 * **Design Pattern:** **Gatekeeper / Interceptor Pattern**.
-* **Structures:**
-  ```rust
-  pub struct TriageGate {
-      min_confidence: f32,
-  }
-  impl TriageGate {
-      pub fn evaluate(&self, confidence: f32, validation_res: &Result<(), ValidationError>) -> TriageDecision;
-  }
-  ```
 * **Acceptance Criteria:**
   1. Token confidence $< \text{threshold}$ triggers triage.
-  2. `InvorcValidate` failures route to human review queue.
-* **Test Scenarios:**
-  * `test_triage_low_confidence`: Confidence 0.75 triggers `TriageDecision::ReviewRequired`.
-  * `test_triage_validation_fail`: Failed arithmetic triggers `TriageDecision::ReviewRequired`.
+  2. `DocuValidate` failures route to human review queue.
 
 #### Ticket DOC-602: Immutable `CorrectionTriad` Capture & Tiered Storage Engine (`docula-hitl`)
 * **Reference Spec:** [`13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)
 * **Single Responsibility:** Record immutable review triads in cold archive and enforce promotion thresholds before updating curated few-shot pool.
 * **Design Pattern:** **Event Sourcing / Immutable Triad Pattern**.
-* **Structures:**
-  ```rust
-  pub struct CorrectionTriad {
-      pub triad_id: Uuid,
-      pub timestamp: DateTime<Utc>,
-      pub source_sha256: String,
-      pub spatial_ocr_text: String,
-      pub erroneous_json: Value,
-      pub ground_truth_json: Value,
-      pub rfc6902_diff: Value,
-  }
-  ```
 * **Acceptance Criteria:**
   1. Captures immutable `CorrectionTriad` with SHA-256 integrity hash.
   2. Stores records in cold archive (`/data/corrections/`) as append-only JSONL.
-  3. Requires recurrence threshold ($N \ge 3$) before promoting to curated pool (`/data/examples/`).
-* **Test Scenarios:**
-  * `test_triad_immutability_checksum`: Verify SHA-256 matches input artifact.
-  * `test_promotion_policy_enforcement`: Attempt promotion with $N=1$; assert promotion rejected.
 
 ---
 
-### Milestone 7: Developer Surface, Self-Repair & CLI (`docula`, `docula-cli`)
+### Milestone 7: Advanced Vision: Optical Codes & Visual Region Cropping (`docula-vision-codes`, `docula-preprocess`)
 
-#### Ticket DOC-701: High-Level `DoculaPipeline` Facade & Self-Repair Loop (`docula`)
-* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md)
-* **Single Responsibility:** Provide `DoculaPipeline` and `extract_structure::<T>()` coordinating ingestion, OCR, LLM, validation, and self-repair.
-* **Design Pattern:** **Facade Pattern**, **Typestate Pattern**, and **Template Method (Self-Repair)**.
+#### Ticket DOC-701: Pure-Rust Optical Code Spatial Detector (`docula-vision-codes`)
+* **Reference Spec:** [`17_OPTICAL_CODE_EXTRACTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/17_OPTICAL_CODE_EXTRACTION.md)
+* **Single Responsibility:** Detect and decode QR codes, 1D barcodes, and financial optical symbols on rendered images using `rxing` and extract bounding boxes and payloads.
+* **Design Pattern:** **Strategy Pattern** & **Adapter Pattern** (adapting `rxing` results to `docula-core` geometry).
 * **Structures:**
   ```rust
-  pub struct DoculaPipeline {
-      config: DoculaConfig,
-      backend: Arc<dyn LlmBackend>,
-      ocr: Arc<dyn OcrEngine>,
+  pub struct OpticalCodeResult {
+      pub format: BarcodeFormat,
+      pub payload: String,
+      pub bbox: BoundingBox,
+      pub raw_points: Vec<Point>,
   }
-  impl DoculaPipeline {
-      pub fn builder() -> DoculaPipelineBuilder;
-      pub async fn extract<T: DeserializeOwned + JsonSchema>(&self, source: &DocumentSource) -> Result<T, DoculaError>;
+  pub struct OpticalCodeDetector;
+  ```
+* **Acceptance Criteria:**
+  1. Detects QR, Aztec, PDF417, Data Matrix, and Code 128 barcodes without external C FFI.
+  2. Maps corner points to normalized $[0.0, 1.0]$ bounding boxes matching page coordinates.
+  3. Binds decoded payloads directly into `/// @decode` struct fields.
+* **Test Scenarios:**
+  * `test_detect_qr_code`: Pass image with QR code containing `"https://example.com"`; assert payload and bbox.
+  * `test_detect_sepa_epc_qr`: Decode SEPA EPC QR code and verify IBAN.
+  * `test_detect_no_barcode`: Pass plain text image; assert empty result vector without error.
+
+#### Ticket DOC-702: Document Screenshot & Visual Region Cropping Engine (`docula-preprocess`)
+* **Reference Spec:** [`18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)
+* **Single Responsibility:** Implement full-page raster screenshot captures and sub-image ROI cropping (`ImageCrop`) implementing the `RegionCropper` trait.
+* **Design Pattern:** **Strategy Pattern** & **Sub-Image Memory Slicing**.
+* **Structures:**
+  ```rust
+  pub struct DocumentVisualExtractor;
+  impl RegionCropper for DocumentVisualExtractor {
+      fn capture_page(&self, page_index: usize, dpi: u32, format: CropFormat) -> Result<ImageCrop, DoculaError>;
+      fn crop_region(&self, page_index: usize, bbox: &BoundingBox, padding: f32, format: CropFormat) -> Result<ImageCrop, DoculaError>;
   }
   ```
 * **Acceptance Criteria:**
-  1. Accepts `DoculaConfig` programmatically via builder.
-  2. Orchestrates end-to-end two-step pipeline.
-  3. If `T` implements `InvorcValidate`, executes validation and triggers path-targeted repair prompt on failure up to $N$ retries.
-  4. If `T` does not implement `InvorcValidate`, returns raw output with zero validation overhead.
+  1. Full-page capture generates lossless PNG, WebP, or JPEG byte buffers at user-defined DPI (72, 150, 300).
+  2. Sub-image cropping extracts precise pixel bounding boxes with configurable fractional padding (e.g. 5% margin for signatures).
+  3. Binds visual crops directly to fields marked with `/// @crop` or `/// @screenshot`.
+  4. Redaction precedence: any region marked `/// @censor` returns a pure black pixel buffer, guaranteeing zero PII leakage.
 * **Test Scenarios:**
-  * `test_end_to_end_invoice_extraction`: Extract strongly typed `InvoiceData` from sample document.
-  * `test_self_repair_loop_arithmetic_mismatch`: Intentionally cause line items sum $\ne$ total; verify repair prompt triggers and repairs value.
-  * `test_pipeline_with_custom_in_memory_config`: Instantiate pipeline with non-default config; assert custom thresholds are respected.
-
-#### Ticket DOC-702: Autonomous Terminal CLI Utility (`docula-cli`)
-* **Reference Spec:** [`01_DEVELOPMENT_PLAN.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/01_DEVELOPMENT_PLAN.md)
-* **Single Responsibility:** Implement command-line tool for CLI document extraction, batch processing, and triage queue inspection.
-* **Design Pattern:** **Command Pattern**.
-* **Acceptance Criteria:**
-  1. Supports `docula extract --input invoice.pdf --schema schema.json --output out.json`.
-  2. Supports `docula triage list` and `docula triage promote <id>`.
-  3. Returns standard exit codes and formats errors via `tracing-subscriber`.
-* **Test Scenarios:**
-  * `test_cli_extract_file`: Run extraction command against test PDF fixture.
-  * `test_cli_missing_file`: Assert error code 1 when input file does not exist.
+  * `test_full_page_screenshot_png`: Render page to PNG; verify magic bytes and dimensions.
+  * `test_crop_signature_roi`: Extract signature bounding box; assert dimensions match expected pixel rectangle.
+  * `test_crop_censored_region_is_blackout`: Attempt crop overlapping `@censor` box; assert all pixels are `[0, 0, 0, 255]`.
 
 ---
 
-### Milestone 8: Performance Optimization, FFI Elimination Audit & Benchmarks
+### Milestone 8: Developer Surface, Autonomous CLI & Benchmarks (`docula`, `docula-cli`)
 
-#### Ticket DOC-801: `cargo-geiger` Zero-FFI Safety Audit
-* **Reference Spec:** [`09_BENCHMARK_AND_COMPARISON.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/09_BENCHMARK_AND_COMPARISON.md)
-* **Single Responsibility:** Audit all crates in the workspace to guarantee 0 foreign C libraries linked dynamically.
+#### Ticket DOC-801: High-Level `DoculaPipeline` Facade & Self-Repair Loop (`docula`)
+* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md)
+* **Single Responsibility:** Provide `DoculaPipeline` and `extract_structure::<T>()` coordinating ingestion, OCR, LLM, optical codes, visual crops, validation, and self-repair.
+* **Design Pattern:** **Facade Pattern**, **Typestate Pattern**, and **Template Method (Self-Repair)**.
 * **Acceptance Criteria:**
-  1. `cargo-geiger` verifies 0 non-Rust dynamic links.
-  2. All unsafe blocks in pure-Rust image intrinsics are documented with safety comments.
+  1. Orchestrates end-to-end two-step pipeline.
+  2. Executes validation loop and triggers repair prompts on domain validation failure.
+  3. Supports visual crop extraction seamlessly when target struct contains `ImageCrop` fields.
+* **Test Scenarios:**
+  * `test_end_to_end_invoice_extraction`: Extract strongly typed `InvoiceData` from sample document.
+  * `test_end_to_end_contract_with_signature_crop`: Extract metadata and signature `ImageCrop`.
 
-#### Ticket DOC-802: Criterion End-to-End Latency & Throughput Benchmark Suite
-* **Reference Spec:** [`09_BENCHMARK_AND_COMPARISON.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/09_BENCHMARK_AND_COMPARISON.md)
-* **Single Responsibility:** Profile end-to-end latency across single invoices, multi-page bills, and multi-image batches.
+#### Ticket DOC-802: Autonomous Terminal CLI Utility (`docula-cli`)
+* **Reference Spec:** [`01_DEVELOPMENT_PLAN.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/01_DEVELOPMENT_PLAN.md)
+* **Single Responsibility:** Implement command-line tool for CLI document extraction, page screenshot generation, and triage queue inspection.
+* **Design Pattern:** **Command Pattern**.
 * **Acceptance Criteria:**
-  1. Single-page born-digital PDF completes in $< 15\,\text{ms}$.
-  2. Scanned receipt OCR + 1-bit LLM completes in $< 1.2\,\text{s}$ on standard CPU.
+  1. Supports `docula extract --input invoice.pdf --schema schema.json --output out.json`.
+  2. Supports `docula screenshot --input contract.pdf --page 0 --dpi 300 --output page0.png`.
+  3. Supports `docula crop --input contract.pdf --page 0 --bbox 0.1,0.7,0.4,0.9 --output sig.png`.
+
+#### Ticket DOC-803: `cargo-geiger` Zero-FFI Safety Audit & Criterion Benchmarks
+* **Reference Spec:** [`09_BENCHMARK_AND_COMPARISON.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/09_BENCHMARK_AND_COMPARISON.md)
+* **Single Responsibility:** Audit all crates in the workspace to guarantee 0 foreign C libraries linked dynamically and benchmark throughput.
+* **Acceptance Criteria:**
+  1. `cargo-geiger` verifies 0 non-Rust dynamic links across all 13 crates.
+  2. Single-page born-digital PDF completes in $< 15\,\text{ms}$.
+  3. Scanned receipt OCR + 1-bit LLM completes in $< 1.2\,\text{s}$ on standard CPU.

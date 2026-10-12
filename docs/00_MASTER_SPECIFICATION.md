@@ -1,71 +1,56 @@
-# Master Specification: Sovereign Rust Document Intelligence Engine (`invorc`)
+# Master Technical Specification: `docula`
 
-## 1. Executive Summary
+## 1. Executive Summary & Core Philosophy
 
-```mermaid
+`docula` is an industrial-grade, sovereign, pure-Rust multi-modal document intelligence engine. It transforms heterogeneous raw documents (scanned bills, born-digital PDFs, camera photos of multi-page invoices, utility statements) into strongly typed, validated domain models (such as `InvoiceData`) with **zero foreign C/C++ dynamic linkage (Zero-FFI)** and local-first execution.
 
-```
+### Fundamental System Architecture: The Two-Step Paradigm
 
-`invorc` is a sovereign, pure-Rust document intelligence engine designed to extract typed, structured data from heterogeneous documents—such as invoices, receipts, and bank statements—supplied as single PDFs, multi-page PDFs, individual images, or sets of images.
-
-The architecture is founded on zero-FFI, pure-Rust principles, eliminating external C/C++ dependencies (like Tesseract, Poppler, OpenCV, PyTorch, or llama.cpp) and heavy runtime microservice overhead.
+Rather than forcing an end-to-end deep learning or multi-modal Vision-Language Model (VLM) to perform OCR, spatial reasoning, tabular layout understanding, and structured extraction simultaneously—which suffers from high latency, massive hallucination rates, and extreme compute overhead—`docula` enforces a **strict, decoupled two-step architecture**:
 
 ```mermaid
 flowchart TD
-    subgraph Inputs["Document Inputs & Target Schema"]
-        InputDoc["Input: PDF / Image / Multi-Image"]
-        TargetSchema["Target Rust Struct with `#[derive(JsonSchema, Deserialize)]`"]
+    subgraph Step1["Step 1: Ingestion, Preprocessing & Spatial Layout Reconstruction"]
+        InputDoc["Raw Document (PDF / Image / Image Batch)"]
+        Ingest["Ingestion & Routing (lopdf / pdf_oxide)"]
+        Preprocess["Pure-Rust Preprocessing (tiny-skia / imageproc)"]
+        OCR["PP-OCRv6 DBNet & CRNN (rusto-rs / ocrs)"]
+        Codes["Pure-Rust Optical Code Extraction: QR & 1D Barcodes (rxing)"]
+        SpatialAgg["Spatial Layout Map & Reading-Order Aggregator"]
+        Crops["Document Screenshots & Region Cropping Engine"]
+        
+        InputDoc --> Ingest
+        Ingest -->|Born-Digital PDF| SpatialAgg
+        Ingest -->|Scanned / Image| Preprocess --> OCR --> SpatialAgg
+        Preprocess --> Codes --> SpatialAgg
+        Preprocess --> Crops
     end
 
-    subgraph Step1["Step 1: Content Reading & Spatial Extraction"]
-        Ingest["01. Ingestion & Routing (pdf_oxide / lopdf)"]
-        NativeText{"Digital Text Layer Available?"}
-        SpatialExt["Direct Spatial Text Extraction (pdf_oxide)"]
-        Raster["02. Pure-Rust Rasterization: tiny-skia (pdf_oxide [rendering])"]
-        Preprocess["Image Preprocessing: Deskew, Binarize, Resample (imageproc, oximedia)"]
-        OCR["03. Multi-Lingual OCR: DBNet + CRNN (rusto-rs / PP-OCRv6)"]
-        LayoutMap["Spatial Layout Text & Coordinate Serialization"]
+    subgraph Step2["Step 2: Schema-Driven Structured Extraction & Constrained Decoding"]
+        TargetSchema["Target Rust Type #[derive(JsonSchema, Deserialize)]"]
+        SchemaCompiler["JSON Schema to DFA Compiler (typedlm / schemars)"]
+        LogitsMask["Autoregressive Logits Masking Processor"]
+        LocalLLM["Local / Sovereign LLM Backend (oxibonsai / candle / tract)"]
+        Deser["Serde Deserialization into Strong Rust Type"]
+        SelfRepair["Self-Repair Feedback Loop (DocuValidate Trait)"]
+        
+        SpatialAgg --> LocalLLM
+        TargetSchema --> SchemaCompiler --> LogitsMask --> LocalLLM
+        LocalLLM --> Deser --> SelfRepair
     end
 
-    subgraph Step2["Step 2: Structured Data Extraction"]
-        SchemaGen["05. Compile-Time JSON Schema Generation (schemars)"]
-        LLMDispatch["04. LLM Backend (Feature-Configurable, Local-First: oxibonsai / candle / tract)"]
-        Constrained["Constrained Decoding / DFA Logits Masking (typedlm / candle)"]
-        Deserializer["Serde Deserialization -> Target Rust Struct"]
-        Validator["Validation & Feedback Repair Loop"]
-    end
-
-    InputDoc --> Ingest
-    Ingest --> NativeText
-    NativeText -- Yes --> SpatialExt
-    NativeText -- No --> Raster
-    Raster --> Preprocess --> OCR --> LayoutMap
-    SpatialExt --> LayoutMap
-
-    TargetSchema --> SchemaGen
-    LayoutMap --> LLMDispatch
-    SchemaGen --> Constrained
-    LLMDispatch --> Constrained
-    Constrained --> Deserializer
-    Deserializer --> CheckValidate{"Implements InvorcValidate?"}
-    CheckValidate -- Yes --> Validator["Execute InvorcValidate & Feedback Repair"]
-    CheckValidate -- No --> OutputStruct["Raw Typed Output (Zero Validation Overhead)"]
-    Validator --> OutputStruct
+    Crops --> Out["Extracted Struct + Visual Crop Artifacts (Signatures, Stamps)"]
+    SelfRepair --> Out
 ```
 
----
-
-## 2. Core Operational Paradigm: The Two-Step Pipeline
-
-The engine operates on a clean two-step paradigm:
-
-1. **Step 1: Content Reading and Spatial Layout Extraction**
-   - Ingests single/multi-page PDFs or image arrays.
-   - Evaluates whether pages are born-digital text or scanned rasters.
-   - Rasterizes non-text PDF pages into memory buffers without C++ bindings.
-   - Preprocesses images (Hough-transform deskewing, binarization, SIMD scaling).
-   - Runs neural multi-lingual OCR (covering 50+ languages simultaneously).
-   - Generates a spatial, layout-preserving representation of the text.
+1. **Step 1: Deterministic Spatial Reconstruction & Visual Extraction**
+   - Ingests raw multi-modal inputs without external C/C++ libraries.
+   - Deconstructs born-digital PDFs or rasterizes scanned documents via pure-Rust engines (`pdf_oxide`, `tiny-skia`).
+   - Normalizes images (deskewing, adaptive binarization, SIMD resizing).
+   - Detects and recognizes text tokens across 50+ languages using PP-OCRv6 neural architectures (`rusto-rs`).
+   - Slices full-page screenshots and spatial region-of-interest (ROI) image crops (`ImageCrop` for signatures, seals, logos, stamps).
+   - Scans 1D and 2D optical barcodes/QR codes (`rxing`).
+   - Synthesizes all recognized tokens, visual crops, and bounding boxes into a unified 2D-aligned `SpatialLayoutMap`.
 
 2. **Step 2: Schema-Driven Structured Extraction**
    - Ingests the spatial layout representation and the user-specified Rust struct.
@@ -78,7 +63,7 @@ The engine operates on a clean two-step paradigm:
 
 ## 3. Specification Index
 
-The technical specification is organized into the following modular documents:
+The technical specification is organized into the following single-responsibility documents:
 
 | Document | Focus & Component | Primary Crates & Technologies |
 |:---|:---|:---|
@@ -95,9 +80,11 @@ The technical specification is organized into the following modular documents:
 | **[11. RAG & Large Document Retrieval](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)** | Optional in-memory layout-aware vector retrieval for massive (10–100+ page) document bundles | candle-core, hnsw_rs, tantivy, strsim |
 | **[12. Few-Shot & Exemplar Management](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)** | Dual-stage exemplar retrieval (fast layout fingerprint + HNSW fallback) and dynamic prompt injection | docula-exemplar, hnsw_rs, strsim, serde_json |
 | **[13. Human-in-the-Loop & Active Learning](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)** | Triage gates, immutable correction triad capture, two-tier storage (/data/corrections/ vs /data/examples/) | docula-hitl, uuid, chrono, sha2 |
-| **[14. Edge Compliance & Optical Codes](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_NON_STORING_AND_OPTICAL_CODES.md)** | Struct-level doc annotations (/// @censor, @decode, @mask), non-storing fields, pure-Rust QR/barcode | rxing, image, schemars, regex |
+| **[14. Edge Compliance & Non-Storing Directives](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_AND_NON_STORING.md)** | Struct-level doc annotations (/// @censor, @ignore, @non-storing), PII regex redaction, zero-storage NonStored smart pointer | image, schemars, regex, zeroize |
 | **[15. Consumer Configuration & TOML Strategy](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/15_CONSUMER_CONFIGURATION_AND_TOML.md)** | In-memory safe defaults, DoculaConfig builder, custom TOML paths, embedded app configuration | docula-core, toml, serde |
 | **[16. Multi-Lingual OCR & Language Asset Management](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md)** | 50+ script handling, ocr-latin vs ocr-multilingual feature gating, mmap2 zero-copy memory mapping | docula-ocr, rusto-rs, ocrs, memmap2 |
+| **[17. Pure-Rust Optical Code Extraction](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/17_OPTICAL_CODE_EXTRACTION.md)** | Zero-FFI QR & 1D barcode detection (rxing), financial QR standards (EPC, Swiss QR), /// @decode directive | docula-vision-codes, rxing, image |
+| **[18. Document Screenshots & Region Cropping](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)** | Full-page raster captures, BoundingBox ROI cropping (ImageCrop), sub-image slicing, /// @crop directive | docula-core, docula-preprocess, image, base64 |
 
 ---
 
@@ -107,18 +94,21 @@ The crate architecture is fully configurable via Cargo feature flags. Embedded a
 
 ```toml
 [features]
-default = ["local-embedded", "ocr-multilingual", "optical-codes"]
+default = ["local-embedded", "ocr-multilingual"]
 
 # Core Execution Engines
 local-embedded   = ["oxibonsai", "candle-core"] # Pure-Rust local inference
 local-onnx       = ["tract-core", "tract-onnx"] # Pure-Rust ONNX execution
 local-vlm        = ["candle-transformers"]      # Vision-Language Models (Qwen2.5-VL / Florence-2)
 
+# Optional Advanced Vision (Milestone 7)
+vision-codes     = ["dep:docula-vision-codes"]  # Pure-Rust QR and 1D barcode scanning (rxing)
+vision-crops     = ["image/png", "image/jpeg"]  # Full-page screenshots & sub-image ROI cropping
+
 # Optional Retrieval & Active Learning
 rag              = ["dep:docula-rag"]
 exemplars        = ["dep:docula-exemplar"]      # Dual-stage few-shot exemplar injection
 hitl             = ["dep:docula-hitl"]          # Active learning triage & correction triads
-optical-codes    = ["dep:rxing"]                # Pure-Rust QR and 1D barcode scanning
 
 # Cloud & Gateway Fallbacks (Optional)
 remote-openai    = ["rig-core/openai"]
@@ -136,3 +126,4 @@ ocr-latin-fast   = ["ocrs"]                     # Pure-Rust Latin OCR via RTen
 1. **Pure Rust Sovereignty (Zero-FFI):** No C/C++ compilation steps, no `libtesseract`, `libleptonica`, `libpoppler`, `libzbar`, or `libvips` dynamic linking.
 2. **Memory Safety & Parallelism:** Concurrency via `rayon` and `tokio`, avoiding unsafe foreign pointer manipulations.
 3. **Deterministic Type Safety & Compliance:** Output is mathematically guaranteed to deserialize into the target Rust structure with deterministic PII sanitization.
+4. **Visual & Region Extraction Fidelity:** Native zero-copy sub-image views and full-page raster snapshots with strict compliance precedence over censored pixels.

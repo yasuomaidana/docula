@@ -1,4 +1,4 @@
-# Benchmark & Architectural Comparison: `invorc`
+# Benchmark & Architectural Comparison: `Docula`
 
 ## 1. Architectural Second-Pass: In-Depth Crate Selection Review
 
@@ -19,9 +19,9 @@ To guarantee zero-FFI sovereignty, high throughput, and strict memory safety, ea
 
 ## 2. Comprehensive Architectural Comparison
 
-The table below contrasts `invorc` against traditional and contemporary document extraction pipelines:
+The table below contrasts `Docula` against traditional and contemporary document extraction pipelines:
 
-| Feature / Metric                  | `invorc` (Sovereign Rust)                                      | C++ / C-FFI Stacks (Poppler + Tesseract + llama.cpp)            | Python Stacks (Docling / Unstructured / LangChain)  | Cloud APIs (AWS Textract / Google Document AI)       |
+| Feature / Metric                  | `Docula` (Sovereign Rust)                                      | C++ / C-FFI Stacks (Poppler + Tesseract + llama.cpp)            | Python Stacks (Docling / Unstructured / LangChain)  | Cloud APIs (AWS Textract / Google Document AI)       |
 |:----------------------------------|:---------------------------------------------------------------|:----------------------------------------------------------------|:----------------------------------------------------|:-----------------------------------------------------|
 | **C/C++ Build Dependencies**      | **None (Zero FFI)**                                            | High (Requires Clang, CMake, Bindgen, dynamic libs)             | High (PyTorch C++, OpenCV C++, Poppler C++)         | N/A (Cloud hosted)                                   |
 | **Deployment Model**              | **Single standalone static binary**                            | Dynamic shared libraries + model files                          | Multi-GB Docker container (Python + PyTorch + CUDA) | SaaS API (Requires internet & cloud IAM credentials) |
@@ -43,7 +43,7 @@ The table below contrasts `invorc` against traditional and contemporary document
 
 ```mermaid
 gantt
-    title invorc Granular Execution Latency Breakdown (Scanned 300-DPI Page ~315ms Total on Modern CPU)
+    title Docula Granular Execution Latency Breakdown (Scanned 300-DPI Page ~315ms Total on Modern CPU)
     dateFormat  X
     axisFormat %s ms
 
@@ -70,7 +70,7 @@ gantt
 
 ### 3.2 Throughput Comparison (100-Page Document Ingestion)
 
-| Processing Mode | `invorc` (8 Cores, Rayon) | Python Unstructured (Multiprocessing) | C++ Tesseract Pipeline |
+| Processing Mode | `Docula` (8 Cores, Rayon) | Python Unstructured (Multiprocessing) | C++ Tesseract Pipeline |
 | :--- | :--- | :--- | :--- |
 | **Born-Digital PDF** | **0.42 seconds** (238 pages/sec) | 8.9 seconds (11 pages/sec) | 3.6 seconds (27 pages/sec) |
 | **Scanned PDF (OCR)** | **14.2 seconds** (7.0 pages/sec) | 68.5 seconds (1.4 pages/sec) | 48.1 seconds (2.0 pages/sec) |

@@ -90,7 +90,7 @@ If Stage 1 does not yield an exact match:
 ```rust
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
-use docula_core::{BoundingBox, InvorcError, SpatialLayoutMap};
+use docula_core::{BoundingBox, DoculaError, SpatialLayoutMap};
 
 /// Metadata identifying a curated document exemplar.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

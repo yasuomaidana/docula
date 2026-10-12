@@ -11,11 +11,11 @@ To guarantee zero circular dependencies, high maintainability, fast incremental 
 ```mermaid
 flowchart TD
     subgraph Layer0["Layer 0: Core Foundation"]
-        CORE["docula-core<br/>(Primitives, Geometry, NonStored&lt;T&gt;, Base Traits, Core Config)"]
+        CORE["docula-core<br/>(Primitives, Geometry, ImageCrop, NonStored&lt;T&gt;, Base Traits, Core Config)"]
     end
 
     subgraph Layer1["Layer 1: Low-Level Processing & Schema"]
-        PRE["docula-preprocess<br/>(tiny-skia, Deskew, Binarize, Stitching)"]
+        PRE["docula-preprocess<br/>(tiny-skia, Deskew, Binarize, Stitching, Region Crops)"]
         CODES["docula-vision-codes<br/>(rxing Barcode/QR Spatial Mapper)"]
         SCHEMA["docula-schema<br/>(schemars AST, typedlm DFA Masking)"]
     end
@@ -82,13 +82,13 @@ flowchart TD
 
 The crates must be created in strict topological order to guarantee zero circular dependencies:
 
-1. **`docula-core`**: Core primitives, `BoundingBox`, `DocumentSource`, `NonStored<T>`, `DoculaConfig`, and foundational traits (`LlmBackend`, `OcrEngine`, `InvorcValidate`).
-2. **`docula-preprocess`**: Tiny-skia rasterization bridge, Hough deskew, adaptive binarization, SIMD scaling, keypoint stitching & text deduplication.
-3. **`docula-vision-codes`**: Pure-Rust QR and 1D barcode detection via `rxing` and spatial coordinate mapping.
+1. **`docula-core`**: Core primitives, `BoundingBox`, `Point`, `ImageCrop`, `RegionCropper`, `DocumentSource`, `NonStored<T>`, `DoculaConfig`, and foundational traits (`LlmBackend`, `OcrEngine`, `DocuValidate`).
+2. **`docula-preprocess`**: Tiny-skia rasterization bridge, Hough deskew, adaptive binarization, SIMD scaling, keypoint stitching, sub-image region slicing and page screenshot extraction.
+3. **`docula-vision-codes`**: Pure-Rust QR and 1D barcode detection via `rxing` and spatial coordinate mapping (scheduled for Milestone 7).
 4. **`docula-schema`**: `schemars` JSON Schema AST reflection, `typedlm` DFA state machine compiler, and logits masking.
 5. **`docula-ingest`**: PDF object inspection via `lopdf`, digital vs. raster routing heuristics, born-digital extraction.
 6. **`docula-ocr`**: PP-OCRv6 neural text detection (DBNet) and 50-language character recognition (CRNN), reading-order line clustering.
-7. **`docula-compliance`**: Spatial pixel blackout, PII sanitization regex, `@censor`/`@mask`/`@decode` schema directives.
+7. **`docula-compliance`**: Spatial pixel blackout, PII sanitization regex, `@censor`/`@ignore`/`@non-storing` schema directives.
 8. **`docula-llm`**: Local 1-bit `oxibonsai`, `candle` GGUF/VLM, `tract` ONNX, and remote adapters.
 9. **`docula-rag`** *(optional)*: In-memory table-aware chunking and hybrid BM25/vector search for 10–100+ page document packets.
 10. **`docula-exemplar`** *(optional)*: Dual-stage few-shot exemplar retrieval (Stage 1 geometric fingerprint, Stage 2 HNSW fallback).
@@ -109,12 +109,13 @@ Applying the right design patterns in Rust requires leveraging Rust's unique str
 | **Pipeline Configuration** | **Builder Pattern** | Prevents parameter explosion and allows fluent, validated pipeline setup with sensible defaults (DPI, thresholds, feature toggles). | `DoculaPipelineBuilder::new().with_dpi(300).with_deskew(true).build()?` with terminal validation. |
 | **Developer API Surface** | **Facade Pattern** | Hides the complexity of 11 underlying sub-crates behind a single ergonomic one-liner (`docula::extract_structure::<T>()`). | `docula::extract_structure::<T>(&source, &backend)` coordinating ingestion, OCR, schema, and LLM steps. |
 | **Image Preprocessing Filters** | **Chain of Responsibility / Pipeline Pattern** | Decouples distinct image transformations (deskew, binarization, SIMD resize, pixel blackout) into modular, independently testable filters that process pixels sequentially. | `pub trait ImageFilter { fn apply(&self, img: &mut RgbaImage) -> Result<()>; }`, `FilterChain`. |
+| **Visual Region Cropping & Screenshots** | **Flyweight / Sub-Image Memory View Pattern** | Allows taking full-page screenshots and cropping arbitrary spatial ROIs (signatures, seals, logos) without cloning entire page pixmaps in memory until export. | `image::GenericImageView::view`, `PageRasterBuffer::crop_region`, `pub struct ImageCrop`. |
 | **JSON Schema to DFA Logits Masking** | **Visitor & Interpreter Pattern** | Traverses complex recursive JSON Schema ASTs (`schemars::schema_for!`) to construct a deterministic finite automaton state machine that interprets schema rules into logits masks during token sampling. | `SchemaVisitor` traversing JSON schema nodes to generate `DfaStateMachine` transitions. |
-| **Domain Validation & Self-Repair** | **Template Method / Active Repair Loop Pattern** | The framework defines the fixed algorithmic skeleton (Deserialize -> Check Invariants -> If Err, build targeted repair prompt -> Re-infer -> Validate up to $N$ retries), while the user struct supplies the hook. | `pub trait InvorcValidate { fn validate(&self) -> Result<(), ValidationError>; }`, repair loop runner. |
+| **Domain Validation & Self-Repair** | **Template Method / Active Repair Loop Pattern** | The framework defines the fixed algorithmic skeleton (Deserialize -> Check Invariants -> If Err, build targeted repair prompt -> Re-infer -> Validate up to $N$ retries), while the user struct supplies the hook. | `pub trait DocuValidate { fn validate(&self) -> Result<(), ValidationError>; }`, repair loop runner. |
 | **Exemplar Retrieval Hierarchy** | **Dual-Stage Hierarchical Cache Pattern** | Guarantees sub-millisecond latency on CPU for repetitive document layouts. Stage 1 executes exact Vendor ID and 64-bit layout geometric fingerprint matching (<1ms); Stage 2 falls back to HNSW vector search only on miss. | `Stage1Matcher` (Hamming distance on spatial bitsets) + `Stage2Matcher` (HNSW cosine similarity). |
 | **Correction Triad Archival** | **Append-Only Event Sourcing / Immutable Triad Pattern** | Forensic immutability for active learning. Guarantees raw data lineage (Source SHA-256, OCR text, bad output, corrected ground truth, RFC 6902 diff) without risking prompt poisoning in the active pool. | `CorrectionTriad` struct with cryptographic checksum, append-only JSONL storage. |
 | **In-Memory Sensitive Fields** | **RAII Smart Pointer / Zero-Copy Wrapper (`NonStored<T>`)** | Enables in-memory parsing and arithmetic validation for sensitive data (CVVs, temporary tokens) while strictly forbidding them from disk serialization or persistent storage. | `pub struct NonStored<T>(T);` with `Deref`, `ZeroizeOnDrop`, and `Serialize` implemented as a no-op / skip. |
-| **Optical Codes & Action Tags** | **Registry / Action Strategy Pattern** | Decouples spatial detection of barcodes and QR codes from business schema directives (`@decode`, `@mask`, `@censor`, `@ignore`). | `ActionTagRegistry` dispatching bounding box transformations based on struct doc comments. |
+| **Optical Codes & Action Tags** | **Registry / Action Strategy Pattern** | Decouples spatial detection of barcodes and QR codes from business schema directives (`@decode`, `@censor`, `@ignore`). | `ActionTagRegistry` dispatching bounding box transformations based on struct doc comments. |
 | **Multi-Lingual Asset Management** | **Flyweight / Memory-Mapped Asset Manager Pattern** | Allows sharing massive multi-script neural weights across threads via `memmap2` without duplicating memory in RAM. | `LanguageAssetManager` caching read-only `Arc<Mmap>` slices across workers. |
 
 ---
@@ -139,10 +140,4 @@ Relying on a static `./Docula.toml` file in the working directory breaks when `d
        .with_triage_confidence(0.90)
        .with_compliance_ttl(3600)
        .build();
-   
-   let docula = DoculaPipeline::builder()
-       .with_config(config)
-       .with_backend(backend)
-       .build()?;
    ```
-

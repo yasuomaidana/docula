@@ -2,7 +2,7 @@
 
 ## 1. Overview & Purpose
 
-This document provides complete, practical code walkthroughs showing how to use `invorc` to extract structured data into user-defined Rust types.
+This document provides complete, practical code walkthroughs showing how to use `Docula` to extract structured data into user-defined Rust types.
 
 We demonstrate:
 1. Extracting the **Invoice Data Structure** from `starting_point.md`.
@@ -52,12 +52,12 @@ pub struct LineItem {
 }
 
 // =========================================================================
-// OPTIONAL: Implement InvorcValidate if you want internal integrity checks
-// If omitted, invorc will simply return the raw output directly from Step 2.
+// OPTIONAL: Implement DocuValidate if you want internal integrity checks
+// If omitted, Docula will simply return the raw output directly from Step 2.
 // =========================================================================
-use invorc::{InvorcValidate, ValidationError};
+use Docula::{DocuValidate, ValidationError};
 
-impl InvorcValidate for InvoiceData {
+impl DocuValidate for InvoiceData {
     fn validate_integrity(&self) -> Result<(), Vec<ValidationError>> {
         let mut errors = Vec::new();
 
@@ -99,7 +99,7 @@ impl InvorcValidate for InvoiceData {
 ### Example A: Extracting from a PDF File (With Optional Validation)
 
 ```rust
-use invorc::{extract_structure, DocumentSource, OxiBonsaiBackend};
+use Docula::{extract_structure, DocumentSource, OxiBonsaiBackend};
 use std::path::PathBuf;
 
 #[tokio::main]
@@ -132,7 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Example B: Extracting from a Single Picture / Camera Capture
 
 ```rust
-use invorc::{extract_structure, DocumentSource, OxiBonsaiBackend};
+use Docula::{extract_structure, DocumentSource, OxiBonsaiBackend};
 use std::path::PathBuf;
 
 #[tokio::main]
@@ -157,7 +157,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 In many operational scenarios, a user captures multiple consecutive photos of a long multi-page invoice or stapled document packet:
 
 ```rust
-use invorc::{extract_structure, DocumentSource, OxiBonsaiBackend};
+use Docula::{extract_structure, DocumentSource, OxiBonsaiBackend};
 use std::path::PathBuf;
 
 #[tokio::main]
@@ -235,7 +235,7 @@ pub enum TransactionType {
 
 ### Extracting Unvalidated Schemas (Raw Output)
 
-Notice that `BankStatement` does **not** implement `InvorcValidate`. In this case, `invorc` executes the 2-step extraction and returns the raw output immediately without performing any validation passes:
+Notice that `BankStatement` does **not** implement `DocuValidate`. In this case, `Docula` executes the 2-step extraction and returns the raw output immediately without performing any validation passes:
 
 ```rust
 // Simply call extract_structure; raw deserialized output is returned directly

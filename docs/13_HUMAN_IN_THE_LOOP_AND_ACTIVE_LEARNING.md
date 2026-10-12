@@ -11,7 +11,7 @@ flowchart TD
     subgraph Stage1["Stage 1: Automated Triage Gates"]
         RawLLM[LLM Output JSON] --> SerdeGate{"Serde Schema Invariants"}
         SerdeGate -->|Invalid| TriageQueue["Triage Review Queue"]
-        SerdeGate -->|Valid| MathGate{"InvorcValidate: Domain Rules (e.g. Subtotal + Tax == Total)"}
+        SerdeGate -->|Valid| MathGate{"DocuValidate: Domain Rules (e.g. Subtotal + Tax == Total)"}
         MathGate -->|Failed| TriageQueue
         MathGate -->|Valid| ConfGate{"Logits Token Confidence >= Threshold"}
         ConfGate -->|Low Confidence| TriageQueue
@@ -30,7 +30,7 @@ flowchart TD
     end
 
     subgraph Stage4["Stage 4: Curation & Exemplar Promotion"]
-        ColdArchive --> PromotionGate{"Promotion Evaluator:<br/>1. Recurrence count >= 3<br/>2. Passes Serde & InvorcValidate<br/>3. Non-conflicting layout hash"}
+        ColdArchive --> PromotionGate{"Promotion Evaluator:<br/>1. Recurrence count >= 3<br/>2. Passes Serde & DocuValidate<br/>3. Non-conflicting layout hash"}
         PromotionGate -->|Promoted| CuratedPool["Curated Few-Shot Pool (/data/examples/)"]
         CuratedPool --> DynamicRetrieval["Module 11: Dynamic Dual-Stage Retrieval"]
     end
@@ -56,7 +56,7 @@ flowchart TD
 ### 3.1 Stage 1: Automated Triage Gates
 Before presenting extracted data to downstream consumers, all outputs pass through deterministic verification:
 1. **Schema Invariant Enforcement**: Ensures types, required fields, and non-empty arrays match the Rust struct (`serde_json::from_str::<T>`).
-2. **Domain Integrity Validation (`InvorcValidate`)**: Verifies arithmetic equations (e.g. $\sum \text{line\_items} == \text{subtotal}$, $\text{subtotal} + \text{tax} == \text{total}$ within $\pm \$0.05$ rounding tolerance) and cross-field constraints.
+2. **Domain Integrity Validation (`DocuValidate`)**: Verifies arithmetic equations (e.g. $\sum \text{line\_items} == \text{subtotal}$, $\text{subtotal} + \text{tax} == \text{total}$ within $\pm \$0.05$ rounding tolerance) and cross-field constraints.
 3. **Logits Token Confidence**: If the lowest token probability or average sequence confidence drops below the threshold (default: $p < 0.85$), the document is routed to human triage.
 
 ### 3.2 Stage 2: Correction Triad Capture
@@ -71,7 +71,7 @@ When a reviewer corrects an erroneous extraction, the correction is packaged as 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use docula_core::{InvorcError, SpatialLayoutMap, ValidationError};
+use docula_core::{DoculaError, SpatialLayoutMap, ValidationError};
 
 /// RFC 6902 JSON Patch difference between bad output and corrected ground truth.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,7 +128,7 @@ Unchecked writing of corrections into the active few-shot prompt causes severe q
 ### 3.4 Stage 4: Promotion Gate & Evaluation Pipeline
 A correction triad in `/data/corrections/` is never automatically injected into prompt context. It must be promoted to `/data/examples/` by satisfying three conditions:
 1. **Recurrence Threshold**: The same vendor or layout fingerprint has triggered at least $N$ corrections (default: $N \ge 3$), proving it is a recurring pattern rather than an isolated anomaly.
-2. **Full Validation Pass**: The corrected JSON deserializes cleanly and passes all `InvorcValidate` rules with zero errors.
+2. **Full Validation Pass**: The corrected JSON deserializes cleanly and passes all `DocuValidate` rules with zero errors.
 3. **Deduplication Check**: The curated pool does not already contain an exemplar with the identical layout fingerprint.
 
 ```rust
@@ -138,13 +138,13 @@ pub trait TriadPromotionEvaluator {
         &self,
         triad: &CorrectionTriad,
         existing_pool: &[TemplatePair],
-    ) -> Result<bool, InvorcError>;
+    ) -> Result<bool, DoculaError>;
 
     /// Executes the promotion, saving the template pair to /data/examples/
     fn promote(
         &self,
         triad: &CorrectionTriad,
-    ) -> Result<TemplatePair, InvorcError>;
+    ) -> Result<TemplatePair, DoculaError>;
 }
 ```
 
@@ -160,7 +160,7 @@ curated_pool_directory = "./data/examples"
 
 [hitl.triage_gates]
 min_token_confidence = 0.85
-enforce_invorc_validate = true
+enforce_Docula_validate = true
 enforce_serde_invariants = true
 
 [hitl.promotion_policy]

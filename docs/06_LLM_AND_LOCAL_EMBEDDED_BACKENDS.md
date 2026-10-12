@@ -75,7 +75,7 @@ remote-openai  = ["dep:rig-core", "rig-core/openai"]
 
 ## 4. Trait Abstraction: `LlmBackend`
 
-To guarantee pluggability across local and remote providers, `invorc` defines a unified trait:
+To guarantee pluggability across local and remote providers, `Docula` defines a unified trait:
 
 ```rust
 use async_trait::async_trait;
