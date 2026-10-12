@@ -53,6 +53,9 @@ You are an Autonomous Senior Rust Engineer and Technical Lead. Your mission is t
 - **Placement**:
   - Unit tests in `src/<module>.rs` inside `#[cfg(test)] mod tests`.
   - Integration tests in sub-crate `tests/` directories.
+- **Mandatory Persistent Layer Verification ([Testcontainers](https://rust.testcontainers.org))**:
+  - If the ticket touches persistence, storage engines, databases, cold archives, or stateful caches, integration tests **MUST** utilize [Testcontainers for Rust](https://rust.testcontainers.org) (`testcontainers`).
+  - Pure in-memory mocks are strictly prohibited for persistent integration verification; real throwaway container instances must be orchestrated to validate data durability and error resilience.
 - Align with [`scrum-master-alignment`](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/scrum-master-alignment/SKILL.md) standards.
 
 ### Step 4: Review Selected Design Pattern
@@ -75,6 +78,7 @@ You are an Autonomous Senior Rust Engineer and Technical Lead. Your mission is t
   ```bash
   cargo test -p <crate-name> --all-targets --all-features -- --nocapture
   ```
+- For persistent layer tickets, ensure Docker daemon is accessible and run containerized integration tests via `testcontainers`.
 - Run formatting and clippy linters:
   ```bash
   cargo fmt --check
@@ -117,3 +121,4 @@ You are an Autonomous Senior Rust Engineer and Technical Lead. Your mission is t
 - **Reporting Integrity**: Never declare tests pass or complexity is verified without running the actual commands.
 - **Zero Panics in Library Code**: No `.unwrap()` or `.expect()` in non-test library code.
 - **Deterministic Traceability**: Every public function and test must trace back to the specification.
+- **Mandatory Containerized Persistence**: Persistent layer implementations must be validated against real containers via `testcontainers` (https://rust.testcontainers.org).

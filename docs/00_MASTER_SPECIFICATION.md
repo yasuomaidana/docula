@@ -50,8 +50,7 @@ flowchart TD
    - Detects and recognizes text tokens across 50+ languages using PP-OCRv6 neural architectures (`rusto-rs`).
    - Slices full-page screenshots and spatial region-of-interest (ROI) image crops (`ImageCrop` for signatures, seals, logos, stamps).
    - Scans 1D and 2D optical barcodes/QR codes (`rxing`).
-   - Synthesizes all recognized tokens, visual crops, and bounding boxes into a unified 2D-aligned `SpatialLayoutMap`.
-
+   - Synthesizes all recognized tokens, visual crops, and bounding boxes into a unified 2D-aligned `SpatialLayoutMap`.\n
 2. **Step 2: Schema-Driven Structured Extraction**
    - Ingests the spatial layout representation and the user-specified Rust struct.
    - Dynamically compiles a strict JSON schema via `schemars`.
@@ -79,7 +78,7 @@ The technical specification is organized into the following single-responsibilit
 | **[10. Image Stitching & Overlap Deduplication](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/10_IMAGE_STITCHING_AND_DEDUPLICATION.md)** | Dual-layer visual keypoint stitching (FAST/RANSAC) and fuzzy spatial text overlap reconciliation | imageproc, oximedia, strsim, rayon |
 | **[11. RAG & Large Document Retrieval](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)** | Optional in-memory layout-aware vector retrieval for massive (10–100+ page) document bundles | candle-core, hnsw_rs, tantivy, strsim |
 | **[12. Few-Shot & Exemplar Management](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)** | Dual-stage exemplar retrieval (fast layout fingerprint + HNSW fallback) and dynamic prompt injection | docula-exemplar, hnsw_rs, strsim, serde_json |
-| **[13. Human-in-the-Loop & Active Learning](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)** | Triage gates, immutable correction triad capture, two-tier storage (/data/corrections/ vs /data/examples/) | docula-hitl, uuid, chrono, sha2 |
+| **[13. Human-in-the-Loop & Active Learning](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)** | Triage gates, immutable correction triad capture, two-tier storage (/data/corrections/ vs /data/examples/), mandatory Testcontainers integration | docula-hitl, uuid, chrono, sha2, testcontainers |
 | **[14. Edge Compliance & Non-Storing Directives](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_AND_NON_STORING.md)** | Struct-level doc annotations (/// @censor, @ignore, @non-storing), PII regex redaction, zero-storage NonStored smart pointer | image, schemars, regex, zeroize |
 | **[15. Consumer Configuration & TOML Strategy](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/15_CONSUMER_CONFIGURATION_AND_TOML.md)** | In-memory safe defaults, DoculaConfig builder, custom TOML paths, embedded app configuration | docula-core, toml, serde |
 | **[16. Multi-Lingual OCR & Language Asset Management](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md)** | 50+ script handling, ocr-latin vs ocr-multilingual feature gating, mmap2 zero-copy memory mapping | docula-ocr, rusto-rs, ocrs, memmap2 |
@@ -127,3 +126,14 @@ ocr-latin-fast   = ["ocrs"]                     # Pure-Rust Latin OCR via RTen
 2. **Memory Safety & Parallelism:** Concurrency via `rayon` and `tokio`, avoiding unsafe foreign pointer manipulations.
 3. **Deterministic Type Safety & Compliance:** Output is mathematically guaranteed to deserialize into the target Rust structure with deterministic PII sanitization.
 4. **Visual & Region Extraction Fidelity:** Native zero-copy sub-image views and full-page raster snapshots with strict compliance precedence over censored pixels.
+5. **Mandatory Containerized Persistence Verification:** All persistent storage layers (cold archives, databases, vector indices, external storage engines) are verified with real throwaway containers using [Testcontainers for Rust](https://rust.testcontainers.org). Mocking persistence in integration tests without real containerized verification is strictly prohibited.
+
+---
+
+## 6. Testing & Quality Verification Stack
+
+Docula enforces deterministic testing standards across all architectural components:
+- **Unit & Property Testing**: Pure-Rust unit tests and proptest invariants in `#[cfg(test)]`.
+- **Formatting & Static Analysis**: Zero Clippy warnings (`-D warnings`) and standard formatting (`cargo fmt --check`).
+- **Complexity Guardrails**: Cyclomatic complexity $\le 15$ and cognitive complexity $\le 20$ via `rust-code-analysis-cli`.
+- **Persistent Layer Testing Mandate ([Testcontainers](https://rust.testcontainers.org))**: All persistence layers, storage engines, database adapters, and cold archival tiers (e.g. `docula-hitl` correction repositories, vector persistence) **MUST** use [Testcontainers for Rust](https://rust.testcontainers.org) (`testcontainers`) for integration testing. Real container lifecycle management guarantees isolation, eliminates mock drift, and is strictly validated in CI.

@@ -122,6 +122,7 @@ zero-cost abstractions, traits, and strict memory safety.
 | **In-Memory Sensitive Fields**           | **RAII Smart Pointer / Zero-Copy Wrapper (`NonStored<T>`)** | Enables in-memory parsing and arithmetic validation for sensitive data (CVVs, temporary tokens) while strictly forbidding them from disk serialization or persistent storage.                                                | `pub struct NonStored<T>(T);` with `Deref`, `ZeroizeOnDrop`, and `Serialize` implemented as a no-op / skip.            |
 | **Optical Codes & Action Tags**          | **Registry / Action Strategy Pattern**                      | Decouples spatial detection of barcodes and QR codes from business schema directives (`@decode`, `@censor`, `@ignore`).                                                                                                      | `ActionTagRegistry` dispatching bounding box transformations based on struct doc comments.                             |
 | **Multi-Lingual Asset Management**       | **Flyweight / Memory-Mapped Asset Manager Pattern**         | Allows sharing massive multi-script neural weights across threads via `memmap2` without duplicating memory in RAM.                                                                                                           | `LanguageAssetManager` caching read-only `Arc<Mmap>` slices across workers.                                            |
+| **Persistent Layer & Storage Engine**    | **Throwaway Containerized Test Isolation Pattern ([Testcontainers](https://rust.testcontainers.org))** | Eliminates mock drift and environmental divergence when testing cold archives, database adapters, and stateful storage. Guarantees real filesystem, socket, and storage semantics via ephemeral containers. | `testcontainers::runners::AsyncRunner`, `testcontainers::GenericImage`, `testcontainers-modules`. |
 
 ---
 
@@ -151,3 +152,18 @@ permissions or may not contain that file.
        .with_compliance_ttl(3600)
        .build();
    ```
+
+---
+
+## 5. Persistent Layer Architecture & Mandatory Testcontainers Verification
+
+Docula integrates persistence at multiple critical interfaces:
+- **`docula-hitl` Cold Storage Archive**: Immutable append-only event logs (`/data/corrections/` and remote object/database stores).
+- **Curated Few-Shot Vector & Template Index**: Persistent HNSW vectors, SQLite/PostgreSQL metadata, and disk-backed indices.
+- **Consumer Database Integrations**: Downstream database connections configured via `DoculaConfig`.
+
+### The Testcontainers Testing Mandate ([rust.testcontainers.org](https://rust.testcontainers.org))
+To guarantee forensic data integrity, ACID transactional behavior, and zero mock drift:
+- **Mandatory for Persistence**: Integration tests verifying storage adapters, databases, object stores (e.g. MinIO), or vector repositories **MUST** use [Testcontainers for Rust](https://rust.testcontainers.org).
+- **Ephemeral & Isolated**: Each test suite or test scenario provisions an isolated, throwaway container instance, avoiding cross-test pollution and host pollution.
+- **Strict Prohibition of Mock-Only Storage Tests**: While unit tests may test serialization in isolation, any test claiming persistence or storage readiness without Testcontainers verification is considered incomplete work.

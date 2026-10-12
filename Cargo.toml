@@ -5,6 +5,10 @@ members = [
     "crates/docula-core",
 ]
 
+[workspace.dependencies]
+testcontainers = "0.28"
+testcontainers-modules = "0.20"
+
 [package]
 name = "docula"
 version = "0.1.0"

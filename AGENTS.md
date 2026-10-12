@@ -30,7 +30,8 @@ flowchart TD
 
     subgraph "Core Engineering"
         Builder[Rust Implementation Specialist]
-        Tester[BDD & Property Test Engineer]
+        Tester[BDD, Property & Persistence Test Engineer]
+        Lifecycle[Ticket Lifecycle Developer<br/>End-to-End Implementation]
     end
 
     Orchestrator --> SM
@@ -40,7 +41,12 @@ flowchart TD
     Orchestrator --> VersionEng
     Orchestrator --> Builder
     Orchestrator --> Tester
+    Orchestrator --> Lifecycle
 
+    Lifecycle --> Builder
+    Lifecycle --> Tester
+    Lifecycle -.-> SM
+    Lifecycle -.-> Arch
     Builder -.-> Arch
     Tester -.-> SM
     CrateEng -.-> VersionEng
@@ -80,7 +86,7 @@ flowchart TD
 - **Primary Tools**: Skill schema validator, markdown static analysis.
 
 ### 6. Agile Scrum Master & Goal Alignment Specialist (`scrum-master-alignment`)
-- **Role**: Acts as the automated Scrum Master. Ensures that every test suite (unit, integration, doc-test, property-test) directly traces back to project milestones, user stories, acceptance criteria, and technical specifications in `docs/`.
+- **Role**: Acts as the automated Scrum Master. Ensures that every test suite (unit, integration, doc-test, property-test) directly traces back to project milestones, user stories, acceptance criteria, and technical specifications in `docs/`. Strictly enforces mandatory [Testcontainers](https://rust.testcontainers.org) verification for persistent layers.
 - **Governing Skill**: [scrum-master-alignment](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/scrum-master-alignment/SKILL.md)
 - **Primary Tools**: Test mapping tracers, specification parsers, coverage alignment metrics.
 
@@ -88,6 +94,16 @@ flowchart TD
 - **Role**: Converts repository content, source files, and supporting artifacts into a persistent knowledge graph to explain relationships, dependencies, architecture, and impact paths across the codebase.
 - **Governing Skill**: [graphify](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/graphify/SKILL.md)
 - **Primary Tools**: graph query tools, repository traversal, relationship analysis, evidence mapping.
+
+### 8. Autonomous Ticket Lifecycle Developer (`ticket-lifecycle-developer`)
+- **Role**: Guides and executes the complete 8-step ticket development lifecycle for the next undone project ticket: requirement clarity check, ticket decomposition, TDD test definition, design pattern audit, feature implementation, test passing validation, complexity refactoring, and dev status updating.
+- **Governing Skill**: [ticket-lifecycle-developer](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/ticket-lifecycle-developer/SKILL.md)
+- **Primary Tools**: `cargo test`, `cargo clippy`, `cargo fmt`, `testcontainers` (https://rust.testcontainers.org), `DEV_STATUS.md` tracker.
+
+### 9. BDD, Property & Persistence Test Engineer (`Tester`)
+- **Role**: Authors, executes, and validates behavior-driven tests, property tests, and persistent layer integration tests.
+- **Persistent Layer Mandate**: For any storage, database, cold archive, or vector persistence component, integration tests **MUST** use [Testcontainers for Rust](https://rust.testcontainers.org) (`testcontainers`). Tests that mock persistent backends without real container verification are rejected.
+- **Primary Tools**: `cargo test`, `proptest`, `testcontainers` (https://rust.testcontainers.org).
 
 ---
 
@@ -102,9 +118,14 @@ flowchart TD
    - Automated formatting verification (`cargo fmt --check`).
    - Enforce cyclomatic complexity limits ($\le 15$ per function) and cognitive complexity limits ($\le 20$).
 
-3. **Autonomous Skill Loading**:
+3. **Mandatory Testcontainers for Persistent Layer**:
+   - Any ticket, feature, or integration test touching the persistent layer (databases, cold archives, vector stores, object caches, or storage adapters) **MUST** use [Testcontainers for Rust](https://rust.testcontainers.org).
+   - In-memory mocks or stubs alone are strictly prohibited for persistent layer verification.
+   - Tests must execute against real, throwaway containerized instances to guarantee forensic durability, schema fidelity, and zero environmental drift.
+
+4. **Autonomous Skill Loading**:
    - Agents must only load skills directly pertinent to their current sub-task to maintain maximum context window hygiene and instruction fidelity.
 
-4. **Reporting Integrity**:
+5. **Reporting Integrity**:
    - Reports must clearly distinguish verified CLI outputs from assumptions.
    - Do not claim tests pass or coverage targets are met without executing and verifying the respective commands.

@@ -48,6 +48,7 @@ flowchart TD
 | `uuid`          | `^1.10`        | Unique identification of correction records (`Uuid::now_v7()`).         |
 | `chrono`        | `^0.4`         | UTC timestamps for audit trails and time-to-live policies.              |
 | `sha2`          | `^0.10`        | Cryptographic SHA-256 hashing of source documents.                      |
+| `testcontainers`| `^0.28` (dev)  | Mandatory persistent layer integration testing tool ([rust.testcontainers.org](https://rust.testcontainers.org)). |
 
 ---
 
@@ -108,7 +109,7 @@ Unchecked writing of corrections into the active few-shot prompt causes severe q
 
 ```
 /data/
-├── corrections/                 # TIER 1: Cold Storage (Append-only JSONL / Parquet)
+├── corrections/                 # TIER 1: Cold Storage (Append-only JSONL / Parquet / DB)
 │   ├── 2026-10-10_triads.jsonl  # Immutable regression test suite and fine-tuning corpus
 │   └── 2026-10-11_triads.jsonl
 └── examples/                    # TIER 2: Curated Active Pool (Top-Signal Exemplars)
@@ -121,6 +122,7 @@ Unchecked writing of corrections into the active few-shot prompt causes severe q
    - Append-only immutable log.
    - Functions as an automated regression benchmark test suite (`cargo test --test hitl_regressions`).
    - Serves as the training dataset for future local LoRA adapter fine-tuning.
+   - **Persistent Storage Mandate**: Storage adapters (filesystem, object store, database backends) MUST have integration tests written using [Testcontainers for Rust](https://rust.testcontainers.org).
 2. **Curated Few-Shot Pool (`/data/examples/`)**:
    - High-value, deduplicated exemplars accessible to Module 11's prompt builder.
    - Strictly curated to prevent prompt bloating.
@@ -179,3 +181,6 @@ max_pool_size_per_vendor = 2
    - `test_invoice_math_failure_routes_to_triage()`: Injects an invoice where `line_items` sum does not match `total_amount`, asserting immediate routing to `TriageQueue`.
 3. **Promotion Policy Test**:
    - `test_promotion_gate_blocks_single_occurrence()`: Verifies that a one-off correction is stored in cold storage but blocked from active few-shot prompt injection.
+4. **Persistent Layer Integration Test (Mandatory via [Testcontainers](https://rust.testcontainers.org))**:
+   - `test_append_only_cold_storage_persistence_with_testcontainers()`: Spins up an isolated throwaway container (e.g., MinIO or PostgreSQL via `testcontainers`) to verify cold archive ingestion, atomic appending, cryptographic checksum verification across restarts, and read-after-write consistency under realistic socket and filesystem semantics.
+   - All persistent layer integrations are strictly mandated to execute against real containerized instances powered by [Testcontainers for Rust](https://rust.testcontainers.org); unit mocks alone are prohibited for storage verification.

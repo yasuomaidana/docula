@@ -107,7 +107,7 @@ docula/
 
 ## 3. Detailed Milestone & Single-Responsibility Ticket Breakdown
 
-### Milestone 1: Core Foundation & Consumer Configuration (`docula-core`)
+### Milestone 1: Core Foundation & Consumer Configuration (`docula-core`
 
 #### Ticket DOC-101: Spatial Coordinate Primitives & Universal Input Abstraction (Day 0 Vision Ready)
 * **Reference Spec:** [`03_INGESTION_AND_ROUTING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/03_INGESTION_AND_ROUTING.md), [`18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)
@@ -235,7 +235,7 @@ docula/
       fn apply(&self, img: &mut RgbaImage) -> Result<(), PreprocessError>;
   }
   pub struct PreprocessingFilterChain {
-      filters: Vec<Box<dyn ImageFilter>>,\
+      filters: Vec<Box<dyn ImageFilter>>,
   }
   ```
 * **Acceptance Criteria:**
@@ -263,8 +263,7 @@ docula/
   2. Corrupted `/ToUnicode` streams are routed to `NeedsOcr`.
   3. Uncorrupted digital text is routed to `BornDigital` fast-path.
 * **Test Scenarios:**
-  * `test_route_born_digital_pdf`: Verify text PDF routes to `BornDigital`.
-  * `test_route_scanned_receipt_pdf`: Verify scanned PDF routes to `NeedsOcr`.
+  * `test_route_born_digital_pdf`: Verify text PDF routes to `BornDigital`.\n  * `test_route_scanned_receipt_pdf`: Verify scanned PDF routes to `NeedsOcr`.
   * `test_route_corrupt_tounicode`: Verify PDF with missing `/ToUnicode` routes to `NeedsOcr`.
 
 ---
@@ -424,6 +423,11 @@ docula/
 * **Acceptance Criteria:**
   1. Captures immutable `CorrectionTriad` with SHA-256 integrity hash.
   2. Stores records in cold archive (`/data/corrections/`) as append-only JSONL.
+  3. **Mandatory Persistent Layer Testing**: Integration testing for the persistent layer (cold archives, storage backends, and database synchronization) must strictly use **Testcontainers for Rust** ([https://rust.testcontainers.org](https://rust.testcontainers.org)). Mock-only testing of persistent storage is explicitly disallowed.
+* **Test Scenarios:**
+  * `test_triad_serialization_and_hash_integrity`: Validates JSON serialization and SHA-256 hash calculation.
+  * `test_append_only_cold_storage_persistence_with_testcontainers`: Spins up a throwaway storage/database container via `testcontainers` (e.g. MinIO/S3 or PostgreSQL/database container); verifies immutable append, write-ordering, and recovery under restart.
+  * `test_promotion_gate_threshold_evaluation`: Evaluates promotion threshold ($N \ge 3$) against persistent historical triads.
 
 ---
 
@@ -506,3 +510,13 @@ docula/
   1. `cargo-geiger` verifies 0 non-Rust dynamic links across all 13 crates.
   2. Single-page born-digital PDF completes in $< 15\,\text{ms}$.
   3. Scanned receipt OCR + 1-bit LLM completes in $< 1.2\,\text{s}$ on standard CPU.
+
+---
+
+## 4. Engineering & Testing Standards
+
+### Mandatory Persistence Testing ([Testcontainers](https://rust.testcontainers.org))
+Integration testing of all persistent components across `docula` (including `docula-hitl` cold archives, database connection adapters, vector stores, and object caches) is **strictly required** to use [Testcontainers for Rust](https://rust.testcontainers.org).
+- **No Mock Drift**: Unit tests may mock interfaces, but integration suites must spin up real ephemeral Docker containers using `testcontainers`.
+- **Automatic Lifecycle**: Container instantiation, port-mapping, readiness probes, and tear-down are fully automated via the `testcontainers` crate.
+- **CI Validation**: Automated CI pipelines validate testcontainer execution in environments where Docker is native.
