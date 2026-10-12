@@ -1,0 +1,16 @@
+[package]
+name = "docula-core"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Core primitives, geometry, and abstractions for the docula document intelligence engine"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
+thiserror = { version = "2.0" }
+image = { version = "0.25", default-features = false }
+
+[dev-dependencies]
+serde_json = { version = "1.0" }
