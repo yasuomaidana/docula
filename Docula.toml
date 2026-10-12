@@ -1,0 +1,70 @@
+# Docula Configuration File
+# Governs Few-Shot Exemplars, Human-in-the-Loop (HITL), Compliance & Optical Codes
+
+[general]
+engine_name = "docula"
+version = "0.1.0"
+
+# -----------------------------------------------------------------------------
+# Module 11: Few-Shot Exemplar Management & Dual-Stage Retrieval
+# -----------------------------------------------------------------------------
+[exemplars]
+enabled = true
+pool_directory = "./data/examples"
+max_injected_exemplars = 2       # Strictly capped to 1-2 to prevent prompt bloat and latency
+similarity_threshold = 0.82      # Minimum cosine similarity for Stage 2 fallback
+
+[exemplars.stage1]
+# Fast Deterministic Matching (<1ms on CPU)
+enable_vendor_match = true
+enable_layout_fingerprint = true
+max_fingerprint_hamming_distance = 3
+
+[exemplars.stage2]
+# Semantic Layout Vector Matching (HNSW Fallback)
+enable_hnsw_fallback = true
+metric = "cosine"
+ef_search = 32
+
+# -----------------------------------------------------------------------------
+# Module 12: Human-in-the-Loop (HITL) & Active Learning Flywheel
+# -----------------------------------------------------------------------------
+[hitl]
+enabled = true
+cold_archive_directory = "./data/corrections"
+curated_pool_directory = "./data/examples"
+
+[hitl.triage_gates]
+min_token_confidence = 0.85
+enforce_invorc_validate = true
+enforce_serde_invariants = true
+
+[hitl.promotion_policy]
+min_recurrence_count = 3         # Require at least 3 occurrences before considering promotion
+auto_promote = false             # Require explicit review / CLI promotion to prevent prompt poisoning
+max_pool_size_per_vendor = 2
+
+# -----------------------------------------------------------------------------
+# Module 13: Edge Compliance, Non-Storing Directives & Optical Codes
+# -----------------------------------------------------------------------------
+[compliance]
+zero_data_egress = true
+ephemeral_image_ttl_seconds = 86400  # Discard pixel buffer after 24h review window
+
+[compliance.defaults]
+# Default action when optical codes are detected without explicit struct annotations
+unannotated_qr_code = "decode"       # Options: decode, mask, censor, ignore
+unannotated_1d_barcode = "mask"      # Options: decode, mask, censor, ignore
+
+# Automated deterministic PII pre-sanitization before LLM inference
+[compliance.auto_censor]
+enabled = true
+patterns = [
+    { name = "iban", regex = "^[A-Z]{2}\\d{2}[A-Z0-9]{4}\\d{7}([A-Z0-9]?){0,16}$", action = "censor" },
+    { name = "credit_card", regex = "^\\b(?:\\d[ -]*?){13,16}\\b$", action = "censor" },
+    { name = "ssn", regex = "^\\b\\d{3}-\\d{2}-\\d{4}\\b$", action = "censor" }
+]
+
+[compliance.storage]
+redact_cold_archive = true           # Apply spatial blackouts prior to archiving in /data/corrections/
+strip_non_storing_fields = true      # Exclude NonStored<T> fields from persistent serialization
