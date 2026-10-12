@@ -1,11 +1,11 @@
 # Dev Status
 
-**Current Focus:** `DOC-102` (Consumer-Driven DoculaConfig & Layered Loader)
+**Current Focus:** `DOC-103` (Zero-Storage RAII NonStored<T>)
 
 ### Milestone 1: Core Foundation & Config
 - [x] DOC-101 Spatial Geometry & DocumentSource (`docula-core`)
-- [ ] DOC-102 DoculaConfig & Layered Loader (`docula-core`) *(IN PROGRESS)*
-- [ ] DOC-103 Zero-Storage RAII NonStored<T> (`docula-core`)
+- [x] DOC-102 DoculaConfig & Layered Loader (`docula-core`)
+- [ ] DOC-103 Zero-Storage RAII NonStored<T> (`docula-core`) *(IN PROGRESS)*
 
 ### Milestone 2: Preprocess & Ingestion
 - [ ] DOC-201 Tiny-Skia Pure-Rust Rasterizer (`docula-preprocess`)

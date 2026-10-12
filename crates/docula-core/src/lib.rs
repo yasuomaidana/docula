@@ -7,14 +7,21 @@
 //! - Spatial coordinate primitives ([`Point`], [`PixelRect`], [`BoundingBox`], [`Polygon`], [`SpatialSpan`]).
 //! - Day 0 visual crop abstractions ([`ImageCrop`], [`CropFormat`], [`RegionCropper`]).
 //! - Universal document input abstractions ([`DocumentSource`]).
-//! - Typed domain error hierarchies ([`DoculaError`], [`GeometryError`], [`SourceError`], [`CropError`]).
+//! - Consumer-driven layered configuration ([`DoculaConfig`], [`DoculaConfigBuilder`]).
+//! - Typed domain error hierarchies ([`DoculaError`], [`GeometryError`], [`SourceError`],
+//!   [`CropError`], [`ConfigError`]).
 
+pub mod config;
 pub mod crop;
 pub mod error;
 pub mod geometry;
 pub mod source;
 
+pub use config::{
+    ComplianceConfig, DoculaConfig, DoculaConfigBuilder, ExemplarConfig, GeneralConfig, HitlConfig,
+    OcrConfig, OpticalCodeAction,
+};
 pub use crop::{CropFormat, ImageCrop, RegionCropper};
-pub use error::{CropError, DoculaError, GeometryError, SourceError};
+pub use error::{ConfigError, CropError, DoculaError, GeometryError, SourceError};
 pub use geometry::{BoundingBox, PixelRect, Point, Polygon, SpatialSpan};
 pub use source::DocumentSource;

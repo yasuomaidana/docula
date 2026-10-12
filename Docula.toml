@@ -1,70 +1,52 @@
-# Docula Configuration File
-# Governs Few-Shot Exemplars, Human-in-the-Loop (HITL), Compliance & Optical Codes
+# Docula Configuration File (consumer template)
+#
+# Mirrors `docula_core::DoculaConfig` (docs/15_CONSUMER_CONFIGURATION_AND_TOML.md).
+# Every key is optional: missing keys fall back to in-memory defaults, and unknown keys
+# are rejected with `ConfigError::ParseFailure` to catch typos early.
+#
+# Load with `DoculaConfig::from_file(path)` or `DoculaConfig::from_toml_str(include_str!(..))`.
 
 [general]
 engine_name = "docula"
 version = "0.1.0"
+# max_threads = 8                    # Omit to let the runtime decide
 
 # -----------------------------------------------------------------------------
-# Module 11: Few-Shot Exemplar Management & Dual-Stage Retrieval
+# Few-Shot Exemplar Management & Dual-Stage Retrieval
 # -----------------------------------------------------------------------------
 [exemplars]
 enabled = true
-pool_directory = "./data/examples"
-max_injected_exemplars = 2       # Strictly capped to 1-2 to prevent prompt bloat and latency
-similarity_threshold = 0.82      # Minimum cosine similarity for Stage 2 fallback
-
-[exemplars.stage1]
-# Fast Deterministic Matching (<1ms on CPU)
-enable_vendor_match = true
-enable_layout_fingerprint = true
-max_fingerprint_hamming_distance = 3
-
-[exemplars.stage2]
-# Semantic Layout Vector Matching (HNSW Fallback)
-enable_hnsw_fallback = true
-metric = "cosine"
-ef_search = 32
+pool_directory = "./data/examples"   # Omit for ephemeral in-memory mode
+max_injected_exemplars = 2           # Capped (1..=8) to prevent prompt bloat and latency
+similarity_threshold = 0.82          # Minimum cosine similarity for Stage 2 fallback
+stage1_fast_match = true             # Deterministic layout fingerprint matching (<1ms)
+stage2_hnsw_fallback = true          # Semantic HNSW vector fallback
 
 # -----------------------------------------------------------------------------
-# Module 12: Human-in-the-Loop (HITL) & Active Learning Flywheel
+# Human-in-the-Loop (HITL) & Active Learning Flywheel
 # -----------------------------------------------------------------------------
 [hitl]
 enabled = true
-cold_archive_directory = "./data/corrections"
-curated_pool_directory = "./data/examples"
-
-[hitl.triage_gates]
+cold_archive_directory = "./data/corrections"  # Omit for ephemeral in-memory mode
 min_token_confidence = 0.85
-enforce_invorc_validate = true
-enforce_serde_invariants = true
-
-[hitl.promotion_policy]
-min_recurrence_count = 3         # Require at least 3 occurrences before considering promotion
-auto_promote = false             # Require explicit review / CLI promotion to prevent prompt poisoning
-max_pool_size_per_vendor = 2
+min_recurrence_for_promotion = 3     # Require at least 3 occurrences before promotion
+auto_promote = false                 # Require explicit review to prevent prompt poisoning
 
 # -----------------------------------------------------------------------------
-# Module 13: Edge Compliance, Non-Storing Directives & Optical Codes
+# Edge Compliance, Non-Storing Directives & Optical Codes
 # -----------------------------------------------------------------------------
 [compliance]
 zero_data_egress = true
 ephemeral_image_ttl_seconds = 86400  # Discard pixel buffer after 24h review window
-
-[compliance.defaults]
-# Default action when optical codes are detected without explicit struct annotations
 unannotated_qr_code = "decode"       # Options: decode, mask, censor, ignore
 unannotated_1d_barcode = "mask"      # Options: decode, mask, censor, ignore
-
-# Automated deterministic PII pre-sanitization before LLM inference
-[compliance.auto_censor]
-enabled = true
-patterns = [
-    { name = "iban", regex = "^[A-Z]{2}\\d{2}[A-Z0-9]{4}\\d{7}([A-Z0-9]?){0,16}$", action = "censor" },
-    { name = "credit_card", regex = "^\\b(?:\\d[ -]*?){13,16}\\b$", action = "censor" },
-    { name = "ssn", regex = "^\\b\\d{3}-\\d{2}-\\d{4}\\b$", action = "censor" }
-]
-
-[compliance.storage]
-redact_cold_archive = true           # Apply spatial blackouts prior to archiving in /data/corrections/
+auto_censor_pii = true               # Deterministic PII pre-sanitization before LLM inference
 strip_non_storing_fields = true      # Exclude NonStored<T> fields from persistent serialization
+
+# -----------------------------------------------------------------------------
+# OCR
+# -----------------------------------------------------------------------------
+[ocr]
+# model_dir = "/opt/docula/models"   # Omit to use default assets
+dpi = 300
+default_languages = ["en"]

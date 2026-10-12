@@ -16,6 +16,10 @@ pub enum DoculaError {
     #[error("Crop error: {0}")]
     Crop(#[from] CropError),
 
+    /// Configuration loading or validation failure.
+    #[error("Configuration error: {0}")]
+    Config(#[from] ConfigError),
+
     /// Underlying standard I/O error.
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
@@ -78,4 +82,28 @@ pub enum CropError {
     /// Image encoding or base64 serialization failure.
     #[error("Image encoding failed: {reason}")]
     EncodingFailed { reason: String },
+}
+
+/// Errors related to consumer configuration loading and validation.
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    /// The TOML document is malformed or contains unknown / mistyped keys.
+    #[error("Failed to parse configuration: {reason}")]
+    ParseFailure { reason: String },
+
+    /// The configuration file could not be read.
+    #[error("Failed to read configuration file {path}: {source}")]
+    FileRead {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// A configuration value violates a documented invariant.
+    #[error("Invalid configuration value for `{field}`: {reason}")]
+    InvalidValue { field: &'static str, reason: String },
+
+    /// The configuration could not be serialized.
+    #[error("Failed to serialize configuration: {reason}")]
+    SerializeFailure { reason: String },
 }
