@@ -1,14 +1,14 @@
 # Dev Status
 
-**Current Focus:** `DOC-103` (Zero-Storage RAII NonStored<T>)
+**Current Focus:** `DOC-201` (Tiny-Skia Pure-Rust Rasterizer)
 
 ### Milestone 1: Core Foundation & Config
 - [x] DOC-101 Spatial Geometry & DocumentSource (`docula-core`)
 - [x] DOC-102 DoculaConfig & Layered Loader (`docula-core`)
-- [ ] DOC-103 Zero-Storage RAII NonStored<T> (`docula-core`) *(IN PROGRESS)*
+- [x] DOC-103 Zero-Storage RAII NonStored<T> (`docula-core`)
 
 ### Milestone 2: Preprocess & Ingestion
-- [ ] DOC-201 Tiny-Skia Pure-Rust Rasterizer (`docula-preprocess`)
+- [ ] DOC-201 Tiny-Skia Pure-Rust Rasterizer (`docula-preprocess`) *(IN PROGRESS)*
 - [ ] DOC-202 Image Filter Chain: Deskew & Binarize (`docula-preprocess`)
 - [ ] DOC-203 PDF Inspector & Routing Heuristics (`docula-ingest`)
 

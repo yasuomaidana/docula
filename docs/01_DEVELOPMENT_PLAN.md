@@ -15,10 +15,10 @@ gantt
     section Milestone 1: Core Foundation & Config
     DOC-101 Spatial Geometry & DocumentSource (docula-core) :done, m1_1, 2026-10-12, 5d
     DOC-102 DoculaConfig & Layered Loader (docula-core)     :done, m1_2, after m1_1, 5d
-    DOC-103 Zero-Storage RAII NonStored<T> (docula-core)   :active, m1_3, after m1_2, 4d
+    DOC-103 Zero-Storage RAII NonStored<T> (docula-core)   :done, m1_3, after m1_2, 4d
 
     section Milestone 2: Preprocess & Ingestion
-    DOC-201 Tiny-Skia Pure-Rust Rasterizer (docula-preprocess) :m2_1, after m1_3, 6d
+    DOC-201 Tiny-Skia Pure-Rust Rasterizer (docula-preprocess) :active, m2_1, after m1_3, 6d
     DOC-202 Image Filter Chain: Deskew & Binarize              :m2_2, after m2_1, 6d
     DOC-203 PDF Inspector & Routing Heuristics (docula-ingest) :m2_3, after m2_2, 5d
 
