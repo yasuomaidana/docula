@@ -1,0 +1,28 @@
+[package]
+name = "docula-domains"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Standard domain vertical schemas, DocuValidate rules, and optical code adapters for docula"
+
+[dependencies]
+docula-schema = { path = "../docula-schema" }
+docula-vision-codes = { path = "../docula-vision-codes", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = "1.0"
+thiserror = "2.0"
+chrono = { version = "0.4", features = ["serde"], optional = true }
+
+[features]
+default = ["invoice", "vision-codes"]
+invoice = []
+bank = []
+receipt = []
+logistics = []
+vision-codes = ["dep:docula-vision-codes"]
+full = ["invoice", "bank", "receipt", "logistics", "vision-codes"]
+
+[dev-dependencies]
+serde_json = "1.0"
