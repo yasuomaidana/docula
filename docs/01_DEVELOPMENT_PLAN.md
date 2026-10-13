@@ -2,7 +2,7 @@
 
 ## 1. Executive Roadmap & Workspace Blueprint
 
-This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **9-Milestone phased execution model** across a 14-crate Cargo Monorepo Workspace, standardizing on the **KitaSan (COOLJAPAN) open-source stack** (`oximedia`, `oxillama`, `oxibonsai`, `oxirag`, `oxirs`, `scirs2`, `oxiz`) and **`diesel-cte-ext`**.
+This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **11-Milestone phased execution model** across a 14-crate Cargo Monorepo Workspace, standardizing on the **KitaSan (COOLJAPAN) open-source stack** (`oximedia`, `oxillama`, `oxibonsai`, `oxirag`, `oxirs`, `scirs2`, `oxiz`) and **`diesel-cte-ext`**.
 
 Optical Code Detection (QR / 1D Barcodes) and Visual Region Cropping (Document Screenshots / ROI Crops) are scheduled for **Milestone 7 (Advanced Vision)** as the latest functional capabilities. However, all foundational abstractions (`BoundingBox` pixel projection, `ImageCrop` value objects, `RegionCropper` trait, and schema reflection tags) are engineered **from Day 0 in Milestone 1 and Milestone 2** to guarantee zero breaking changes or hard refactoring when Milestone 7 lands.
 
@@ -12,49 +12,61 @@ gantt
     dateFormat  YYYY-MM-DD
     axisFormat %b %d
 
-    section Milestone 1: Core Foundation & Config
-    DOC-101 Spatial Geometry & DocumentSource (docula-core) :done, m1_1, 2026-10-12, 5d
-    DOC-102 DoculaConfig & Layered Loader (docula-core)     :done, m1_2, after m1_1, 5d
-    DOC-103 Zero-Storage RAII NonStored<T> (docula-core)   :done, m1_3, after m1_2, 4d
+    section Milestone 1 Core Foundation & Config
+    "DOC-101 Spatial Geometry & DocumentSource (docula-core)" :done, m1_1, 2026-10-12, 5d
+    "DOC-102 DoculaConfig & Layered Loader (docula-core)"     :done, m1_2, after m1_1, 5d
+    "DOC-103 Zero-Storage RAII NonStored<T> (docula-core)"   :done, m1_3, after m1_2, 4d
 
-    section Milestone 2: Preprocess & Ingestion
-    DOC-201 Tiny-Skia Pure-Rust Rasterizer (docula-preprocess) :done, m2_1, after m1_3, 6d
-    DOC-202 oximedia Filter Chain: Deskew & Binarize           :done, m2_2, after m2_1, 6d
-    DOC-203 PDF Inspector & Routing Heuristics (docula-ingest) :done, m2_3, after m2_2, 5d
+    section Milestone 2 Preprocess & Ingestion
+    "DOC-201 Tiny-Skia Pure-Rust Rasterizer (docula-preprocess)" :done, m2_1, after m1_3, 6d
+    "DOC-202 oximedia Filter Chain - Deskew & Binarize"           :done, m2_2, after m2_1, 6d
+    "DOC-203 PDF Inspector & Routing Heuristics (docula-ingest)" :done, m2_3, after m2_2, 5d
 
-    section Milestone 3: OCR, Spatial & Compliance
-    DOC-301 PP-OCRv6 DBNet & CRNN Multi-Lingual (docula-ocr)   :done, m3_1, after m2_3, 7d
-    DOC-302 scirs2 Spatial Reading-Order Clustering (docula-ocr):done, m3_2, after m3_1, 5d
-    DOC-303 Compliance Action Tags & Redactor (docula-compliance):done, m3_3, after m3_2, 6d
-    DOC-304 Multi-Lingual Mmap Asset Manager (docula-ocr)      :done, m3_4, after m3_3, 5d
+    section Milestone 3 OCR, Spatial & Compliance
+    "DOC-301 PP-OCRv6 DBNet & CRNN Multi-Lingual (docula-ocr)"   :done, m3_1, after m2_3, 7d
+    "DOC-302 scirs2 Spatial Reading-Order Clustering (docula-ocr)" :done, m3_2, after m3_1, 5d
+    "DOC-303 Compliance Action Tags & Redactor (docula-compliance)" :done, m3_3, after m3_2, 6d
+    "DOC-304 Multi-Lingual Mmap Asset Manager (docula-ocr)"      :done, m3_4, after m3_3, 5d
 
-    section Milestone 4: Schema, DFA Masking & LLM
-    DOC-401 JSON Schema to DFA Compiler (docula-schema)        :done, m4_1, after m3_4, 6d
-    DOC-402 Autoregressive Logits Masking (docula-schema)      :done, m4_2, after m4_1, 6d
-    DOC-403 Sovereign oxillama & oxibonsai (docula-llm)        :done, m4_3, after m4_2, 7d
+    section Milestone 4 Schema, DFA Masking & LLM
+    "DOC-401 JSON Schema to DFA Compiler (docula-schema)"        :done, m4_1, after m3_4, 6d
+    "DOC-402 Autoregressive Logits Masking (docula-schema)"      :done, m4_2, after m4_1, 6d
+    "DOC-403 Sovereign oxillama & oxibonsai (docula-llm)"        :done, m4_3, after m4_2, 7d
 
-    section Milestone 5: Retrieval & Exemplars
-    DOC-501 oxirag 4-Layer RAG & oxirs DocKGs (docula-rag)     :done, m5_1, after m4_3, 6d
-    DOC-502 Dual-Stage Exemplar & diesel-cte-ext (docula-exemplar):done, m5_2, after m5_1, 6d
+    section Milestone 5 Retrieval & Exemplars
+    "DOC-501 oxirag 4-Layer RAG & oxirs DocKGs (docula-rag)"     :done, m5_1, after m4_3, 6d
+    "DOC-502 Dual-Stage Exemplar & diesel-cte-ext (docula-exemplar)" :done, m5_2, after m5_1, 6d
 
-    section Milestone 6: Active Learning & Feedback
-    DOC-601 Triage Gates & CorrectionTriads (docula-hitl)      :done, m6_1, after m5_2, 6d
-    DOC-602 diesel-cte-ext Lineage & Tiered Storage (docula-hitl):done, m6_2, after m6_1, 5d
+    section Milestone 6 Active Learning & Feedback
+    "DOC-601 Triage Gates & CorrectionTriads (docula-hitl)"      :done, m6_1, after m5_2, 6d
+    "DOC-602 diesel-cte-ext Lineage & Tiered Storage (docula-hitl)" :done, m6_2, after m6_1, 5d
 
-    section Milestone 7: Advanced Vision (Codes & Cropping)
-    DOC-701 Pure-Rust Optical Code Mapper (docula-vision-codes):done, m7_1, after m6_2, 6d
-    DOC-702 Document Screenshots & oximedia Cropper (docula-preprocess):done, m7_2, after m7_1, 6d
+    section Milestone 7 Advanced Vision (Codes & Cropping)
+    "DOC-701 Pure-Rust Optical Code Mapper (docula-vision-codes)" :done, m7_1, after m6_2, 6d
+    "DOC-702 Document Screenshots & oximedia Cropper (docula-preprocess)" :done, m7_2, after m7_1, 6d
 
-    section Milestone 8: Developer Surface, CLI & Benchmarks
-    DOC-801 High-Level DoculaPipeline & Self-Repair (docula)   :done, m8_1, after m7_2, 6d
-    DOC-802 Terminal CLI Utility (docula-cli)                  :done, m8_2, after m8_1, 5d
-    DOC-803 cargo-geiger Zero-FFI Safety & Criterion Benchmarks:done, m8_3, after m8_2, 4d
+    section Milestone 8 Developer Surface, CLI & Benchmarks
+    "DOC-801 High-Level DoculaPipeline & Self-Repair (docula)"   :done, m8_1, after m7_2, 6d
+    "DOC-802 Terminal CLI Utility (docula-cli)"                  :done, m8_2, after m8_1, 5d
+    "DOC-803 cargo-geiger Zero-FFI Safety & Criterion Benchmarks" :done, m8_3, after m8_2, 4d
 
-    section Milestone 9: Macro-Driven Domain Verticals & Templates
-    DOC-901 Macro Invoicing & AP Template (docula-domains)     :active, m9_1, after m8_3, 5d
-    DOC-902 Macro Bank Statement & Ledger Template             :m9_2, after m9_1, 5d
-    DOC-903 Macro Receipt & Expense Template                   :m9_3, after m9_2, 4d
-    DOC-904 Macro Logistics & Shipping Manifest Template       :m9_4, after m9_3, 4d
+    section Milestone 9 Macro-Driven Domain Verticals & Templates
+    "DOC-901 Macro Invoicing & AP Template (docula-domains)"     :done, m9_1, after m8_3, 5d
+    "DOC-902 Macro Bank Statement & Ledger Template"             :done, m9_2, after m9_1, 5d
+    "DOC-903 Macro Receipt & Expense Template"                   :done, m9_3, after m9_2, 4d
+    "DOC-904 Macro Logistics & Shipping Manifest Template"       :done, m9_4, after m9_3, 4d
+
+    section Milestone 10 Pure-Rust Ofimatic Office Suite Ingestion
+    "DOC-1001 Ofimatic Source Primitives (docula-core)"          :done, m10_1, after m9_4, 4d
+    "DOC-1002 OOXML & Spreadsheet Ingestion (docula-ingest)"     :done, m10_2, after m10_1, 5d
+    "DOC-1003 Presentation & Word Ingestion (docula-ingest)"     :done, m10_3, after m10_2, 5d
+    "DOC-1004 Office Visual Rasterizer (docula-preprocess)"      :done, m10_4, after m10_3, 4d
+
+    section Milestone 11 Sovereign Pixmap & Zero-Image Extirpation via oxipix
+    "DOC-1101 PageRasterBuffer FrameBuffer & Zero-Copy Sub-View" :active, m11_1, after m10_4, 5d
+    "DOC-1102 Sovereign Patent-Clean JPEG Crop Export"           :crit, m11_2, after m11_1, 4d
+    "DOC-1103 Workspace Drop of image Across OCR & Compliance"   :crit, m11_3, after m11_2, 5d
+    "DOC-1104 Full Accelerator Verification & Geiger Audit"      :crit, m11_4, after m11_3, 4d
 ```
 
 ---
@@ -86,7 +98,16 @@ docula/
 │   ├── 15_CONSUMER_CONFIGURATION_AND_TOML.md
 │   ├── 16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md
 │   ├── 17_OPTICAL_CODE_EXTRACTION.md
-│   └── 18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md
+│   ├── 18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md
+│   ├── 19_OFIMATIC_OFFICE_SUITE_INGESTION.md
+│   ├── 20_ERGONOMIC_EXTRACTION_AND_ID_INFERENCE.md
+│   ├── 21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md
+│   └── oxipix/                  # Sovereign Standalone Crate Specification Suite
+│       ├── 00_TECHNICAL_ASSESSMENT.md
+│       ├── 01_ARCHITECTURE_AND_DESIGN_PATTERNS.md
+│       ├── 02_CODEC_AND_ACCELERATOR_ENGINE.md
+│       ├── 03_ROADMAP_AND_MILESTONES.md
+│       └── 04_BENCHMARKS_AND_TESTING_SUITE.md
 ├── data/
 │   ├── corrections/            # Tier 1: Cold Storage (Append-only immutable JSONL & DB)
 │   └── examples/               # Tier 2: Curated Few-Shot Pool
@@ -545,6 +566,65 @@ Extends `docula` to natively ingest, inspect, and extract structured data from p
   2. Enables screenshot capture and sub-region cropping (`ImageCrop`) on office documents.
   3. Enables optical barcode detection on office documents.
   4. `DoculaPipeline::process_document` seamlessly processes office sources end-to-end into strongly typed domain models.
+
+---
+
+### Milestone 11: Sovereign Pixmap Architecture & Zero-Image Extirpation via `oxipix` (`docula-core`, `docula-preprocess`, `docula-ocr`, `docula-compliance`, `docula-vision-codes`, `docula-cli`, `docula`)
+
+#### Overview
+Completely extirpates the legacy `image` crate from all workspace crates by integrating the sovereign, zero-copy, hardware-accelerated **`oxipix`** crate ([`docs/oxipix/`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix)). Resolves the two hard architectural boundaries: (1) providing a clean-room, patent-unencumbered ISO/IEC 10918-1 baseline JPEG encoder for `CropFormat::Jpeg`, and (2) migrating `PageRasterBuffer` to a 64-byte aligned, Arc-refcounted `FrameBuffer<Rgba8, Shared>`, unlocking zero-allocation strided ROI sub-views ($0.2\mu\text{s}$) and 100% accelerator saturation (ARM NEON, AVX2/AVX-512, Metal/Vulkan GPU compute) with zero dynamic C linkage.
+
+#### Ticket DOC-1101: Migration of `PageRasterBuffer` to `oxipix::FrameBuffer` & Zero-Copy Sub-View Cropping (`docula-core`, `docula-preprocess`)
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Single Responsibility:** Refactor `PageRasterBuffer` to encapsulate `oxipix::FrameBuffer<Rgba8, Shared>` with 64-byte memory alignment, and implement `crop_view` returning zero-allocation strided `SubPixView`.
+* **Design Pattern:** **Flyweight Pattern**, **Typestate Pattern**, and **Zero-Copy View Pattern**.
+* **Acceptance Criteria:**
+  1. `PageRasterBuffer.frame` replaces `PageRasterBuffer.image: image::RgbaImage`.
+  2. Memory is 64-byte aligned, avoiding unaligned vector load penalties on SIMD instructions.
+  3. `crop_view` slices sub-regions in $O(1)$ time with 0 heap allocations.
+  4. Interoperable with `pdf_oxide` / `tiny-skia` pixmaps via zero-copy transmutation.
+* **Test Scenarios:**
+  * `test_page_raster_buffer_aligned_frame`: Validates 64-byte memory alignment of frame backing buffer.
+  * `test_crop_view_zero_allocations`: Confirms zero heap allocations when slicing arbitrary bounding boxes.
+
+#### Ticket DOC-1102: Sovereign Patent-Clean JPEG Crop Export via `oxipix` (`docula-preprocess`)
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Single Responsibility:** Replace `image::codecs::jpeg` in `crop_to_image_crop` with `oxipix::codecs::jpeg::JpegEncoder`, resolving the KitaSan patent policy boundary without C FFI.
+* **Design Pattern:** **Adapter Pattern** & **Strategy Pattern**.
+* **Acceptance Criteria:**
+  1. Directly encodes `SubPixView` into valid baseline JPEG byte stream adhering to ISO/IEC 10918-1.
+  2. Adheres to configured `CropFormat::Jpeg { quality }`.
+  3. Emits Base64-encoded `ImageCrop` value objects matching existing public contract.
+  4. Fully drops `image` dependency from `docula-preprocess/Cargo.toml`.
+* **Test Scenarios:**
+  * `test_crop_to_jpeg_image_crop_via_oxipix`: Validates generated JPEG crop is decodable and adheres to quality setting.
+  * `test_zero_image_dependency_in_preprocess`: Cargo tree verifies 0 references to `image` in `docula-preprocess`.
+
+#### Ticket DOC-1103: Workspace-Wide Drop of `image` Crate Across `docula-ocr`, `docula-compliance`, `docula-vision-codes`, `docula-cli`
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md)
+* **Single Responsibility:** Remove `image` dependency from `docula-ocr`, `docula-compliance`, `docula-vision-codes`, and `docula-cli`, replacing it with `oxipix` contiguous slices and SIMD views.
+* **Design Pattern:** **Refactoring to Boundary Interfaces** & **In-Place Mutation**.
+* **Acceptance Criteria:**
+  1. `docula-ocr` receives raw `&[u8]` contiguous slices from `FrameBuffer` into DBNet/CRNN.
+  2. `docula-compliance` applies blackout redactions in-place using SIMD memory fill without buffer cloning.
+  3. `docula-vision-codes` binds `SubPixView` directly to `rxing` barcode scanner without `DynamicImage`.
+  4. `docula-cli` utilizes `oxipix::io` for zero-copy image file ingestion and writing.
+* **Test Scenarios:**
+  * `test_compliance_redaction_in_place_oxipix`: Blackout redaction modifies frame in-place without memory allocation.
+  * `test_ocr_direct_slice_consumption`: OCR pipeline executes text recognition directly on `FrameBuffer` slice.
+
+#### Ticket DOC-1104: End-to-End Accelerator Verification & Zero-FFI Geiger Audit (`docula`)
+* **Reference Spec:** [`04_BENCHMARKS_AND_TESTING_SUITE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/04_BENCHMARKS_AND_TESTING_SUITE.md), [`09_BENCHMARK_AND_COMPARISON.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/09_BENCHMARK_AND_COMPARISON.md)
+* **Single Responsibility:** Validate hardware accelerator saturation (NEON/AVX-512 vector paths, Metal/Vulkan compute pipelines), verify $\ge 3\times$ speedup, and certify 0 foreign C/C++ dynamic links.
+* **Design Pattern:** **Verification Gate** & **Automated Benchmarking**.
+* **Acceptance Criteria:**
+  1. `cargo geiger` verifies 0 unsafe C linkages across entire workspace.
+  2. All real document integration tests pass with 100% fidelity.
+  3. ROI cropping throughput exceeds $100,000 \text{ crops/sec}$.
+  4. Definition of Done (DoD) audit confirms $100\%$ goal alignment and $\ge 85\%$ coverage.
+* **Test Scenarios:**
+  * `test_e2e_pipeline_real_documents_oxipix`: End-to-end extraction from real PDFs and raster images without `image` crate.
+  * `test_accelerator_simd_speedup_validation`: Criterion benchmarks prove $\ge 3\times$ speedup over legacy raster pipeline.
 
 ## 4. Engineering & Testing Standards
 

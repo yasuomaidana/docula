@@ -1,6 +1,6 @@
 # Dev Status: `docula`
 
-**Current Status:** All Milestones 1 through 10 fully specified, implemented, and verified with pure-Rust zero-FFI ofimatic suite support (Excel `.xlsx`, `.csv`, `.tsv`, `.ods`, PowerPoint `.pptx`, `.odp`, Word `.docx`, `.odt`, `.txt`, `.rtf`), designed, imported, and verified across all subcrates with the **KitaSan (COOLJAPAN) Sovereign Pure-Rust Stack** ([cool-japan](https://github.com/cool-japan/cool-japan)) and **`diesel-cte-ext`** ([diesel-cte-ext](https://github.com/leynos/diesel-cte-ext)). Real PDF and Real Image integration tests are fully implemented and passing.
+**Current Status:** Milestones 1 through 10 fully specified, implemented, and verified with pure-Rust zero-FFI ofimatic suite support (Excel `.xlsx`, `.csv`, `.tsv`, `.ods`, PowerPoint `.pptx`, `.odp`, Word `.docx`, `.odt`, `.txt`, `.rtf`), designed, imported, and verified across all subcrates with the **KitaSan (COOLJAPAN) Sovereign Pure-Rust Stack** ([cool-japan](https://github.com/cool-japan/cool-japan)) and **`diesel-cte-ext`** ([diesel-cte-ext](https://github.com/leynos/diesel-cte-ext)). Real PDF and Real Image integration tests are fully implemented and passing. **Milestone 11 (Sovereign Pixmap Architecture & Zero-Image Extirpation via standalone crate `oxipix`)** is fully architected and roadmapped to eliminate the `image` dependency and saturate hardware acceleration.
 
 ---
 
@@ -99,3 +99,9 @@ Integration tests consuming **real PDF files** and **real raster images** (PNG, 
 - [x] DOC-1002 Pure-Rust OOXML & Delimited Spreadsheet Ingestion (`docula-ingest`) — SAX/StAX Excel `.xlsx`, `.ods`, `.csv`, `.tsv` cell parsing, 2D tabular spatial grid projection, and sheet-to-page mapping.
 - [x] DOC-1003 Pure-Rust Presentation & Word Document Ingestion (`docula-ingest`) — PowerPoint `.pptx` slide shapes, Word `.docx`, `.odt`, `.txt` paragraph flows, and `OfficeInspector` integration.
 - [x] DOC-1004 Ofimatic Visual Rasterization & Pipeline Facade Integration (`docula-preprocess`, `docula`) — `OfficeRasterizer` tiny-skia synthetic pixel buffer generation, screenshot/crop support, barcode scanning, and end-to-end `DoculaPipeline` execution.
+
+### Milestone 11: Sovereign Pixmap Architecture & Zero-Image Extirpation via `oxipix` (`docula-core`, `docula-preprocess`, `docula-ocr`, `docula-compliance`, `docula-vision-codes`, `docula-cli`, `docula`)
+- [ ] DOC-1101 Migration of `PageRasterBuffer` to `oxipix::FrameBuffer` & Zero-Copy Sub-View Cropping (`docula-core`, `docula-preprocess`) — 64-byte aligned SIMD memory, $0.2\mu\text{s}$ zero-allocation `SubPixView` slicing, zero heap copies.
+- [ ] DOC-1102 Sovereign Patent-Clean JPEG Crop Export via `oxipix` (`docula-preprocess`) — Clean-room ISO/IEC 10918-1 baseline JPEG encoder resolving KitaSan patent boundary with zero C FFI.
+- [ ] DOC-1103 Workspace-Wide Drop of `image` Crate Across `docula-ocr`, `docula-compliance`, `docula-vision-codes`, `docula-cli` — Complete extirpation of `image = "0.25"`, direct slice consumption, and in-place SIMD redactions.
+- [ ] DOC-1104 End-to-End Accelerator Verification & Zero-FFI Geiger Audit (`docula`) — Verified 100% accelerator saturation (NEON, AVX2/AVX-512, Metal GPU compute), $\ge 3\times$ speedup, and 0 unsafe dynamic C linkages.

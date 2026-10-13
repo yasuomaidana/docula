@@ -31,3 +31,4 @@ A sovereign, zero-FFI, pure-Rust multi-modal document intelligence engine for tr
 - **[17. Pure-Rust Optical Code Extraction](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/17_OPTICAL_CODE_EXTRACTION.md)**
 - **[18. Document Screenshots & Region Cropping](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)**
 - **[19. Ofimatic & Office Suite Ingestion](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)**
+- **[20. Pipeline Ergonomics & Document Identifier Inference](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/20_ERGONOMIC_EXTRACTION_AND_ID_INFERENCE.md)**
