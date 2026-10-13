@@ -2,6 +2,7 @@ use crate::crnn::CrnnRecognizer;
 use crate::dbnet::DbNetDetector;
 use crate::error::OcrError;
 use docula_core::SpatialSpan;
+use docula_preprocess::PreprocessingFilterChain;
 use image::RgbaImage;
 
 /// Strategy trait for optical character recognition engines.
@@ -17,6 +18,7 @@ pub trait OcrEngine: Send + Sync {
 pub struct NeuralOcrEngine {
     detector: DbNetDetector,
     recognizer: CrnnRecognizer,
+    preprocessor: Option<PreprocessingFilterChain>,
 }
 
 impl Default for NeuralOcrEngine {
@@ -32,6 +34,7 @@ impl NeuralOcrEngine {
         Self {
             detector: DbNetDetector::default(),
             recognizer: CrnnRecognizer::new(),
+            preprocessor: None,
         }
     }
 
@@ -39,6 +42,20 @@ impl NeuralOcrEngine {
     #[must_use]
     pub fn with_detector(mut self, detector: DbNetDetector) -> Self {
         self.detector = detector;
+        self
+    }
+
+    /// Attaches an optional image preprocessing filter chain to clean and normalize images before OCR.
+    #[must_use]
+    pub fn with_filter_chain(mut self, preprocessor: PreprocessingFilterChain) -> Self {
+        self.preprocessor = Some(preprocessor);
+        self
+    }
+
+    /// Configures robust degraded document preprocessing mode for high-noise and poor-quality scans.
+    #[must_use]
+    pub fn with_degraded_document_mode(mut self) -> Self {
+        self.preprocessor = Some(PreprocessingFilterChain::robust_degraded_document_pipeline());
         self
     }
 
@@ -53,6 +70,12 @@ impl NeuralOcrEngine {
     pub const fn detector(&self) -> &DbNetDetector {
         &self.detector
     }
+
+    /// Returns a reference to the optional preprocessor filter chain.
+    #[must_use]
+    pub const fn preprocessor(&self) -> Option<&PreprocessingFilterChain> {
+        self.preprocessor.as_ref()
+    }
 }
 
 impl OcrEngine for NeuralOcrEngine {
@@ -62,11 +85,21 @@ impl OcrEngine for NeuralOcrEngine {
             return Err(OcrError::EmptyImage { width, height });
         }
 
+        let preprocessed = if let Some(ref preprocessor) = self.preprocessor {
+            let mut img = image.clone();
+            preprocessor
+                .process(&mut img)
+                .map_err(|e| OcrError::Preprocessing(e.to_string()))?;
+            img
+        } else {
+            image.clone()
+        };
+
         // 1. Text detection via DBNet
-        let boxes = self.detector.detect(image)?;
+        let boxes = self.detector.detect(&preprocessed)?;
 
         // 2. Parallel character recognition via CRNN with Rayon
-        self.recognizer.recognize_batch(image, &boxes, 0)
+        self.recognizer.recognize_batch(&preprocessed, &boxes, 0)
     }
 }
 
@@ -77,7 +110,7 @@ pub struct MockOcrEngine {
 }
 
 impl MockOcrEngine {
-    /// Creates an empty `MockOcrEngine`.
+    /// Creates an empty `MockOcrEngine` macro.
     #[must_use]
     pub fn new() -> Self {
         Self { spans: Vec::new() }

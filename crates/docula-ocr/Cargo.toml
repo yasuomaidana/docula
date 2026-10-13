@@ -18,8 +18,7 @@ lang-devanagari = ["ocr-multilingual"]
 [dependencies]
 docula-core = { path = "../docula-core" }
 docula-preprocess = { path = "../docula-preprocess" }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-imageproc = "0.25"
+image = { version = "0.25", default-features = false }
 thiserror = "2.0"
 rayon = "1.10"
 memmap2 = "0.9"

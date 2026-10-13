@@ -6,7 +6,8 @@
 //! - [`HoughDeskewFilter`]: Dominant orientation detection via Hough line transform and affine deskew rotation.
 //! - [`AdaptiveBinarizeFilter`]: Local window adaptive thresholding for shadow removal and high contrast.
 //! - [`SimdResizeFilter`]: SIMD-accelerated image scaling preserving aspect ratio.
-//! - [`OxiMediaFilter`]: KitaSan sovereign OpenCV replacement filter for contrast and luminance enhancement.
+//! - [`OxiMediaFilter`]: KitaSan sovereign OpenCV replacement filter for contrast, unsharp sharpening, and morphology.
+//! - [`OxiMediaDenoiseFilter`]: Mathematical morphology filter for salt-and-pepper noise and speckle removal.
 //! - [`OxiMediaStitcher`]: Pure-Rust multi-image vertical seam stitcher and alpha blender.
 //! - [`PreprocessedImage`]: Normalized output structure containing processed buffers and OCR-ready tensors.
 
@@ -20,7 +21,10 @@ pub mod resize;
 pub use binarize::AdaptiveBinarizeFilter;
 pub use chain::PreprocessingFilterChain;
 pub use deskew::HoughDeskewFilter;
-pub use oximedia::{OxiMediaFilter, OxiMediaStitcher};
+pub use oximedia::{
+    DenoiseMode, MorphologyDenoiseConfig, MorphologyOp, MorphologyShape, OxiMediaDenoiseFilter,
+    OxiMediaFilter, OxiMediaStitcher, UnsharpMaskConfig,
+};
 pub use preprocessed::PreprocessedImage;
 pub use resize::{ResizeMode, SimdResizeFilter};
 

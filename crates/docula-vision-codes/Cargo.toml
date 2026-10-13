@@ -8,7 +8,7 @@ description = "Pure-Rust optical code detection, 1D/2D barcode mapping, and fina
 
 [dependencies]
 docula-core = { path = "../docula-core" }
-image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+image = { version = "0.25", default-features = false }
 rxing = "0.6"
 thiserror = "2.0"
 serde = { version = "1.0", features = ["derive"] }

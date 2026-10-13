@@ -178,3 +178,60 @@ async fn test_pipeline_optical_code_enrichment() {
     assert_eq!(result.optical_codes[0].code_type, OpticalCodeType::QrCode);
     assert!(result.optical_codes[0].financial_payload.is_some());
 }
+
+#[tokio::test]
+async fn test_pipeline_rag_retrieval_enrichment_detected() {
+    let invoice = TestInvoice {
+        invoice_number: "INV-RAG-2026".to_string(),
+        items: vec![LineItem {
+            description: "Cloud Compute Dedicated Host".to_string(),
+            amount: 750.0,
+        }],
+        total: 750.0,
+    };
+    let canned_json = serde_json::to_string(&invoice).unwrap();
+    let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
+
+    // Provide mock OCR engine with spatial spans so layout_map contains lines
+    let spans = vec![
+        docula::SpatialSpan::with_clamped_confidence(
+            "INV-RAG-2026 Cloud Compute Dedicated Host Total 750.00",
+            docula::BoundingBox::from_coords_clamped(0.1, 0.1, 0.9, 0.2),
+            0,
+            0.99,
+        ),
+    ];
+    let mock_ocr = Arc::new(docula::ocr::MockOcrEngine::with_spans(spans));
+
+    let config = docula::PipelineConfig {
+        enable_rag: true,
+        ..Default::default()
+    };
+
+    let pipeline = DoculaPipeline::builder()
+        .with_config(config)
+        .with_ocr_engine(mock_ocr)
+        .with_llm_backend(mock_llm)
+        .build();
+
+    let source = create_test_image_source();
+    let result = pipeline
+        .process_document::<TestInvoice>("INV-RAG-2026", &source)
+        .await
+        .expect("pipeline execution with RAG enabled must succeed");
+
+    // Detect and verify RAG grounding usage
+    assert!(result.rag_applied, "RAG retrieval must be detected as applied");
+    assert!(
+        !result.rag_retrieved_chunks.is_empty(),
+        "Retrieved chunks must not be empty"
+    );
+    assert!(
+        result.rag_retrieved_chunks[0]
+            .text
+            .contains("Cloud Compute Dedicated Host"),
+        "Retrieved chunk must contain document terms"
+    );
+    assert_eq!(result.data, Some(invoice));
+}
+

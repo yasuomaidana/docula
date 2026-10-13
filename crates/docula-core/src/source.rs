@@ -16,8 +16,8 @@ pub enum DocumentSource {
     },
     /// Filesystem path pointing to a raster image file.
     ImagePath(PathBuf),
-    /// In-memory batch of decoded dynamic images.
-    BatchImages(Vec<image::DynamicImage>),
+    /// In-memory batch of raw image byte payloads.
+    BatchImages(Vec<Vec<u8>>),
     /// Batch of multiple document files on disk (e.g. multi-page photo set).
     BatchFiles(Vec<PathBuf>),
 }
@@ -48,6 +48,16 @@ impl DocumentSource {
     #[inline]
     pub fn from_image_path(path: impl Into<PathBuf>) -> Self {
         Self::ImagePath(path.into())
+    }
+
+    /// Constructs a `DocumentSource` from a collection of in-memory image byte buffers.
+    #[inline]
+    pub fn from_batch_images<I, B>(images: I) -> Self
+    where
+        I: IntoIterator<Item = B>,
+        B: Into<Vec<u8>>,
+    {
+        Self::BatchImages(images.into_iter().map(Into::into).collect())
     }
 
     /// Constructs a `DocumentSource` from a collection of file paths.
@@ -83,6 +93,7 @@ impl DocumentSource {
             Self::PdfBytes(_) => true,
             Self::PdfPath(path) => path
                 .extension()
+                .and_then(|ext| ext.to_str())
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf")),
             _ => false,
         }

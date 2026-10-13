@@ -12,6 +12,7 @@ use docula_ingest::{DocumentRouter, IngestError};
 use docula_llm::{LlmBackend, LlmError, MockLlmBackend};
 use docula_ocr::{MockOcrEngine, OcrEngine, OcrError, SpatialLayoutMap};
 use docula_preprocess::{PageRasterBuffer, PreprocessError, Rasterizer, TinySkiaRasterizer};
+use docula_rag::{DocumentChunk, RagRetriever};
 use docula_schema::{DocuValidate, SchemaError, ValidationError};
 use docula_vision_codes::{OpticalCodeDetector, OpticalCodeError, OpticalCodeResult};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -82,6 +83,8 @@ pub struct PipelineConfig {
     pub enable_vision_codes: bool,
     /// Whether few-shot exemplars are injected into the prompt.
     pub enable_exemplars: bool,
+    /// Whether retrieval-augmented generation (RAG) is executed to enrich prompt context.
+    pub enable_rag: bool,
 }
 
 impl Default for PipelineConfig {
@@ -93,6 +96,7 @@ impl Default for PipelineConfig {
             enable_redaction: true,
             enable_vision_codes: true,
             enable_exemplars: true,
+            enable_rag: false,
         }
     }
 }
@@ -118,6 +122,10 @@ pub struct ExtractionResult<T> {
     pub routed_to_triage: bool,
     /// Explicit triage rejection reasons, if routed to review.
     pub triage_reasons: Vec<String>,
+    /// Whether RAG grounding was successfully applied during extraction.
+    pub rag_applied: bool,
+    /// Chunks retrieved by the RAG subsystem, if RAG is enabled.
+    pub rag_retrieved_chunks: Vec<DocumentChunk>,
 }
 
 /// High-level sovereign document intelligence pipeline facade.
@@ -132,6 +140,7 @@ pub struct DoculaPipeline {
     triage_gate: TriageGate,
     triage_queue: TriageQueue,
     llm_backend: Arc<dyn LlmBackend>,
+    rag_retriever: Option<RagRetriever>,
 }
 
 impl Default for DoculaPipeline {
@@ -155,6 +164,7 @@ impl DoculaPipeline {
             triage_gate: TriageGate::new(0.85),
             triage_queue: TriageQueue::new(),
             llm_backend: Arc::new(MockLlmBackend::new()),
+            rag_retriever: None,
         }
     }
 
@@ -201,9 +211,35 @@ impl DoculaPipeline {
         }
 
         let layout_map = SpatialLayoutMap::from_spans(spans, buffer.dimensions());
-
         let formatted_text = layout_map.to_coordinate_formatted_text();
-        let prompt_context = build_prompt_context(&formatted_text, &optical_codes);
+
+        let mut rag_applied = false;
+        let mut rag_retrieved_chunks = Vec::new();
+        let mut rag_context = String::new();
+
+        if self.config.enable_rag {
+            let mut retriever = self.rag_retriever.clone().unwrap_or_default();
+            retriever.index_page(0, &layout_map);
+
+            let query = format!("{document_id} {formatted_text}");
+            let mut chunks = retriever.retrieve(&query, None);
+            if chunks.is_empty() && !layout_map.is_empty()
+                && let Some(first_line) = layout_map.lines.first() {
+                chunks = retriever.retrieve(&first_line.text, None);
+            }
+
+            if !chunks.is_empty() {
+                rag_applied = true;
+                rag_retrieved_chunks = chunks;
+                for chunk in &rag_retrieved_chunks {
+                    rag_context.push_str(&chunk.text);
+                    rag_context.push('\n');
+                }
+            }
+        }
+
+        let prompt_context =
+            build_prompt_context(&formatted_text, &optical_codes, &rag_context);
 
         let schema = schemars::schema_for!(T);
         let (final_data, final_json, repair_attempts, domain_errors) = self
@@ -225,6 +261,8 @@ impl DoculaPipeline {
             repair_attempts,
             routed_to_triage,
             triage_reasons,
+            rag_applied,
+            rag_retrieved_chunks,
         })
     }
 
@@ -354,9 +392,18 @@ fn load_source_payload(source: &DocumentSource) -> Result<(Vec<u8>, bool), Docul
     }
 }
 
-/// Builds initial prompt context combining layout text and decoded optical codes.
-fn build_prompt_context(formatted_text: &str, codes: &[OpticalCodeResult]) -> String {
+/// Builds initial prompt context combining layout text, RAG context, and decoded optical codes.
+fn build_prompt_context(
+    formatted_text: &str,
+    codes: &[OpticalCodeResult],
+    rag_context: &str,
+) -> String {
     let mut context = format!("DOCUMENT SPATIAL LAYOUT:\n{formatted_text}\n");
+    if !rag_context.is_empty() {
+        context.push_str("\nRETRIEVAL-AUGMENTED CONTEXT (RAG):\n");
+        context.push_str(rag_context);
+        context.push('\n');
+    }
     if !codes.is_empty() {
         context.push_str("\nDECODED OPTICAL CODES & FINANCIAL PAYLOADS:\n");
         for code in codes {
@@ -380,6 +427,7 @@ pub struct DoculaPipelineBuilder {
     llm_backend: Option<Arc<dyn LlmBackend>>,
     compliance_redactor: Option<ComplianceRedactor>,
     exemplar_pool: Option<ExemplarPool>,
+    rag_retriever: Option<RagRetriever>,
 }
 
 impl DoculaPipelineBuilder {
@@ -418,6 +466,13 @@ impl DoculaPipelineBuilder {
         self
     }
 
+    /// Sets a pre-configured RAG retriever instance.
+    #[must_use]
+    pub fn with_rag_retriever(mut self, retriever: RagRetriever) -> Self {
+        self.rag_retriever = Some(retriever);
+        self
+    }
+
     /// Builds the configured [`DoculaPipeline`].
     pub fn build(self) -> DoculaPipeline {
         DoculaPipeline {
@@ -435,6 +490,7 @@ impl DoculaPipelineBuilder {
             llm_backend: self
                 .llm_backend
                 .unwrap_or_else(|| Arc::new(MockLlmBackend::new())),
+            rag_retriever: self.rag_retriever,
         }
     }
 }

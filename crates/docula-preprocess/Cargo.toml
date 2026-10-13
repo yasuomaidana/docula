@@ -10,8 +10,6 @@ description = "Pure-Rust document rasterization, computer vision filters, and pr
 docula-core = { path = "../docula-core" }
 pdf_oxide = { version = "0.3", features = ["rendering"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
-imageproc = "0.25"
-fast_image_resize = { version = "6.1", features = ["image"] }
 thiserror = { version = "2.0" }
 base64 = { version = "0.23" }
 oximedia-core = "0.2.1"

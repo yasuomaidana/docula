@@ -1,9 +1,9 @@
 use super::ImageFilter;
+use super::binarize::compute_otsu_level;
 use crate::error::PreprocessError;
-use image::{GrayImage, Luma, Rgba, RgbaImage};
-use imageproc::contrast::otsu_level;
-use imageproc::geometric_transformations::{Interpolation, rotate_about_center};
-use imageproc::hough::{LineDetectionOptions, detect_lines};
+use image::{GrayImage, Luma, RgbaImage};
+use oximedia_cv::hough_transform::{hough_lines, HoughLineConfig};
+use oximedia_cv::transform::{warp_affine_image, AffineTransform};
 use std::collections::HashMap;
 
 /// Hough transform based image deskew filter.
@@ -98,12 +98,11 @@ impl HoughDeskewFilter {
         }
 
         // Extract foreground text/ruling pixels via Otsu thresholding
-        let level = otsu_level(&gray);
+        let level = compute_otsu_level(&gray);
         let dark_count = gray.pixels().filter(|p| p[0] < level).count();
         let light_count = (width as usize * height as usize) - dark_count;
         let text_is_dark = dark_count <= light_count;
 
-        let mut bin = GrayImage::new(width, height);
         let mut foreground_points = Vec::new();
         for y in 0..height {
             for x in 0..width {
@@ -114,8 +113,7 @@ impl HoughDeskewFilter {
                     val > level
                 };
                 if is_fg {
-                    bin.put_pixel(x, y, Luma([255]));
-                    foreground_points.push((x as f32, y as f32));
+                    foreground_points.push((x as f64, y as f64));
                 }
             }
         }
@@ -129,19 +127,18 @@ impl HoughDeskewFilter {
             .vote_threshold
             .unwrap_or_else(|| (width.min(height) / 8).clamp(30, 150));
 
-        let options = LineDetectionOptions {
+        let mut config = HoughLineConfig {
+            theta_resolution: std::f64::consts::PI / 180.0,
+            rho_resolution: 1.0,
             vote_threshold: vote_thresh,
-            suppression_radius: self.suppression_radius,
+            max_lines: 100,
         };
 
-        let mut lines = detect_lines(&bin, options);
+        let mut lines = hough_lines(&foreground_points, width as usize, height as usize, &config);
         // Fallback: if no lines found and dynamic threshold was used, try lower threshold
         if lines.is_empty() && self.vote_threshold.is_none() && vote_thresh > 30 {
-            let fallback_opts = LineDetectionOptions {
-                vote_threshold: 30,
-                suppression_radius: self.suppression_radius,
-            };
-            lines = detect_lines(&bin, fallback_opts);
+            config.vote_threshold = 30;
+            lines = hough_lines(&foreground_points, width as usize, height as usize, &config);
         }
 
         if lines.is_empty() {
@@ -155,7 +152,7 @@ impl HoughDeskewFilter {
 
         let mut candidate_skews: Vec<f32> = lines
             .iter()
-            .map(|l| l.angle_in_degrees as f32)
+            .map(|l| l.angle_degrees() as f32)
             .filter(|&a| a >= min_hough_angle && a <= max_hough_angle)
             .map(|a| a - 90.0)
             .collect();
@@ -169,7 +166,11 @@ impl HoughDeskewFilter {
         let coarse_angle = candidate_skews[candidate_skews.len() / 2];
 
         // Sub-degree refinement around coarse angle within ±1.0° with 0.1° resolution
-        let refined_angle = self.refine_subdegree_angle(&foreground_points, coarse_angle);
+        let points_f32: Vec<(f32, f32)> = foreground_points
+            .iter()
+            .map(|&(x, y)| (x as f32, y as f32))
+            .collect();
+        let refined_angle = self.refine_subdegree_angle(&points_f32, coarse_angle);
 
         Ok(Some(refined_angle))
     }
@@ -221,12 +222,45 @@ impl ImageFilter for HoughDeskewFilter {
         if let Some(skew) = skew_opt
             && skew.abs() >= self.min_angle_threshold
         {
-            // To counteract clockwise tilt (+skew), rotate counter-clockwise (-skew)
-            let correction_radians = (-skew).to_radians();
-            let white_bg = Rgba([255, 255, 255, 255]);
-            let rotated =
-                rotate_about_center(img, correction_radians, Interpolation::Bilinear, white_bg);
-            *img = rotated;
+            let (width, height) = img.dimensions();
+            let correction_radians = (-skew).to_radians() as f64;
+            let cx = width as f64 / 2.0;
+            let cy = height as f64 / 2.0;
+
+            let forward = AffineTransform::rotation_around(correction_radians, cx, cy);
+            let inv = forward.inverse().ok_or_else(|| PreprocessError::FilterExecution {
+                filter: self.name(),
+                reason: "singular affine transform matrix".to_string(),
+            })?;
+            let [[a, b, c], [d, e, f], _] = inv.as_matrix();
+
+            let mut warped = warp_affine_image(
+                img.as_raw(),
+                width as usize,
+                height as usize,
+                4,
+                [[a, b, c], [d, e, f]],
+                width as usize,
+                height as usize,
+            )
+            .map_err(|e| PreprocessError::FilterExecution {
+                filter: self.name(),
+                reason: e.to_string(),
+            })?;
+
+            // Fill transparent border with white (255, 255, 255, 255)
+            for chunk in warped.as_chunks_mut::<4>().0 {
+                if chunk[3] == 0 {
+                    chunk[0] = 255;
+                    chunk[1] = 255;
+                    chunk[2] = 255;
+                    chunk[3] = 255;
+                }
+            }
+
+            if let Some(new_img) = RgbaImage::from_raw(width, height, warped) {
+                *img = new_img;
+            }
         }
 
         Ok(())

@@ -35,6 +35,10 @@ pub enum OcrError {
     #[error("Neural inference failure: {0}")]
     InferenceFailure(String),
 
+    /// Image preprocessing pipeline failure.
+    #[error("Preprocessing failure: {0}")]
+    Preprocessing(String),
+
     /// Memory mapping failure.
     #[error("Memory mapping error for '{path}': {reason}")]
     MmapError {

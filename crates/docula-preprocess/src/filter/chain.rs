@@ -1,5 +1,7 @@
 use super::ImageFilter;
+use super::binarize::AdaptiveBinarizeFilter;
 use super::deskew::HoughDeskewFilter;
+use super::oximedia::{OxiMediaDenoiseFilter, OxiMediaFilter};
 use super::preprocessed::PreprocessedImage;
 use crate::error::PreprocessError;
 use image::RgbaImage;
@@ -30,10 +32,34 @@ impl PreprocessingFilterChain {
     /// Creates a pre-configured standard document OCR pipeline.
     ///
     /// Pipeline order:
-    /// 1. [`HoughDeskewFilter`]: Affine rotational correction for tilted baselines.
+    /// 1. [`OxiMediaFilter`]: Sovereign contrast and luminance normalization.
+    /// 2. [`HoughDeskewFilter`]: Affine rotational correction for tilted baselines.
     #[must_use]
     pub fn default_ocr_pipeline() -> Self {
-        Self::new().with_filter(HoughDeskewFilter::new())
+        Self::new()
+            .with_filter(OxiMediaFilter::new())
+            .with_filter(HoughDeskewFilter::new())
+    }
+
+    /// Creates a robust preprocessing pipeline specifically tailored for heavily degraded documents,
+    /// high noise, low contrast, out-of-focus blur, and uneven scanner illumination.
+    ///
+    /// Pipeline order:
+    /// 1. [`OxiMediaDenoiseFilter`]: Salt-and-pepper and scanner speckle removal via morphology.
+    /// 2. [`OxiMediaFilter`]: Contrast expansion and unsharp mask edge restoration.
+    /// 3. [`HoughDeskewFilter`]: Affine rotational deskewing.
+    /// 4. [`AdaptiveBinarizeFilter`]: Local window adaptive thresholding for shadow removal.
+    #[must_use]
+    pub fn robust_degraded_document_pipeline() -> Self {
+        Self::new()
+            .with_filter(OxiMediaDenoiseFilter::full_restoration(1))
+            .with_filter(
+                OxiMediaFilter::new()
+                    .with_contrast(1.3)
+                    .with_unsharp_mask(1.0, 1.2, 2.0),
+            )
+            .with_filter(HoughDeskewFilter::new())
+            .with_filter(AdaptiveBinarizeFilter::adaptive(12))
     }
 
     /// Fluent builder method to append a filter to the chain.

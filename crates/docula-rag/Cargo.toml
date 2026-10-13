@@ -6,9 +6,15 @@ authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "Layout-aware table chunking, in-memory vector store, and hybrid BM25 retrieval for docula"
 
+[features]
+default = ["embedag-integration"]
+embedag-integration = ["dep:embedag-rag"]
+
 [dependencies]
 docula-core = { path = "../docula-core" }
 docula-ocr = { path = "../docula-ocr" }
+embedag-rag = { path = "../../../embedag/crates/embedag-rag", optional = true }
+uuid = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"

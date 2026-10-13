@@ -12,6 +12,3 @@ image = { version = "0.25", default-features = false }
 regex = "1.11"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
-
-[dev-dependencies]
-image = { version = "0.25", default-features = false, features = ["png"] }

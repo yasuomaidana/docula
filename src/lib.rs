@@ -6,6 +6,7 @@ pub mod pipeline;
 
 pub use docula_compliance as compliance;
 pub use docula_core::*;
+pub use docula_domains as domains;
 pub use docula_exemplar as exemplar;
 pub use docula_hitl as hitl;
 pub use docula_ingest as ingest;
@@ -56,6 +57,9 @@ mod tests {
 
         let code_detector = vision_codes::OpticalCodeDetector::new();
         let _ = code_detector;
+
+        let invoice_item = domains::LineItem::new("Widget", 2.0, 10.0);
+        assert_eq!(invoice_item.total, 20.0);
 
         let pipeline = DoculaPipeline::new();
         assert_eq!(pipeline.config().dpi, 150);

@@ -1,7 +1,7 @@
 use super::ImageFilter;
 use crate::error::PreprocessError;
-use fast_image_resize::Resizer;
 use image::RgbaImage;
+use oximedia_cv::image::resize::{ResizeConfig, ResizeMethod, resize_image};
 
 /// Scaling strategy for [`SimdResizeFilter`].
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -18,7 +18,7 @@ pub enum ResizeMode {
     Scale { factor_x: f32, factor_y: f32 },
 }
 
-/// SIMD-accelerated image rescaler using AVX2, AVX-512, or NEON intrinsics.
+/// SIMD and GPU-accelerated image rescaler using KitaSan `oximedia-cv`.
 ///
 /// Implements [`ImageFilter`] for high-throughput scaling without CPU bottlenecks.
 #[derive(Debug, Clone, Copy)]
@@ -163,12 +163,16 @@ impl ImageFilter for SimdResizeFilter {
             return Ok(());
         }
 
-        let mut dst_image = RgbaImage::new(dst_w, dst_h);
-        let mut resizer = Resizer::new();
-        resizer
-            .resize(img, &mut dst_image, None)
-            .map_err(|e| PreprocessError::ResizeFailure {
+        let config = ResizeConfig::new(dst_w, dst_h, ResizeMethod::Bilinear, 4);
+        let resized = resize_image(img.as_raw(), src_w, src_h, &config).map_err(|e| {
+            PreprocessError::ResizeFailure {
                 reason: e.to_string(),
+            }
+        })?;
+
+        let dst_image =
+            RgbaImage::from_raw(dst_w, dst_h, resized).ok_or_else(|| PreprocessError::ResizeFailure {
+                reason: "failed to construct destination RGBA image from resized bytes".to_string(),
             })?;
 
         *img = dst_image;

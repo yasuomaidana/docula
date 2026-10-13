@@ -14,6 +14,7 @@ members = [
     "crates/docula-hitl",
     "crates/docula-vision-codes",
     "crates/docula-cli",
+    "crates/docula-domains",
 ]
 
 [workspace.dependencies]
@@ -37,6 +38,7 @@ docula-rag = { path = "crates/docula-rag" }
 docula-exemplar = { path = "crates/docula-exemplar" }
 docula-hitl = { path = "crates/docula-hitl" }
 docula-vision-codes = { path = "crates/docula-vision-codes" }
+docula-domains = { path = "crates/docula-domains" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 schemars = "1.0"

@@ -1,33 +1,26 @@
 use docula_core::{BoundingBox, SpatialSpan};
 use docula_ocr::{DbNetDetector, MockOcrEngine, NeuralOcrEngine, OcrEngine, OcrError};
 use image::{Rgba, RgbaImage};
-use imageproc::drawing::draw_line_segment_mut;
 
 /// Helper to render simulated text lines as high-contrast dark strokes on white background.
 fn create_simulated_receipt_image(width: u32, height: u32) -> RgbaImage {
     let mut img = RgbaImage::from_pixel(width, height, Rgba([255, 255, 255, 255]));
     let black = Rgba([10, 10, 10, 255]);
 
-    // Draw simulated line 1: "Invoice Number: INV-987654" at y=50
+    // Draw simulated line 1: "Invoice Number: INV-987654" at y=50..65
     for x in (50..350).step_by(8) {
-        draw_line_segment_mut(&mut img, (x as f32, 50.0), (x as f32, 65.0), black);
-        draw_line_segment_mut(
-            &mut img,
-            ((x + 1) as f32, 50.0),
-            ((x + 1) as f32, 65.0),
-            black,
-        );
+        for y in 50..=65 {
+            img.put_pixel(x, y, black);
+            img.put_pixel(x + 1, y, black);
+        }
     }
 
-    // Draw simulated line 2: "Total: $1,250.00" at y=100
+    // Draw simulated line 2: "Total: $1,250.00" at y=100..115
     for x in (50..250).step_by(8) {
-        draw_line_segment_mut(&mut img, (x as f32, 100.0), (x as f32, 115.0), black);
-        draw_line_segment_mut(
-            &mut img,
-            ((x + 1) as f32, 100.0),
-            ((x + 1) as f32, 115.0),
-            black,
-        );
+        for y in 100..=115 {
+            img.put_pixel(x, y, black);
+            img.put_pixel(x + 1, y, black);
+        }
     }
 
     img
@@ -74,15 +67,12 @@ fn test_ocr_cjk_text() {
     let mut img = RgbaImage::from_pixel(400, 200, Rgba([255, 255, 255, 255]));
     let black = Rgba([0, 0, 0, 255]);
 
-    // Draw CJK receipt header blocks at y=40
+    // Draw CJK receipt header blocks at y=40..60
     for x in (40..160).step_by(10) {
-        draw_line_segment_mut(&mut img, (x as f32, 40.0), (x as f32, 60.0), black);
-        draw_line_segment_mut(
-            &mut img,
-            ((x + 1) as f32, 40.0),
-            ((x + 1) as f32, 60.0),
-            black,
-        );
+        for y in 40..=60 {
+            img.put_pixel(x, y, black);
+            img.put_pixel(x + 1, y, black);
+        }
     }
 
     let engine = NeuralOcrEngine::new();
@@ -145,4 +135,24 @@ fn test_dbnet_detector_unclip_and_sorting() {
             "boxes must be sorted vertically"
         );
     }
+}
+
+#[test]
+fn test_ocr_with_degraded_document_mode() {
+    let img = create_simulated_receipt_image(600, 400);
+    let engine = NeuralOcrEngine::new().with_degraded_document_mode();
+
+    assert!(engine.preprocessor().is_some());
+
+    engine
+        .recognizer()
+        .register_pattern("row:1", "Invoice Number: INV-987654");
+
+    let spans = engine
+        .extract_spans(&img)
+        .expect("ocr extraction with degraded document mode");
+    assert!(
+        !spans.is_empty(),
+        "DBNet should detect text regions even with preprocessing"
+    );
 }
