@@ -1,4 +1,5 @@
 use crate::office::OfficeFormat;
+use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 
 /// Universal document input abstraction supporting PDFs, raster images, office files, and batches.
@@ -196,6 +197,66 @@ impl DocumentSource {
     pub fn byte_len(&self) -> Option<usize> {
         self.as_bytes().map(<[u8]>::len)
     }
+
+    /// Automatically infers or derives a stable document identifier for this source.
+    ///
+    /// # Inference Strategy
+    /// - **Filesystem Paths** ([`PdfPath`](Self::PdfPath), [`ImagePath`](Self::ImagePath), [`OfficePath`](Self::OfficePath)):
+    ///   Extracts the file stem (e.g. `"invoice_example"` from `"tests/fixtures/invoice_example.png"`).
+    /// - **In-Memory Payloads** ([`PdfBytes`](Self::PdfBytes), [`ImageBytes`](Self::ImageBytes), [`OfficeBytes`](Self::OfficeBytes)):
+    ///   Derives a deterministic SHA-256 fingerprint hex digest (`doc-<16-hex-chars>`).
+    /// - **Batch Files** ([`BatchFiles`](Self::BatchFiles)):
+    ///   Extracts the first file stem and appends the batch count (e.g. `"page1-batch-3"`).
+    /// - **Batch In-Memory Images** ([`BatchImages`](Self::BatchImages)):
+    ///   Hashes all image buffers into a combined digest (`doc-batch-<16-hex-chars>`).
+    ///
+    /// This enables zero-configuration document parsing workflows where an upstream tracking
+    /// identifier is not available, allowing callers to parse documents directly from source.
+    pub fn infer_document_id(&self) -> String {
+        match self {
+            Self::PdfPath(path) | Self::ImagePath(path) | Self::OfficePath { path, .. } => {
+                path.file_stem()
+                    .and_then(|s| s.to_str())
+                    .filter(|s| !s.is_empty())
+                    .map(ToString::to_string)
+                    .unwrap_or_else(|| "doc-unnamed-file".to_string())
+            }
+            Self::PdfBytes(bytes) => Self::digest_to_id("doc", bytes),
+            Self::ImageBytes { data, .. } | Self::OfficeBytes { data, .. } => {
+                Self::digest_to_id("doc", data)
+            }
+            Self::BatchFiles(paths) => {
+                if let Some(first) = paths.first() {
+                    let stem = first
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .filter(|s| !s.is_empty())
+                        .unwrap_or("file");
+                    format!("{stem}-batch-{}", paths.len())
+                } else {
+                    "doc-batch-empty".to_string()
+                }
+            }
+            Self::BatchImages(images) => {
+                let mut hasher = Sha256::new();
+                for img in images {
+                    hasher.update(img);
+                }
+                let digest = hasher.finalize();
+                let short: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
+                format!("doc-batch-{short}")
+            }
+        }
+    }
+
+    #[inline]
+    fn digest_to_id(prefix: &str, bytes: &[u8]) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(bytes);
+        let digest = hasher.finalize();
+        let short: String = digest.iter().take(8).map(|b| format!("{b:02x}")).collect();
+        format!("{prefix}-{short}")
+    }
 }
 
 impl From<Vec<u8>> for DocumentSource {
@@ -225,5 +286,62 @@ impl From<PathBuf> for DocumentSource {
 impl From<&Path> for DocumentSource {
     fn from(path: &Path) -> Self {
         path.to_path_buf().into()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::office::SpreadsheetSubtype;
+
+    #[test]
+    fn test_infer_document_id_from_paths() {
+        let pdf_src = DocumentSource::from_pdf_path(PathBuf::from("/tmp/invoices/INV-2026-001.pdf"));
+        assert_eq!(pdf_src.infer_document_id(), "INV-2026-001");
+
+        let img_src = DocumentSource::from_image_path(PathBuf::from("assets/receipt_dec_12.png"));
+        assert_eq!(img_src.infer_document_id(), "receipt_dec_12");
+
+        let office_src = DocumentSource::from_office_path(
+            PathBuf::from("reports/q3_earnings.xlsx"),
+            Some(OfficeFormat::Spreadsheet(SpreadsheetSubtype::Xlsx)),
+        )
+        .expect("valid office source");
+        assert_eq!(office_src.infer_document_id(), "q3_earnings");
+    }
+
+    #[test]
+    fn test_infer_document_id_from_bytes_deterministic() {
+        let payload = b"Hello Docula Sovereign Invoice Intelligence";
+        let pdf_src = DocumentSource::from_pdf_bytes(payload.to_vec());
+        let img_src = DocumentSource::from_image_bytes(payload.to_vec(), Some("png"));
+
+        let pdf_id = pdf_src.infer_document_id();
+        let img_id = img_src.infer_document_id();
+
+        assert!(pdf_id.starts_with("doc-"));
+        assert_eq!(pdf_id, img_id, "Identical payloads must yield identical IDs");
+        assert_eq!(pdf_id.len(), 20, "Prefix 'doc-' (4) + 16 hex chars = 20");
+    }
+
+    #[test]
+    fn test_infer_document_id_batches() {
+        let empty_batch = DocumentSource::from_batch_files(Vec::<PathBuf>::new());
+        assert_eq!(empty_batch.infer_document_id(), "doc-batch-empty");
+
+        let file_batch = DocumentSource::from_batch_files(vec![
+            PathBuf::from("page_001.png"),
+            PathBuf::from("page_002.png"),
+        ]);
+        assert_eq!(file_batch.infer_document_id(), "page_001-batch-2");
+
+        let img_batch = DocumentSource::from_batch_images(vec![vec![1, 2, 3], vec![4, 5, 6]]);
+        assert!(img_batch.infer_document_id().starts_with("doc-batch-"));
+    }
+
+    #[test]
+    fn test_infer_document_id_unnamed_fallback() {
+        let unnamed = DocumentSource::from_pdf_path(PathBuf::from("/"));
+        assert_eq!(unnamed.infer_document_id(), "doc-unnamed-file");
     }
 }

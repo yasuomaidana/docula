@@ -110,7 +110,7 @@ async fn handle_extract(
     let pipeline = DoculaPipeline::builder().with_config(config).build();
     let source = DocumentSource::from(input);
     let result = pipeline
-        .process_document::<GenericDocumentOutput>("cli-doc", &source)
+        .process::<GenericDocumentOutput>(&source)
         .await?;
 
     let json_output = serde_json::to_string_pretty(&result)?;
