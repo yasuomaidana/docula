@@ -1,10 +1,10 @@
-# Module 12: Human-in-the-Loop (HITL) & Active Learning Flywheel
+# Module 12: Human-in-the-Loop (HITL), Recursive Lineage & Active Learning Flywheel
 
 ## 1. Overview & Purpose
 
 In production Document AI deployments, edge-case layouts, faded print, or ambiguous OCR readings inevitably lead to occasional extraction errors. Unsupervised feeding of corrections directly into an active LLM prompt causes **prompt poisoning**, **prompt bloat**, and **latency degradation**.
 
-The **Human-in-the-Loop (HITL) & Active Learning Flywheel** module establishes a disciplined, four-stage feedback loop that intercepts failures, captures human corrections as immutable **Correction Triads**, stores them in cold audit storage, and promotes high-signal exemplars to the active few-shot pool through strict verification gates.
+The **Human-in-the-Loop (HITL) & Active Learning Flywheel** module establishes a disciplined, four-stage feedback loop that intercepts failures, captures human corrections as immutable **Correction Triads**, tracks recursive correction DAGs and version lineage using **`diesel-cte-ext`** ([github.com/leynos/diesel-cte-ext](https://github.com/leynos/diesel-cte-ext)), stores them in cold audit storage, and promotes high-signal exemplars to the active few-shot pool through strict verification gates.
 
 ```mermaid
 flowchart TD
@@ -18,14 +18,15 @@ flowchart TD
         ConfGate -->|Passed| ProductionOut["Production Consumption (Downstream)"]
     end
 
-    subgraph Stage2["Stage 2: Human Review & Triad Capture"]
+    subgraph Stage2["Stage 2: Human Review, Triad Capture & Lineage DAG"]
         TriageQueue --> HumanReviewer["Human Specialist Reviews & Edits JSON"]
         HumanReviewer --> Sanitize["Apply Compliance Directives (Redact Sensitive BBoxes)"]
         Sanitize --> TriadAssemble["Assemble Immutable Correction Triad"]
+        TriadAssemble --> DieselCTE["Recursive Lineage & Version DAG (diesel-cte-ext)"]
     end
 
-    subgraph Stage3["Stage 3: Two-Tier Storage Architecture"]
-        TriadAssemble --> ColdArchive["Cold Archive (/data/corrections/ - Append-Only JSONL)"]
+    subgraph Stage3["Stage 3: Two-Tier Storage Architecture & Testcontainers"]
+        DieselCTE --> ColdArchive["Cold Archive (/data/corrections/ - Append-Only JSONL & DB)"]
         ColdArchive -.-> RegressionTests["Offline Regression Benchmarks & Local LoRA Fine-Tuning"]
     end
 
@@ -40,15 +41,16 @@ flowchart TD
 
 ## 2. Technical Stack & Pure-Rust Dependencies
 
-| Crate           | Version Target | Purpose                                                                 |
-|:----------------|:---------------|:------------------------------------------------------------------------|
-| `docula-core`   | Workspace      | `SpatialLayoutMap`, `ValidationError`, and domain validation traits.    |
-| `docula-exemplar`| Workspace     | Exemplar metadata schemas and layout fingerprint integration.           |
-| `serde` & `serde_json` | `^1.0`  | Serialization of correction triads and RFC 6902 JSON patch diffs.       |
-| `uuid`          | `^1.10`        | Unique identification of correction records (`Uuid::now_v7()`).         |
-| `chrono`        | `^0.4`         | UTC timestamps for audit trails and time-to-live policies.              |
-| `sha2`          | `^0.10`        | Cryptographic SHA-256 hashing of source documents.                      |
-| `testcontainers`| `^0.28` (dev)  | Mandatory persistent layer integration testing tool ([rust.testcontainers.org](https://rust.testcontainers.org)). |
+| Crate | Version Target | Purpose | Zero-FFI Guarantee |
+|:---|:---|:---|:---|
+| **`diesel-cte-ext`** | `^0.3` | **Recursive Common Table Expressions for Diesel.** Manages recursive correction lineage trees, revision branches, and parent-child triad DAGs. | **100% Pure Rust (`PostgreSQL`, `SQLite`, `diesel_async`)** |
+| `docula-core` | Workspace | `SpatialLayoutMap`, `ValidationError`, and domain validation traits. | 100% Pure Rust |
+| `docula-exemplar` | Workspace | Exemplar metadata schemas and layout fingerprint integration. | 100% Pure Rust |
+| `serde` & `serde_json` | `^1.0` | Serialization of correction triads and RFC 6902 JSON patch diffs. | 100% Pure Rust |
+| `uuid` | `^1.10` | Unique identification of correction records (`Uuid::now_v7()`). | 100% Pure Rust |
+| `chrono` | `^0.4` | UTC timestamps for audit trails and time-to-live policies. | 100% Pure Rust |
+| `sha2` | `^0.10` | Cryptographic SHA-256 hashing of source documents. | 100% Pure Rust |
+| `testcontainers` | `^0.28` (dev) | **Mandatory persistent layer integration testing tool** ([rust.testcontainers.org](https://rust.testcontainers.org)). | Dev dependency |
 
 ---
 
@@ -60,13 +62,55 @@ Before presenting extracted data to downstream consumers, all outputs pass throu
 2. **Domain Integrity Validation (`DocuValidate`)**: Verifies arithmetic equations (e.g. $\sum \text{line\_items} == \text{subtotal}$, $\text{subtotal} + \text{tax} == \text{total}$ within $\pm \$0.05$ rounding tolerance) and cross-field constraints.
 3. **Logits Token Confidence**: If the lowest token probability or average sequence confidence drops below the threshold (default: $p < 0.85$), the document is routed to human triage.
 
-### 3.2 Stage 2: Correction Triad Capture
+### 3.2 Stage 2: Correction Triad Capture & Recursive Version DAG via `diesel-cte-ext`
 When a reviewer corrects an erroneous extraction, the correction is packaged as an immutable **Correction Triad**:
 - **Source Artifact**: The cryptographic SHA-256 hash of the original input PDF/image (or encrypted buffer if within TTL).
 - **Intermediate Input**: The raw OCR `SpatialLayoutMap` (with any `@censor` regions permanently scrubbed).
 - **Model Output (Bad)**: The original erroneous JSON output alongside specific gate error messages.
 - **Ground Truth (Corrected)**: The final, human-validated JSON payload confirmed by the reviewer.
-- **Metadata & Diff**: RFC 6902 JSON Patch diff, vendor ID, 64-bit layout fingerprint, user ID, and review latency.
+- **Metadata & Diff**: RFC 6902 JSON Patch diff, vendor ID, 64-bit layout fingerprint, user ID, review latency, and `parent_triad_id` (tracking iterative multi-stage human reviews).
+
+#### Recursive Lineage Resolution with `diesel-cte-ext`
+
+In enterprise compliance workflows, documents may undergo multiple rounds of human annotations (e.g. Tier-1 OCR correction $\rightarrow$ Tier-2 Tax Auditor revision $\rightarrow$ Tier-3 Supervisor sign-off). `diesel-cte-ext` recursively reconstructs the complete audit trail and diff history:
+
+```rust
+use diesel::prelude::*;
+use diesel_cte_ext::{RecursiveCTEExt, RecursiveParts, sql};
+use diesel::sql_types::{Text, Nullable, Integer};
+
+/// Recursively resolves the full audit revision history of a correction triad.
+pub fn get_correction_audit_trail<C>(
+    conn: &mut C,
+    leaf_triad_id: &str,
+) -> QueryResult<Vec<(String, Option<String>, Integer)>>
+where
+    C: RecursiveCTEExt + diesel::connection::Connection,
+{
+    // WITH RECURSIVE triad_lineage(id, parent_id, revision_depth) AS (...)
+    conn.with_recursive(
+        "triad_lineage",
+        &["id", "parent_id", "revision_depth"],
+        RecursiveParts::new(
+            // Seed Query: starting leaf correction triad
+            sql::<(Text, Nullable<Text>, Integer)>(
+                "SELECT id, parent_id, 0 AS revision_depth FROM correction_triads WHERE id = $1"
+            ),
+            // Recursive Step: trace back to ancestral correction triads
+            sql::<(Text, Nullable<Text>, Integer)>(
+                "SELECT t.id, t.parent_id, l.revision_depth + 1 \
+                 FROM correction_triads t \
+                 INNER JOIN triad_lineage l ON t.id = l.parent_id"
+            ),
+            // Body Query: retrieve complete historical trail ordered chronologically
+            sql::<(Text, Nullable<Text>, Integer)>(
+                "SELECT id, parent_id, revision_depth FROM triad_lineage ORDER BY revision_depth DESC"
+            ),
+        ),
+    )
+    .load(conn)
+}
+```
 
 ```rust
 use chrono::{DateTime, Utc};
@@ -88,6 +132,7 @@ pub struct TriadMetadata {
     pub user_id: Option<String>,
     pub review_latency_ms: u64,
     pub captured_at: DateTime<Utc>,
+    pub parent_triad_id: Option<Uuid>, // Recursive lineage anchor
 }
 
 /// Immutable record capturing a human correction.
@@ -109,7 +154,7 @@ Unchecked writing of corrections into the active few-shot prompt causes severe q
 
 ```
 /data/
-├── corrections/                 # TIER 1: Cold Storage (Append-only JSONL / Parquet / DB)
+├── corrections/                 # TIER 1: Cold Storage (Append-only JSONL / DB with diesel-cte-ext)
 │   ├── 2026-10-10_triads.jsonl  # Immutable regression test suite and fine-tuning corpus
 │   └── 2026-10-11_triads.jsonl
 └── examples/                    # TIER 2: Curated Active Pool (Top-Signal Exemplars)
@@ -133,23 +178,6 @@ A correction triad in `/data/corrections/` is never automatically injected into 
 2. **Full Validation Pass**: The corrected JSON deserializes cleanly and passes all `DocuValidate` rules with zero errors.
 3. **Deduplication Check**: The curated pool does not already contain an exemplar with the identical layout fingerprint.
 
-```rust
-pub trait TriadPromotionEvaluator {
-    /// Evaluates whether a triad qualifies for promotion to /data/examples/
-    fn evaluate_promotion(
-        &self,
-        triad: &CorrectionTriad,
-        existing_pool: &[TemplatePair],
-    ) -> Result<bool, DoculaError>;
-
-    /// Executes the promotion, saving the template pair to /data/examples/
-    fn promote(
-        &self,
-        triad: &CorrectionTriad,
-    ) -> Result<TemplatePair, DoculaError>;
-}
-```
-
 ---
 
 ## 4. Configuration in `Docula.toml`
@@ -162,25 +190,30 @@ curated_pool_directory = "./data/examples"
 
 [hitl.triage_gates]
 min_token_confidence = 0.85
-enforce_Docula_validate = true
+enforce_docula_validate = true
 enforce_serde_invariants = true
 
 [hitl.promotion_policy]
 min_recurrence_count = 3
 auto_promote = false           # If false, requires manual CLI command: docula hitl promote <id>
 max_pool_size_per_vendor = 2
+
+[hitl.storage]
+backend = "postgres"           # "postgres" | "sqlite" | "filesystem"
+database_url = "postgres://docula:secret@localhost:5432/docula"
 ```
 
 ---
 
 ## 5. Testing & Verification
 
-1. **Triad Immutability Test**:
-   - `test_triad_serialization_and_hash_integrity()`: Validates that serialization of a `CorrectionTriad` produces valid JSON and matches the SHA-256 fingerprint.
-2. **Triage Gating Test**:
-   - `test_invoice_math_failure_routes_to_triage()`: Injects an invoice where `line_items` sum does not match `total_amount`, asserting immediate routing to `TriageQueue`.
-3. **Promotion Policy Test**:
-   - `test_promotion_gate_blocks_single_occurrence()`: Verifies that a one-off correction is stored in cold storage but blocked from active few-shot prompt injection.
-4. **Persistent Layer Integration Test (Mandatory via [Testcontainers](https://rust.testcontainers.org))**:
-   - `test_append_only_cold_storage_persistence_with_testcontainers()`: Spins up an isolated throwaway container (e.g., MinIO or PostgreSQL via `testcontainers`) to verify cold archive ingestion, atomic appending, cryptographic checksum verification across restarts, and read-after-write consistency under realistic socket and filesystem semantics.
-   - All persistent layer integrations are strictly mandated to execute against real containerized instances powered by [Testcontainers for Rust](https://rust.testcontainers.org); unit mocks alone are prohibited for storage verification.
+1. **Recursive CTE Lineage Verification**:
+   - `test_triad_lineage_diesel_cte`: Uses `diesel-cte-ext` with an in-memory SQLite connection or Postgres testcontainer to verify recursive parent-child traversal across multi-revision correction triads.
+2. **Triad Immutability Test**:
+   - `test_triad_serialization_and_hash_integrity`: Validates that serialization of a `CorrectionTriad` produces valid JSON and matches the SHA-256 fingerprint.
+3. **Triage Gating Test**:
+   - `test_invoice_math_failure_routes_to_triage`: Injects an invoice where `line_items` sum does not match `total_amount`, asserting immediate routing to `TriageQueue`.
+4. **Promotion Policy Test**:
+   - `test_promotion_gate_blocks_single_occurrence`: Verifies that a one-off correction is stored in cold storage but blocked from active few-shot prompt injection.
+5. **Persistent Layer Integration Test (Mandatory via [Testcontainers](https://rust.testcontainers.org))**:
+   - `test_append_only_cold_storage_persistence_with_testcontainers`: Spins up an isolated throwaway container (e.g., PostgreSQL or MinIO via `testcontainers`) to verify cold archive ingestion, atomic appending, cryptographic checksum verification across restarts, and read-after-write consistency under realistic socket and filesystem semantics.

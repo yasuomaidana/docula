@@ -4,7 +4,7 @@
 
 The **Structured Extraction & Constrained Decoding** module is the mathematical core of Step 2. Its mission is to transform spatial text into a concrete, strongly typed Rust data structure `T` supplied by the user (such as `InvoiceData`, `BankStatement`, or any custom domain model).
 
-Standard LLM prompting ("Return JSON matching this format") is inherently non-deterministic and prone to syntax errors (unclosed brackets, trailing commas, incorrect field names, string instead of float). `Docula` solves this through **Logits-Level Grammar Enforcement (Constrained Decoding)** and **Automated Self-Repair Loops**.
+Standard LLM prompting ("Return JSON matching this format") is inherently non-deterministic and prone to syntax errors (unclosed brackets, trailing commas, incorrect field names, string instead of float). `Docula` solves this through **Logits-Level Grammar Enforcement (Constrained Decoding)** executed natively within the **KitaSan sovereign LLM engines (`oxillama` & `oxibonsai`)** and **Automated Self-Repair Loops**.
 
 ```mermaid
 sequenceDiagram
@@ -12,7 +12,7 @@ sequenceDiagram
     participant UserApp as User Application (Rust Struct T)
     participant Engine as Docula Pipeline
     participant SchemaEngine as schemars
-    participant LLM as Local LLM Engine
+    participant LLM as KitaSan LLM (oxillama / oxibonsai)
     participant LogitsProc as typedlm DFA Logits Processor
 
     UserApp->>Engine: extract::<T>(DocumentSource)
@@ -37,11 +37,13 @@ sequenceDiagram
 
 ## 2. Technical Stack & Pure-Rust Dependencies
 
-| Crate                   | Version Target | Purpose                                                                      |
-|:------------------------|:---------------|:-----------------------------------------------------------------------------|
-| `schemars`              | `^1.0`         | Compile-time and runtime JSON Schema reflection from arbitrary Rust structs. |
-| `serde` & `serde_json`  | `^1.0`         | High-performance, zero-copy serialization/deserialization into Rust types.   |
-| `typedlm` / `candle-nn` | `^0.1`         | JSON-Schema-to-DFA compilation and step-by-step logits masking.              |
+| Crate | Version Target | Purpose | Zero-FFI Guarantee |
+|:---|:---|:---|:---|
+| **`schemars`** | `^1.0` | Compile-time and runtime JSON Schema reflection from arbitrary Rust structs. | **100% Pure Rust** |
+| **`serde` & `serde_json`** | `^1.0` | High-performance, zero-copy serialization/deserialization into Rust types. | **100% Pure Rust** |
+| **`oxillama`** | `^0.1` | **KitaSan general GGUF LLM engine.** Exposes native logits interceptor hooks in `oxillama-runtime`. | **100% Pure Rust (`fail0 + Clippy0`)** |
+| **`oxibonsai`** | `^0.1` | **KitaSan sub-2-bit LLM engine.** Native support for `generate_with_logits_processor`. | **100% Pure Rust (`fail0 + Clippy0`)** |
+| **`typedlm`** | `^0.1` | JSON-Schema-to-DFA compilation and step-by-step logits masking. | **100% Pure Rust** |
 
 ---
 
@@ -78,21 +80,21 @@ where
 }
 ```
 
-### 3.2 Constrained Decoding via DFA Logits Masking
+### 3.2 Constrained Decoding via DFA Logits Masking in KitaSan Engines
 
-During autoregressive token generation in a transformer LLM, the model outputs raw unnormalized log-probabilities (logits) $L \in \mathbb{R}^{|V|}$ across the vocabulary $V$. In standard decoding, softmax generates the probability distribution:
+During autoregressive token generation in `oxillama` or `oxibonsai`, the model outputs raw unnormalized log-probabilities (logits) $L \in \mathbb{R}^{|V|}$ across the vocabulary $V$. In standard decoding, softmax generates the probability distribution:
 
 $$P(y = i \mid \mathbf{Z}) = \frac{e^{L_i}}{\sum_{j=1}^{|V|} e^{L_j}}$$
 
 To enforce the JSON Schema:
 1. `schemars::schema_for!(T)` creates a JSON Schema AST.
 2. `typedlm` converts this AST into a **Deterministic Finite Automaton (DFA)**.
-3. At generation step $t$, the logits processor inspects the current DFA state.
+3. At generation step $t$, the logits processor intercepts the vocabulary logits before softmax within the `oxillama-runtime` loop or `oxibonsai` engine.
 4. For every token $i \in V$ that would cause an invalid transition (e.g. emitting a letter when a number is required, or omitting quotes):
 
 $$L_i \leftarrow -\infty$$
 
-5. This guarantees $e^{-\infty} = 0$, giving invalid tokens zero probability. The generated text stream is guaranteed to be syntactically and structurally valid JSON.
+5. This guarantees $e^{-\infty} = 0$, giving invalid tokens zero probability. The generated text stream is mathematically guaranteed to be syntactically and structurally valid JSON matching struct `T`.
 
 ### 3.3 Optional Integrity Validation & Feedback: `DocuValidate` Trait
 
@@ -130,7 +132,7 @@ where
     let mut instance: T = extract_structure(source, backend).await?;
     
     // Step 2: Perform optional integrity validation
-    for attempt in 0..max_retries {
+    for _attempt in 0..max_retries {
         match instance.validate_integrity() {
             Ok(()) => return Ok(instance),
             Err(errors) => {

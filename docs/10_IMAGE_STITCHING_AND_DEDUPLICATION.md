@@ -8,8 +8,8 @@ Handling multi-image sets presents two major challenges:
 1. **Geometric & Visual Distortion:** Photos have slight perspective shifts, uneven zoom, shadows, and angular skew.
 2. **Duplicate Line Items & Hallucinated Repeats:** Overlapping regions capture identical line items twice. If fed blindly into Step 2, the LLM will duplicate financial entries (e.g., doubling the invoice total or repeating line items).
 
-`Docula` solves this using a **Dual-Layer Merge Strategy**:
-1. **Layer A: Geometric / Visual Keypoint Stitching** (Pixel Level)
+`Docula` solves this using a **Dual-Layer Merge Strategy** powered by **`oximedia`** (KitaSan pure-Rust computer vision framework):
+1. **Layer A: Geometric / Visual Keypoint Stitching** (Pixel Level via `oximedia`)
 2. **Layer B: Fuzzy Spatial Text Overlap & Line-Item Deduplication** (OCR & Spatial Level)
 
 ```mermaid
@@ -20,10 +20,10 @@ flowchart TD
         Img3["Image 3 (Bottom Section)"]
     end
 
-    subgraph StrategyA["Strategy A: Visual Stitching (Pixel-Level)"]
-        FAST["FAST / ORB Keypoint Detection (imageproc)"]
-        RANSAC["Affine Homography & Vertical Overlap Estimation"]
-        SeamBlend["Seam Blending & Vertical Mosaic Stitch"]
+    subgraph StrategyA["Strategy A: Visual Stitching (Pixel-Level via oximedia)"]
+        FAST["FAST / ORB Keypoint Detection (oximedia)"]
+        RANSAC["Affine Homography & Vertical Overlap Estimation (oximedia)"]
+        SeamBlend["Seam Blending & Vertical Mosaic Stitch (oximedia)"]
     end
 
     subgraph OCRStage["OCR Extraction"]
@@ -38,7 +38,7 @@ flowchart TD
 
     subgraph Step2Ready["Step 2: Clean Structured Extraction"]
         DeduplicatedDoc["Deduplicated Spatial Layout Document"]
-        LLMExtract["Step 2: Typed Struct Extraction (No Duplicates)"]
+        LLMExtract["Step 2: Typed Struct Extraction (oxillama / oxibonsai)"]
     end
 
     Img1 & Img2 & Img3 --> FAST
@@ -53,31 +53,31 @@ flowchart TD
 
 ## 2. Technical Stack & Pure-Rust Dependencies
 
-| Crate | Version Target | Purpose |
-| :--- | :--- | :--- |
-| `imageproc` | `^0.25` | FAST corner detection, feature descriptors, and image warping. |
-| `oximedia` | `^0.1` | Pure-Rust RANSAC homography estimation and image affine blending. |
-| `strsim` | `^0.11` | Pure-Rust fuzzy string matching (Levenshtein, Jaro-Winkler, Damerau-Levenshtein) for text overlap scoring. |
-| `rayon` | `^1.10` | Parallel per-image OCR and pairwise string alignment. |
+| Crate | Version Target | Purpose | Zero-FFI Guarantee |
+| :--- | :--- | :--- | :--- |
+| **`oximedia`** | `^0.1` | **KitaSan pure-Rust OpenCV replacement.** FAST/ORB corner detection, RANSAC homography estimation, seam carving, and multi-band image alpha blending. | **100% Pure Rust (`fail0 + Clippy0`)** |
+| **`imageproc`** | `^0.25` | Auxiliary pixel math and geometric coordinate manipulation. | **100% Pure Rust** |
+| **`strsim`** | `^0.11` | Pure-Rust fuzzy string matching (Levenshtein, Jaro-Winkler, Damerau-Levenshtein) for text overlap scoring. | **100% Pure Rust** |
+| **`rayon`** | `^1.10` | Parallel per-image OCR and pairwise string alignment across multi-image sets. | **100% Pure Rust** |
 
 ---
 
 ## 3. Dual-Layer Merging & Deduplication Mechanisms
 
-### 3.1 Layer A: Visual Keypoint Stitching (Pixel Level)
+### 3.1 Layer A: Visual Keypoint Stitching via `oximedia` (Pixel Level)
 
-When consecutive camera captures have sufficient visual overlap (>15%), `Docula` stitches them into a single vertical canvas before running OCR:
+When consecutive camera captures have sufficient visual overlap (>15%), `Docula` uses `oximedia` to stitch them into a single continuous vertical canvas before running OCR:
 
-1. **Feature Extraction:** FAST corner detector detects distinctive keypoints in the bottom $30\%$ of Image $N$ and the top $30\%$ of Image $N+1$.
+1. **Feature Extraction:** `oximedia`'s pure-Rust FAST/ORB corner detector extracts distinctive keypoints in the bottom $30\%$ of Image $N$ and the top $30\%$ of Image $N+1$.
 2. **Homography Estimation:** A pure-Rust RANSAC algorithm fits a vertical affine transformation matrix:
    $$\begin{bmatrix} x' \\ y' \\ 1 \end{bmatrix} = \begin{bmatrix} 1 & 0 & t_x \\ 0 & 1 & t_y \\ 0 & 0 & 1 \end{bmatrix} \begin{bmatrix} x \\ y \\ 1 \end{bmatrix}$$
-3. **Linear Alpha Blending:** At the estimated seam boundary $y_{\text{seam}}$, an alpha ramp smoothly blends the pixel transitions, eliminating hard exposure edges.
+3. **Linear Alpha Blending:** At the estimated seam boundary $y_{\text{seam}}$, an alpha ramp smoothly blends the pixel transitions, eliminating hard exposure edges and lighting differences between camera shots.
 
 ---
 
 ### 3.2 Layer B: Spatial Text Overlap & Deduplication (OCR Level)
 
-If photos suffer from extreme perspective changes or varied focal distances, visual stitching may introduce blur. In this case, `Docula` executes **Spatial Text Overlap Reconciliation**:
+If photos suffer from extreme perspective changes, focal distortion, or reflections, visual stitching may introduce blur. In this case, `Docula` executes **Spatial Text Overlap Reconciliation**:
 
 1. **Independent Parallel OCR:** Each image is processed through PP-OCRv6 independently, generating separate spatial text blocks.
 2. **$N$-Gram Sliding Window Search:** The engine extracts a rolling window of text lines from the bottom of Document $N$ and compares them against lines from the top of Document $N+1$.
@@ -155,21 +155,6 @@ impl TextOverlapMerger {
 
 ---
 
-## 4. LLM Semantic Deduplication Prompt Rule
+## 4. LLM Semantic Deduplication Directive
 
-In addition to algorithmic pruning, the system prompt injected into Step 2 includes a strict deduplication directive:
-
-```text
-IMPORTANT DOCUMENT CONTINUITY DIRECTIVE:
-The provided spatial document may be composed of multiple overlapping camera photos.
-- If a line item appears multiple times with identical or near-identical descriptions, quantities, and prices across page/photo boundaries, count it ONCE.
-- Verify that the sum of all individual extracted line item totals matches the document Grand Total.
-```
-
----
-
-## 5. Summary of Deduplication Guarantees
-
-1. **No Doubled Line Items:** Prevents accidental doubling of amounts when receipts are photographed in parts.
-2. **Resilience to Blur & Distortion:** If visual stitching fails, fuzzy OCR string alignment handles the overlap gracefully.
-3. **Pure Rust Execution:** 100% zero-FFI implementation using safe string metrics and geometry.
+In addition to algorithmic pruning, the system prompt injected into Step 2 enforces a strict deduplication directive to prevent accidental item duplication when processing multi-image stitched receipts.

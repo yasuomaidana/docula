@@ -7,20 +7,21 @@ When a document page is classified as scanned or provided as a raw image, optica
 - Low contrast, uneven lighting, shadows, and watermarks.
 - Non-optimal resolution (DPI too low for fine tabular numerals or too high for neural inference throughput).
 
-To adhere strictly to the zero-FFI, pure-Rust mandate, this module replaces C++ dependencies (`pdfium`, `poppler`, `OpenCV`, `Leptonica`) with pure-Rust crates (`pdf_oxide` [rendering], `imageproc`, `oximedia`, `fast_image_resize`).
+To adhere strictly to the zero-FFI, pure-Rust mandate, this module completely replaces legacy C++ dependencies (`pdfium`, `poppler`, `OpenCV`, `Leptonica`) with the **KitaSan sovereign stack (`oximedia`)** and pure-Rust engines (`pdf_oxide`, `tiny-skia`, `fast_image_resize`).
 
 ```mermaid
 flowchart LR
     subgraph Rasterization["Pure-Rust PDF Rasterization"]
         PDFPage[Scanned PDF Page Stream] --> PdfOxide[pdf_oxide: tiny-skia + fontdb + rustybuzz]
-        PdfOxide --> Pixmap[Raw RGBA Pixmap]
+        PdfOxide --> Pixmap[Raw RGBA Pixmap Buffer]
     end
 
-    subgraph Preprocessing["Computer Vision Pipeline"]
-        RawImg[Raw Image / Pixmap] --> Deskew[Deskew: Hough Line Transform]
-        Deskew --> Binarize[Adaptive Binarization / Thresholding]
-        Binarize --> Resample[SIMD Rescaling & Normalization]
-        Resample --> ModelTensor[Normalized OCR-Ready Tensor Buffer]
+    subgraph Preprocessing["oximedia Pure-Rust Computer Vision Pipeline"]
+        RawImg[Raw Image / Pixmap] --> Deskew["Deskew: Hough Line Transform (oximedia / imageproc)"]
+        Deskew --> Binarize["Adaptive Binarization: Otsu & Bradley-Roth (oximedia)"]
+        Binarize --> Morph["Morphological Cleaning & Shadow Suppression (oximedia)"]
+        Morph --> Resample["SIMD Rescaling & Normalization (fast_image_resize)"]
+        Resample --> ModelTensor["Normalized OCR-Ready Tensor Buffer"]
     end
 
     Pixmap --> RawImg
@@ -30,13 +31,13 @@ flowchart LR
 
 ## 2. Technical Stack & Pure-Rust Dependencies
 
-| Crate               | Version Target                 | Purpose                                                                                           |
-|:--------------------|:-------------------------------|:--------------------------------------------------------------------------------------------------|
-| `pdf_oxide`         | `^0.2` (features: `rendering`) | Sovereign pure-Rust PDF parser and `tiny-skia` based high-fidelity rasterizer.                    |
-| `imageproc`         | `^0.25`                        | Geometric transformations, Hough line detection, morphology, and filtering.                       |
-| `oximedia`          | `^0.1`                         | Kitasan stack pure-Rust OpenCV replacement for color space conversions and adaptive thresholding. |
-| `fast_image_resize` | `^5.0`                         | AVX2/AVX-512/NEON SIMD-accelerated image scaling and resampling with high edge preservation.      |
-| `image`             | `^0.25`                        | Generic in-memory image buffer representation and color channel conversions.                      |
+| Crate | Version Target | Purpose | Zero-FFI Guarantee |
+|:---|:---|:---|:---|
+| **`oximedia`** | `^0.1` | **KitaSan stack sovereign OpenCV & FFmpeg replacement (108 crates).** Powers color conversions, morphological filters, adaptive thresholding, Hough transforms, and pure-Rust computer vision algorithms. | **100% Pure Rust (`fail0 + Clippy0`)** |
+| **`pdf_oxide`** | `^0.2` (features: `rendering`) | Sovereign pure-Rust PDF parser and `tiny-skia` based high-fidelity rasterizer. | **100% Pure Rust** |
+| **`imageproc`** | `^0.25` | Geometric transformations and auxiliary line detection algorithms. | **100% Pure Rust** |
+| **`fast_image_resize`** | `^5.0` | AVX2/AVX-512/NEON SIMD-accelerated image scaling and resampling with high edge preservation. | **100% Pure Rust** |
+| **`image`** | `^0.25` | Generic in-memory image buffer representation and color channel conversions. | **100% Pure Rust** |
 
 ---
 
@@ -67,7 +68,7 @@ pub fn rasterize_pdf_page(pdf_bytes: &[u8], page_num: u32, target_dpi: f32) -> R
 }
 ```
 
-### 3.2 Deskewing via Hough Line Detection (`imageproc`)
+### 3.2 Deskewing via Hough Line Detection (`oximedia` & `imageproc`)
 
 Invoices with skewed text lines degrade character recognition and column bounding. The module estimates the dominant orientation angle using Hough line transformation on edge-detected text baselines and applies affine rotational correction.
 
@@ -103,9 +104,12 @@ pub fn deskew_image(gray: &GrayImage) -> GrayImage {
 }
 ```
 
-### 3.3 Adaptive Binarization (`oximedia` / `imageproc`)
+### 3.3 Pure-Rust Adaptive Binarization & Shadow Suppression (`oximedia`)
 
-To handle uneven lighting (e.g. mobile photo receipts with shadows), local Otsu or Bradley-Roth adaptive thresholding computes a local mean pixel intensity across a sliding window, converting the image to high-contrast binary black/white.
+To handle uneven lighting (e.g. mobile photo receipts with shadows), `oximedia`'s pure-Rust computer vision algorithms execute local Otsu or Bradley-Roth adaptive thresholding across sliding windows:
+1. Calculates local mean pixel intensity and variance without any C++ OpenCV FFI.
+2. Applies morphological opening/closing to eliminate salt-and-pepper noise while preserving delicate invoice borders and decimals.
+3. Produces high-contrast binary pixel matrices that maximize OCR CRNN character recognition accuracy.
 
 ### 3.4 SIMD Resampling (`fast_image_resize`)
 

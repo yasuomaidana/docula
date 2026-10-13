@@ -10,7 +10,7 @@ In real-world document processing, downstream consumers and enterprise workflows
 - **Human-in-the-Loop (HITL) Verification Snippets**: Generating focused image snippets around low-confidence fields for rapid human specialist verification in triage queues.
 
 ### Is It Possible to Support It?
-**Yes, completely and natively.** Because `docula` incorporates a pure-Rust rasterization pipeline (`tiny-skia` in `docula-preprocess`) and normalized geometric primitives (`BoundingBox` in `docula-core`), taking full-page screenshots and slicing arbitrary spatial regions is a zero-FFI operation that integrates directly with memory-backed pixel buffers.
+**Yes, completely and natively.** Because `docula` incorporates a pure-Rust rasterization pipeline (`tiny-skia` in `docula-preprocess`), **`oximedia`** for computer vision operations, and normalized geometric primitives (`BoundingBox` in `docula-core`), taking full-page screenshots and slicing arbitrary spatial regions is a zero-FFI operation that integrates directly with memory-backed pixel buffers.
 
 ```mermaid
 flowchart TD
@@ -19,11 +19,11 @@ flowchart TD
         Rasterizer --> PageBuffer["PageRasterBuffer: In-Memory RGBA Pixmap (W x H)"]
     end
 
-    subgraph Geometry["2. Spatial Region of Interest (ROI) Mapping"]
+    subgraph Geometry["2. Spatial Region of Interest (ROI) Mapping (oximedia)"]
         TargetBBox["Normalized BoundingBox [0.0, 1.0]"] --> PixelCalc["Pixel Coordinate Mapping & Clamping:
         x0 = round(left * W), y0 = round(top * H)
         x1 = round(right * W), y1 = round(bottom * H)"]
-        PageBuffer --> Slicer["Sub-Image Memory Slicer (image::view)"]
+        PageBuffer --> Slicer["Sub-Image Memory Slicer (oximedia / image::view)"]
         PixelCalc --> Slicer
     end
 
@@ -41,21 +41,20 @@ flowchart TD
 
 ## 2. Technical Stack & Pure-Rust Dependencies
 
-| Crate | Version Target | Purpose |
-|:---|:---|:---|
-| `docula-core` | Workspace | Core geometry (`BoundingBox`), `ImageCrop` value object, and `RegionCropper` trait. |
-| `docula-preprocess`| Workspace | `PageRasterBuffer`, `tiny-skia` rasterization, and zero-copy sub-image slicing. |
-| `image` | `^0.25` | RGBA pixmap representation, sub-image views (`image::GenericImageView::view`), and format encoders. |
-| `base64` | `^0.22` | Optional base64 serialization for JSON schema embedding. |
+| Crate | Version Target | Purpose | Zero-FFI Guarantee |
+|:---|:---|:---|:---|
+| **`oximedia`** | `^0.1` | **KitaSan pure-Rust computer vision engine.** Sub-image slicing, color profile normalization, format encoding, and pixel manipulation. | **100% Pure Rust (`fail0 + Clippy0`)** |
+| `docula-core` | Workspace | Core geometry (`BoundingBox`), `ImageCrop` value object, and `RegionCropper` trait. | 100% Pure Rust |
+| `docula-preprocess`| Workspace | `PageRasterBuffer`, `tiny-skia` rasterization, and zero-copy sub-image slicing. | 100% Pure Rust |
+| `image` | `^0.25` | RGBA pixmap representation, sub-image views (`image::GenericImageView::view`), and format encoders. | 100% Pure Rust |
+| `base64` | `^0.22` | Base64 serialization for JSON schema embedding. | 100% Pure Rust |
 
 ---
 
-## 3. Day 0 Architectural Design Considerations
+## 3. Foundational Architectural Abstractions
 
-To prevent hard refactoring when this feature is fully activated in later milestones, the core abstractions must be established in **Day 0**:
-
-### 3.1 Foundational Spatial Geometry (`docula-core`)
-`BoundingBox` is equipped from Day 0 with pixel projection, aspect ratio calculation, padding expansion, and clipping methods:
+### 3.1 Spatial Geometry (`docula-core`)
+`BoundingBox` is equipped with pixel projection, aspect ratio calculation, padding expansion, and clipping methods:
 
 ```rust
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -136,7 +135,7 @@ pub struct ImageCrop {
 ```
 
 ### 3.3 The `RegionCropper` Abstraction Trait
-Defined in `docula-core` and implemented in `docula-preprocess`:
+Defined in `docula-core` and implemented in `docula-preprocess` with `oximedia`:
 
 ```rust
 pub trait RegionCropper: Send + Sync {
