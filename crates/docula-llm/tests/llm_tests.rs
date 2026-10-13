@@ -101,3 +101,56 @@ fn test_oxillama_and_oxibonsai_initialization() {
     let _ctrl = bonsai.create_lookahead_controller();
     let _policy = bonsai.kv_policy();
 }
+
+#[tokio::test]
+async fn test_candle_backend_generation_and_device_check() {
+    let canned = r#"{"id": 10, "name": "Candle Pure Rust Invoice", "total": 99.5}"#;
+    let backend = CandleBackend::in_memory().with_canned_response(canned);
+
+    assert_eq!(backend.check_device().unwrap(), "candle-cpu-pure-rust");
+
+    let schema = schemars::schema_for!(SimpleRecord);
+    let result = backend
+        .generate_constrained("System", "Document text", &schema)
+        .await
+        .expect("Candle generation succeeds");
+
+    assert_eq!(result, canned);
+    let parsed: SimpleRecord = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed.id, 10);
+    assert_eq!(parsed.name, "Candle Pure Rust Invoice");
+}
+
+#[tokio::test]
+async fn test_oxillama_backend_general_generation() {
+    let canned = r#"{"id": 20, "name": "OxiLLaMa GGUF Invoice", "total": 1250.0}"#;
+    let backend = OxiLlamaBackend::in_memory().with_canned_response(canned);
+
+    let schema = schemars::schema_for!(SimpleRecord);
+    let result = backend
+        .generate_constrained("System", "Document text", &schema)
+        .await
+        .expect("OxiLLaMa generation succeeds");
+
+    assert_eq!(result, canned);
+    let parsed: SimpleRecord = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed.id, 20);
+    assert_eq!(parsed.name, "OxiLLaMa GGUF Invoice");
+}
+
+#[tokio::test]
+async fn test_oxibonsai_backend_generation() {
+    let canned = r#"{"id": 30, "name": "OxiBonsai 1-bit Invoice", "total": 15.0}"#;
+    let backend = OxiBonsaiBackend::in_memory().with_canned_response(canned);
+
+    let schema = schemars::schema_for!(SimpleRecord);
+    let result = backend
+        .generate_constrained("System", "Document text", &schema)
+        .await
+        .expect("OxiBonsai generation succeeds");
+
+    assert_eq!(result, canned);
+    let parsed: SimpleRecord = serde_json::from_str(&result).unwrap();
+    assert_eq!(parsed.id, 30);
+}
+

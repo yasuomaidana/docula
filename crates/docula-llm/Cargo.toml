@@ -7,9 +7,9 @@ license = "MIT OR Apache-2.0"
 description = "Sovereign local-embedded and remote LLM backends with DFA logits masking for docula"
 
 [features]
-default = ["local-embedded"]
+default = ["local-embedded", "local-candle"]
 local-embedded = []
-local-candle = []
+local-candle = ["dep:candle-core"]
 local-onnx = []
 remote-ollama = []
 remote-openai = []
@@ -25,6 +25,7 @@ thiserror = "2.0"
 oxillama = "0.1.4"
 oxibonsai = "0.2.3"
 oxibonsai-runtime = "0.2.3"
+candle-core = { version = "0.11", default-features = false, optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.43", features = ["macros", "rt-multi-thread"] }

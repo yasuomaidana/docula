@@ -9,11 +9,13 @@ use std::path::{Path, PathBuf};
 ///
 /// Sovereign, zero-C/C++ alternative to `llama.cpp` supporting multi-format quantized
 /// inference (Q4_K, Q8_0, etc.) on CPU with SIMD and optional GPU acceleration.
+/// Serves as the primary sovereign general LLM engine for standard open weights (LLaMA-3, Mistral, Qwen, Phi).
 #[derive(Clone, Debug)]
 pub struct OxiLlamaBackend {
     model_path: PathBuf,
     context_tokens: usize,
     temperature: f32,
+    canned_response: Option<String>,
 }
 
 impl OxiLlamaBackend {
@@ -23,7 +25,25 @@ impl OxiLlamaBackend {
             model_path: model_path.into(),
             context_tokens: 4096,
             temperature: 0.0,
+            canned_response: None,
         }
+    }
+
+    /// Creates an in-memory testable `OxiLlamaBackend` without requiring weights on disk.
+    pub fn in_memory() -> Self {
+        Self {
+            model_path: PathBuf::from(":memory:"),
+            context_tokens: 4096,
+            temperature: 0.0,
+            canned_response: None,
+        }
+    }
+
+    /// Configures a deterministic canned response for testing schema conformance.
+    #[must_use]
+    pub fn with_canned_response(mut self, response: impl Into<String>) -> Self {
+        self.canned_response = Some(response.into());
+        self
     }
 
     /// Configures the maximum sequence context length in tokens.
@@ -70,9 +90,18 @@ impl LlmBackend for OxiLlamaBackend {
         schema: &schemars::Schema,
     ) -> Result<String, LlmError> {
         let dfa = SchemaDfa::compile(schema)?;
-        let _masker = DfaLogitsMasker::new(dfa);
+        let masker = DfaLogitsMasker::new(dfa);
 
-        if !self.model_path.exists() {
+        if let Some(ref canned) = self.canned_response {
+            if !masker.dfa().is_accepted(canned) {
+                return Err(LlmError::InferenceFailure(
+                    "OxiLLaMa response does not conform to the required JSON schema".to_string(),
+                ));
+            }
+            return Ok(canned.clone());
+        }
+
+        if self.model_path.to_string_lossy() != ":memory:" && !self.model_path.exists() {
             return Err(LlmError::ModelNotFound(format!(
                 "OxiLLaMa GGUF model file not found at: {}",
                 self.model_path.display()

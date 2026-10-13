@@ -11,11 +11,16 @@ use std::sync::{Arc, Mutex};
 ///
 /// Powered by KitaSan `oxibonsai`, enabling sovereign sub-2-bit LLM execution
 /// (1-bit `Q1_0_g128` and ternary `TQ2_0_g128`) on edge CPU/Metal in <2 GB RAM.
+///
+/// NOTE: `oxibonsai` is designed specifically for PrismML Bonsai 1-bit quantized models
+/// and is not suitable for general open weights. For standard open weights (LLaMA-3, Mistral,
+/// Qwen, Phi), use [`crate::OxiLlamaBackend`] or [`crate::CandleBackend`].
 #[derive(Clone, Debug)]
 pub struct OxiBonsaiBackend {
     model_path: PathBuf,
     kv_policy: Arc<Mutex<KvCachePolicy>>,
     lookahead_config: AdaptiveLookaheadConfig,
+    canned_response: Option<String>,
 }
 
 impl OxiBonsaiBackend {
@@ -25,7 +30,25 @@ impl OxiBonsaiBackend {
             model_path: model_path.into(),
             kv_policy: Arc::new(Mutex::new(KvCachePolicy::default())),
             lookahead_config: AdaptiveLookaheadConfig::default(),
+            canned_response: None,
         }
+    }
+
+    /// Creates an in-memory testable `OxiBonsaiBackend` without requiring weights on disk.
+    pub fn in_memory() -> Self {
+        Self {
+            model_path: PathBuf::from(":memory:"),
+            kv_policy: Arc::new(Mutex::new(KvCachePolicy::default())),
+            lookahead_config: AdaptiveLookaheadConfig::default(),
+            canned_response: None,
+        }
+    }
+
+    /// Configures a deterministic canned response for testing schema conformance.
+    #[must_use]
+    pub fn with_canned_response(mut self, response: impl Into<String>) -> Self {
+        self.canned_response = Some(response.into());
+        self
     }
 
     /// Model weights path.
@@ -66,10 +89,18 @@ impl LlmBackend for OxiBonsaiBackend {
         schema: &schemars::Schema,
     ) -> Result<String, LlmError> {
         let dfa = SchemaDfa::compile(schema)?;
-        let _masker = DfaLogitsMasker::new(dfa);
+        let masker = DfaLogitsMasker::new(dfa);
 
-        // Under pure zero-FFI runtime without loaded weights file:
-        if !self.model_path.exists() {
+        if let Some(ref canned) = self.canned_response {
+            if !masker.dfa().is_accepted(canned) {
+                return Err(LlmError::InferenceFailure(
+                    "OxiBonsai response does not conform to the required JSON schema".to_string(),
+                ));
+            }
+            return Ok(canned.clone());
+        }
+
+        if self.model_path.to_string_lossy() != ":memory:" && !self.model_path.exists() {
             return Err(LlmError::ModelNotFound(format!(
                 "OxiBonsai weights file not found at: {}",
                 self.model_path.display()
