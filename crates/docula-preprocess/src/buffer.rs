@@ -4,6 +4,7 @@ use docula_core::{BoundingBox, CropError, CropFormat, ImageCrop};
 use image::{DynamicImage, ImageEncoder, Rgba, RgbaImage};
 
 use crate::error::PreprocessError;
+use crate::visual_region::VisualRegion;
 
 /// In-memory rasterized representation of a single document page.
 ///
@@ -95,6 +96,12 @@ impl PageRasterBuffer {
         let cropped_view =
             image::imageops::crop_imm(&self.image, rect.x, rect.y, rect.width, rect.height);
         Ok(cropped_view.to_image())
+    }
+
+    /// Extracts a visual region corresponding to a normalized [`BoundingBox`].
+    pub fn extract_region(&self, bbox: &BoundingBox) -> Result<VisualRegion, PreprocessError> {
+        let sub_img = self.crop_region(bbox)?;
+        Ok(VisualRegion::new(sub_img, *bbox))
     }
 
     /// Crops a region and encodes it into an [`ImageCrop`] value object with Base64 payload.

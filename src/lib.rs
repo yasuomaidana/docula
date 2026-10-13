@@ -13,6 +13,7 @@ pub use docula_ingest as ingest;
 pub use docula_llm as llm;
 pub use docula_ocr as ocr;
 pub use docula_preprocess as preprocess;
+pub use docula_preprocess::{VectorizedRegion, VisualRegion};
 pub use docula_rag as rag;
 pub use docula_schema as schema;
 pub use docula_schema::{

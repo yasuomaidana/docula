@@ -7,6 +7,7 @@
 //! - Pure-Rust PDF rendering strategy powered by `pdf_oxide` and `tiny-skia` ([`Rasterizer`], [`TinySkiaRasterizer`]).
 //! - Pure-Rust synthetic ofimatic spreadsheet/presentation rasterizer ([`OfficeRasterizer`]).
 //! - In-memory RGBA page raster buffer with sub-image ROI extraction ([`PageRasterBuffer`]).
+//! - Visual region extraction, binary masking, foreground isolation, and vectorization ([`VisualRegion`], [`VectorizedRegion`]).
 //! - Day 0 bridge to core region cropping abstractions ([`PdfRegionCropper`], [`DocumentVisualExtractor`]).
 //! - Composable image filter chain pipeline ([`ImageFilter`], [`PreprocessingFilterChain`]).
 //! - Pure-Rust computer vision enhancement via KitaSan `oximedia` ([`OxiMediaFilter`], [`OxiMediaDenoiseFilter`], [`OxiMediaStitcher`]).
@@ -21,6 +22,7 @@ pub mod error;
 pub mod filter;
 pub mod office_raster;
 pub mod raster;
+pub mod visual_region;
 
 pub use buffer::PageRasterBuffer;
 pub use error::PreprocessError;
@@ -31,3 +33,4 @@ pub use filter::{
 };
 pub use office_raster::OfficeRasterizer;
 pub use raster::{DocumentVisualExtractor, PdfRegionCropper, Rasterizer, TinySkiaRasterizer};
+pub use visual_region::{VectorizedRegion, VisualRegion};
