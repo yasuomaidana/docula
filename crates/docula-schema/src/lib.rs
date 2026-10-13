@@ -14,4 +14,4 @@ pub use directives::{DirectiveRegistry, FieldDirective};
 pub use error::SchemaError;
 pub use masker::DfaLogitsMasker;
 pub use schemars::JsonSchema;
-pub use validate::{DocuValidate, ValidationError};
+pub use validate::{DocuValidate, ValidationError, ValidationMode, ValidationOutcome, Validator};

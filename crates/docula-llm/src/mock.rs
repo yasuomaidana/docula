@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 #[derive(Clone, Debug, Default)]
 pub struct MockLlmBackend {
     canned_response: Option<String>,
+    bypass_grammar: bool,
     tokens_generated_count: Arc<AtomicUsize>,
     logits_mask_evaluations: Arc<AtomicUsize>,
 }
@@ -20,11 +21,23 @@ impl MockLlmBackend {
         Self::default()
     }
 
-    /// Constructs a mock backend with a fixed canned JSON response.
+    /// Constructs a mock backend with a fixed canned JSON response validated by the schema DFA.
     #[must_use]
     pub fn with_canned_response(response: impl Into<String>) -> Self {
         Self {
             canned_response: Some(response.into()),
+            bypass_grammar: false,
+            tokens_generated_count: Arc::new(AtomicUsize::new(0)),
+            logits_mask_evaluations: Arc::new(AtomicUsize::new(0)),
+        }
+    }
+
+    /// Constructs a mock backend with a raw canned response that bypasses DFA grammar acceptance checks.
+    #[must_use]
+    pub fn with_raw_response(response: impl Into<String>) -> Self {
+        Self {
+            canned_response: Some(response.into()),
+            bypass_grammar: true,
             tokens_generated_count: Arc::new(AtomicUsize::new(0)),
             logits_mask_evaluations: Arc::new(AtomicUsize::new(0)),
         }
@@ -59,8 +72,8 @@ impl LlmBackend for MockLlmBackend {
         let masker = DfaLogitsMasker::new(dfa);
 
         if let Some(ref response) = self.canned_response {
-            // Verify that canned response is valid according to grammar
-            if !masker.dfa().is_accepted(response) {
+            // Verify that canned response is valid according to grammar if not bypassed
+            if !self.bypass_grammar && !masker.dfa().is_accepted(response) {
                 return Err(LlmError::InferenceFailure(
                     "Canned response does not conform to the required JSON schema".to_string(),
                 ));
