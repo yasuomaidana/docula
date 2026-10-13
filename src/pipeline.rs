@@ -131,7 +131,7 @@ pub struct ExtractionResult<T> {
     pub routed_to_triage: bool,
     /// Explicit triage rejection reasons, if routed to review.
     pub triage_reasons: Vec<String>,
-    /// Whether RAG grounding was successfully applied during extraction.
+    /// Whether RAG grounding was successfully applied during extraction.\
     pub rag_applied: bool,
     /// Chunks retrieved by the RAG subsystem, if RAG is enabled.
     pub rag_retrieved_chunks: Vec<DocumentChunk>,
@@ -197,7 +197,51 @@ impl DoculaPipeline {
         &self.triage_queue
     }
 
-    /// Executes end-to-end extraction over a [`DocumentSource`].
+    /// Executes end-to-end extraction over a [`DocumentSource`] using an automatically inferred document identifier.
+    ///
+    /// This method is an ergonomic entrypoint for callers who do not have an upstream tracking identifier
+    /// and simply wish to parse a document into a strongly typed domain entity `T`. The document identifier
+    /// is automatically inferred via [`DocumentSource::infer_document_id`]:
+    /// - For file paths, it uses the filename stem (e.g. `"invoice-2026-001"`).
+    /// - For in-memory bytes, it computes a deterministic SHA-256 fingerprint (e.g. `"doc-<16-hex-chars>"`).
+    /// - For batch sources, it derives a collective batch identifier.
+    ///
+    /// For workflows where an external orchestrator, message queue, or database supplies a specific identifier,
+    /// use [`process_document`](Self::process_document).
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use docula::{DoculaPipeline, DocumentSource, docula_model};
+    /// # docula_model! {
+    /// #     pub struct SimpleInvoice {
+    /// #         pub total: f64,
+    /// #     }
+    /// # }
+    /// # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+    /// let pipeline = DoculaPipeline::new();
+    /// let source = DocumentSource::from_image_path("assets/invoice_001.png");
+    ///
+    /// // Inferred document_id: "invoice_001"
+    /// let result = pipeline.process::<SimpleInvoice>(&source).await?;
+    /// assert_eq!(result.document_id, "invoice_001");
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub async fn process<T>(
+        &self,
+        source: &DocumentSource,
+    ) -> Result<ExtractionResult<T>, DoculaPipelineError>
+    where
+        T: DocuValidate + schemars::JsonSchema + DeserializeOwned + Serialize + Send + Sync + Clone,
+    {
+        let inferred_id = source.infer_document_id();
+        self.process_document(&inferred_id, source).await
+    }
+
+    /// Executes end-to-end extraction over a [`DocumentSource`] with an explicitly specified document identifier.
+    ///
+    /// Use this method when an upstream system (e.g. message queue, database ID, external workflow engine)
+    /// provides the canonical tracking identifier.
     pub async fn process_document<T>(
         &self,
         document_id: &str,
