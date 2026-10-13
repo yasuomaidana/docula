@@ -5,6 +5,7 @@
 //!
 //! This crate provides:
 //! - Pure-Rust PDF rendering strategy powered by `pdf_oxide` and `tiny-skia` ([`Rasterizer`], [`TinySkiaRasterizer`]).
+//! - Pure-Rust synthetic ofimatic spreadsheet/presentation rasterizer ([`OfficeRasterizer`]).
 //! - In-memory RGBA page raster buffer with sub-image ROI extraction ([`PageRasterBuffer`]).
 //! - Day 0 bridge to core region cropping abstractions ([`PdfRegionCropper`], [`DocumentVisualExtractor`]).
 //! - Composable image filter chain pipeline ([`ImageFilter`], [`PreprocessingFilterChain`]).
@@ -18,6 +19,7 @@
 pub mod buffer;
 pub mod error;
 pub mod filter;
+pub mod office_raster;
 pub mod raster;
 
 pub use buffer::PageRasterBuffer;
@@ -27,4 +29,5 @@ pub use filter::{
     MorphologyOp, MorphologyShape, OxiMediaDenoiseFilter, OxiMediaFilter, OxiMediaStitcher,
     PreprocessedImage, PreprocessingFilterChain, ResizeMode, SimdResizeFilter, UnsharpMaskConfig,
 };
+pub use office_raster::OfficeRasterizer;
 pub use raster::{DocumentVisualExtractor, PdfRegionCropper, Rasterizer, TinySkiaRasterizer};

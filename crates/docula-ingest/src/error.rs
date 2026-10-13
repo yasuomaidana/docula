@@ -1,7 +1,7 @@
 use docula_core::DoculaError;
 use thiserror::Error;
 
-/// Errors arising during document ingestion, PDF inspection, and routing.
+/// Errors arising during document ingestion, PDF inspection, office parsing, and routing.
 #[derive(Debug, Error)]
 pub enum IngestError {
     /// Ingested payload is empty.
@@ -11,6 +11,10 @@ pub enum IngestError {
     /// Document could not be parsed.
     #[error("Document parsing error: {0}")]
     ParseError(String),
+
+    /// Office suite document extraction or XML parsing error.
+    #[error("Office format error: {0}")]
+    OfficeFormat(String),
 
     /// Underlying lopdf error.
     #[error("PDF structure error: {0}")]

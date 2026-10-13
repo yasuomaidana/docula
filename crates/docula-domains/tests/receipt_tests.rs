@@ -1,4 +1,4 @@
-use docula_domains::{docula_receipt, ReceiptData, ReceiptItem};
+use docula_domains::{ReceiptData, ReceiptItem, docula_receipt};
 use docula_schema::DocuValidate;
 
 docula_receipt! {
@@ -25,7 +25,7 @@ fn test_receipt_math_valid_passes() {
         payment_method: Some("Apple Pay".to_string()),
         items: vec![
             ReceiptItem::itemized("Pour Over Coffee", 2.0, 5.50), // 11.0
-            ReceiptItem::new("Almond Croissant", 4.0),           // 4.0 -> sum = 15.0
+            ReceiptItem::new("Almond Croissant", 4.0),            // 4.0 -> sum = 15.0
         ],
     };
 

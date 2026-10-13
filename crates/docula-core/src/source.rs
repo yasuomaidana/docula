@@ -1,6 +1,7 @@
+use crate::office::OfficeFormat;
 use std::path::{Path, PathBuf};
 
-/// Universal document input abstraction supporting PDFs, raster images, and batches.
+/// Universal document input abstraction supporting PDFs, raster images, office files, and batches.
 #[derive(Clone, Debug)]
 pub enum DocumentSource {
     /// In-memory PDF byte stream.
@@ -16,6 +17,20 @@ pub enum DocumentSource {
     },
     /// Filesystem path pointing to a raster image file.
     ImagePath(PathBuf),
+    /// In-memory office suite document byte stream.
+    OfficeBytes {
+        /// Detected or declared office document format.
+        format: OfficeFormat,
+        /// Raw document file binary content.
+        data: Vec<u8>,
+    },
+    /// Filesystem path pointing to an office suite document.
+    OfficePath {
+        /// Filesystem path.
+        path: PathBuf,
+        /// Detected or declared office document format.
+        format: OfficeFormat,
+    },
     /// In-memory batch of raw image byte payloads.
     BatchImages(Vec<Vec<u8>>),
     /// Batch of multiple document files on disk (e.g. multi-page photo set).
@@ -50,6 +65,29 @@ impl DocumentSource {
         Self::ImagePath(path.into())
     }
 
+    /// Constructs a `DocumentSource` from in-memory office document bytes.
+    #[inline]
+    pub fn from_office_bytes(data: impl Into<Vec<u8>>, format: OfficeFormat) -> Self {
+        Self::OfficeBytes {
+            format,
+            data: data.into(),
+        }
+    }
+
+    /// Constructs a `DocumentSource` from an office document path with auto-detected or provided format.
+    #[inline]
+    pub fn from_office_path(
+        path: impl Into<PathBuf>,
+        format: Option<OfficeFormat>,
+    ) -> Option<Self> {
+        let path = path.into();
+        let detected = format.or_else(|| OfficeFormat::detect(Some(&path), None))?;
+        Some(Self::OfficePath {
+            path,
+            format: detected,
+        })
+    }
+
     /// Constructs a `DocumentSource` from a collection of in-memory image byte buffers.
     #[inline]
     pub fn from_batch_images<I, B>(images: I) -> Self
@@ -74,7 +112,7 @@ impl DocumentSource {
     pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             Self::PdfBytes(bytes) => Some(bytes.as_slice()),
-            Self::ImageBytes { data, .. } => Some(data.as_slice()),
+            Self::ImageBytes { data, .. } | Self::OfficeBytes { data, .. } => Some(data.as_slice()),
             _ => None,
         }
     }
@@ -82,7 +120,9 @@ impl DocumentSource {
     /// Returns a borrowed reference to the file path if backed by the filesystem.
     pub fn as_path(&self) -> Option<&Path> {
         match self {
-            Self::PdfPath(path) | Self::ImagePath(path) => Some(path.as_path()),
+            Self::PdfPath(path) | Self::ImagePath(path) | Self::OfficePath { path, .. } => {
+                Some(path.as_path())
+            }
             _ => None,
         }
     }
@@ -118,6 +158,34 @@ impl DocumentSource {
         }
     }
 
+    /// Returns `true` if the source represents an ofimatic document.
+    pub fn is_office(&self) -> bool {
+        matches!(self, Self::OfficeBytes { .. } | Self::OfficePath { .. })
+    }
+
+    /// Returns the office format if the source is an office document.
+    pub fn office_format(&self) -> Option<OfficeFormat> {
+        match self {
+            Self::OfficeBytes { format, .. } | Self::OfficePath { format, .. } => Some(*format),
+            _ => None,
+        }
+    }
+
+    /// Returns `true` if the source represents a spreadsheet or tabular document.
+    pub fn is_spreadsheet(&self) -> bool {
+        self.office_format().is_some_and(|f| f.is_spreadsheet())
+    }
+
+    /// Returns `true` if the source represents a presentation slide deck.
+    pub fn is_presentation(&self) -> bool {
+        self.office_format().is_some_and(|f| f.is_presentation())
+    }
+
+    /// Returns `true` if the source represents a word processing or textual document.
+    pub fn is_word_processing(&self) -> bool {
+        self.office_format().is_some_and(|f| f.is_word_processing())
+    }
+
     /// Returns `true` if the source represents a batch of images or files.
     #[inline]
     pub fn is_batch(&self) -> bool {
@@ -143,6 +211,11 @@ impl From<PathBuf> for DocumentSource {
             .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
         {
             Self::PdfPath(path)
+        } else if let Some(office_fmt) = OfficeFormat::detect(Some(&path), None) {
+            Self::OfficePath {
+                path,
+                format: office_fmt,
+            }
         } else {
             Self::ImagePath(path)
         }

@@ -111,7 +111,11 @@ pub struct PaymentInfo {
 // =========================================================================
 
 /// Validates individual line item math within tolerance: `(quantity * unit_price) - discount == total`.
-pub fn validate_line_item(item: &LineItem, index: usize, tolerance: f64) -> Result<(), ValidationError> {
+pub fn validate_line_item(
+    item: &LineItem,
+    index: usize,
+    tolerance: f64,
+) -> Result<(), ValidationError> {
     let disc = item.discount.unwrap_or(0.0);
     let expected_total = (item.quantity * item.unit_price) - disc;
     if (expected_total - item.total).abs() > tolerance {
@@ -128,7 +132,11 @@ pub fn validate_line_item(item: &LineItem, index: usize, tolerance: f64) -> Resu
 }
 
 /// Validates sum of line item totals equals the stated subtotal within tolerance.
-pub fn validate_line_items_sum(items: &[LineItem], subtotal: f64, tolerance: f64) -> Result<(), ValidationError> {
+pub fn validate_line_items_sum(
+    items: &[LineItem],
+    subtotal: f64,
+    tolerance: f64,
+) -> Result<(), ValidationError> {
     if !items.is_empty() {
         let items_sum: f64 = items.iter().map(|item| item.total).sum();
         if (items_sum - subtotal).abs() > tolerance {

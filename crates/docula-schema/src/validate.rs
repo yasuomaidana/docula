@@ -56,7 +56,8 @@ impl Validator {
         error_message: impl Into<String>,
     ) -> &mut Self {
         if !condition {
-            self.errors.push(ValidationError::new(field_path, error_message));
+            self.errors
+                .push(ValidationError::new(field_path, error_message));
         }
         self
     }
@@ -71,7 +72,8 @@ impl Validator {
         error_message: impl Into<String>,
     ) -> &mut Self {
         if (calculated - expected).abs() > tolerance {
-            self.errors.push(ValidationError::new(field_path, error_message));
+            self.errors
+                .push(ValidationError::new(field_path, error_message));
         }
         self
     }
@@ -94,7 +96,10 @@ impl Validator {
             let msg = error_message.into();
             self.errors.push(ValidationError::new(
                 field_path,
-                format!("{msg} (evaluated fallback candidates: {})", names.join(", ")),
+                format!(
+                    "{msg} (evaluated fallback candidates: {})",
+                    names.join(", ")
+                ),
             ));
         }
         self
@@ -109,7 +114,9 @@ impl Validator {
         max_year: i32,
     ) -> &mut Self {
         let clean = date_str.trim();
-        let valid_year = if clean.len() >= 4 && let Ok(year) = clean[..4].parse::<i32>() {
+        let valid_year = if clean.len() >= 4
+            && let Ok(year) = clean[..4].parse::<i32>()
+        {
             year >= min_year && year <= max_year
         } else {
             false

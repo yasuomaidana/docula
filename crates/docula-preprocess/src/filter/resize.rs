@@ -170,10 +170,11 @@ impl ImageFilter for SimdResizeFilter {
             }
         })?;
 
-        let dst_image =
-            RgbaImage::from_raw(dst_w, dst_h, resized).ok_or_else(|| PreprocessError::ResizeFailure {
+        let dst_image = RgbaImage::from_raw(dst_w, dst_h, resized).ok_or_else(|| {
+            PreprocessError::ResizeFailure {
                 reason: "failed to construct destination RGBA image from resized bytes".to_string(),
-            })?;
+            }
+        })?;
 
         *img = dst_image;
         Ok(())

@@ -1,8 +1,6 @@
-use docula::{
-    docula_model, DoculaPipeline, DocumentSource, ExtractionResult, ValidationMode,
-};
+use docula::{DoculaPipeline, DocumentSource, ExtractionResult, ValidationMode, docula_model};
 use docula_llm::MockLlmBackend;
-use image::{codecs::png::PngEncoder, ExtendedColorType, ImageEncoder, Rgba, RgbaImage};
+use image::{ExtendedColorType, ImageEncoder, Rgba, RgbaImage, codecs::png::PngEncoder};
 use std::sync::Arc;
 
 docula_model! {
@@ -60,7 +58,8 @@ async fn test_pipeline_strict_vs_soft_modes() {
         "discount": null,
         "tax": 10.0,
         "total": 90.0
-    }).to_string();
+    })
+    .to_string();
 
     let mock_llm_valid = Arc::new(MockLlmBackend::with_canned_response(valid_json));
     let pipeline_strict = DoculaPipeline::builder()
@@ -85,18 +84,22 @@ async fn test_pipeline_strict_vs_soft_modes() {
         "discount": null,
         "tax": 10.0,
         "total": 125.0
-    }).to_string();
+    })
+    .to_string();
 
     // In Strict mode, imbalanced extraction yields None data and routes to triage:
-    let mock_llm_imbalanced = Arc::new(MockLlmBackend::with_canned_response(imbalanced_json.clone()));
+    let mock_llm_imbalanced = Arc::new(MockLlmBackend::with_canned_response(
+        imbalanced_json.clone(),
+    ));
     let pipeline_strict_imbalanced = DoculaPipeline::builder()
         .with_llm_backend(mock_llm_imbalanced)
         .build();
 
-    let res_strict_imbalanced: ExtractionResult<CustomBillWithFallback> = pipeline_strict_imbalanced
-        .process_document("doc-strict-imbalanced", &source)
-        .await
-        .expect("pipeline execution succeeds");
+    let res_strict_imbalanced: ExtractionResult<CustomBillWithFallback> =
+        pipeline_strict_imbalanced
+            .process_document("doc-strict-imbalanced", &source)
+            .await
+            .expect("pipeline execution succeeds");
 
     assert!(res_strict_imbalanced.outcome.is_soft());
     assert_eq!(res_strict_imbalanced.data, None); // Strict mode rejects data

@@ -193,14 +193,12 @@ async fn test_pipeline_rag_retrieval_enrichment_detected() {
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
 
     // Provide mock OCR engine with spatial spans so layout_map contains lines
-    let spans = vec![
-        docula::SpatialSpan::with_clamped_confidence(
-            "INV-RAG-2026 Cloud Compute Dedicated Host Total 750.00",
-            docula::BoundingBox::from_coords_clamped(0.1, 0.1, 0.9, 0.2),
-            0,
-            0.99,
-        ),
-    ];
+    let spans = vec![docula::SpatialSpan::with_clamped_confidence(
+        "INV-RAG-2026 Cloud Compute Dedicated Host Total 750.00",
+        docula::BoundingBox::from_coords_clamped(0.1, 0.1, 0.9, 0.2),
+        0,
+        0.99,
+    )];
     let mock_ocr = Arc::new(docula::ocr::MockOcrEngine::with_spans(spans));
 
     let config = docula::PipelineConfig {
@@ -221,7 +219,10 @@ async fn test_pipeline_rag_retrieval_enrichment_detected() {
         .expect("pipeline execution with RAG enabled must succeed");
 
     // Detect and verify RAG grounding usage
-    assert!(result.rag_applied, "RAG retrieval must be detected as applied");
+    assert!(
+        result.rag_applied,
+        "RAG retrieval must be detected as applied"
+    );
     assert!(
         !result.rag_retrieved_chunks.is_empty(),
         "Retrieved chunks must not be empty"
@@ -234,4 +235,3 @@ async fn test_pipeline_rag_retrieval_enrichment_detected() {
     );
     assert_eq!(result.data, Some(invoice));
 }
-

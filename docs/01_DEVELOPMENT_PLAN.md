@@ -497,6 +497,55 @@ docula_invoice! {
 
 ---
 
+
+---
+
+### Milestone 10: Pure-Rust Ofimatic & Office Suite Ingestion Engine (`docula-core`, `docula-ingest`, `docula-preprocess`, `docula`)
+
+#### Overview
+Extends `docula` to natively ingest, inspect, and extract structured data from popular office and productivity documents (Excel `.xlsx`, `.csv`, `.tsv`, `.ods`, PowerPoint `.pptx`, `.odp`, Word `.docx`, `.odt`, `.txt`, `.rtf`) using 100% pure Rust, zero-FFI parsing pipelines. Tabular sheets and presentation slides are directly mapped to native 2D spatial layouts (`SpatialSpan`, `PageRoute::BornDigital`) and rendered into synthetic visual raster buffers for region cropping and optical barcode scanning.
+
+#### Ticket DOC-1001: Universal Ofimatic Source Primitives & Format Detection (`docula-core`)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Single Responsibility:** Provide the `OfficeFormat` domain enum, subtype classifications (Spreadsheet, Presentation, WordProcessing), MIME/extension sniffing, and extend `DocumentSource` to support office bytes and paths.
+* **Design Pattern:** **Value Object Pattern** & **Type Discriminator Pattern**.
+* **Acceptance Criteria:**
+  1. `OfficeFormat` defines `Spreadsheet`, `Presentation`, and `WordProcessing` with subtypes.
+  2. `OfficeFormat::detect(path, bytes)` accurately identifies extensions and magic signatures.
+  3. `DocumentSource` provides `OfficeBytes` and `OfficePath` variants with helper methods.
+  4. `From<PathBuf>` automatically detects office file formats.
+
+#### Ticket DOC-1002: Pure-Rust OOXML & Delimited Spreadsheet Ingestion (`docula-ingest`)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Single Responsibility:** Ingest `.xlsx` (OpenXML), `.ods` (OpenDocument), and `.csv`/`.tsv` files, extract workbook sheets and cells, and project them into normalized $[0.0, 1.0]$ spatial spans.
+* **Design Pattern:** **Strategy Pattern** & **Streaming SAX/StAX Parser**.
+* **Acceptance Criteria:**
+  1. Parses `.xlsx` reading `xl/sharedStrings.xml` and `xl/worksheets/sheet*.xml`.
+  2. Parses RFC 4180 `.csv` and tab-delimited `.tsv` rows and columns.
+  3. Parses `.ods` XML tables and cells.
+  4. Projects tabular cells into normalized `SpatialSpan` elements per sheet.
+  5. Emits `PageRoute::BornDigital` for each spreadsheet sheet.
+
+#### Ticket DOC-1003: Pure-Rust Presentation & Word Document Ingestion (`docula-ingest`)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Single Responsibility:** Ingest `.pptx` (OpenXML) and `.odp` presentations, and `.docx` (OpenXML), `.odt`, and text documents, mapping slides and paragraphs into spatial spans.
+* **Design Pattern:** **Visitor Pattern** & **Composite Pattern**.
+* **Acceptance Criteria:**
+  1. Parses `.pptx` slides, extracting titles, shapes, text runs, and spatial coordinates.
+  2. Parses `.docx` paragraphs, headings, and table cells into spatial layout.
+  3. Routes each slide or section into `PageRoute::BornDigital`.
+  4. `OfficeInspector` and `DocumentRouter` dispatch office sources into multi-page routing reports.
+
+#### Ticket DOC-1004: Ofimatic Visual Rasterization & Pipeline Facade Integration (`docula-preprocess`, `docula`)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Single Responsibility:** Implement `OfficeRasterizer` using `tiny-skia` to render office sheets and slides into `PageRasterBuffer`, and integrate office ingestion into `DoculaPipeline`.
+* **Design Pattern:** **Facade Pattern** & **Adapter Pattern**.
+* **Acceptance Criteria:**
+  1. `OfficeRasterizer` renders table grids and text into clean RGBA pixel buffers.
+  2. Enables screenshot capture and sub-region cropping (`ImageCrop`) on office documents.
+  3. Enables optical barcode detection on office documents.
+  4. `DoculaPipeline::process_document` seamlessly processes office sources end-to-end into strongly typed domain models.
+
 ## 4. Engineering & Testing Standards
 
 ### Mandatory Persistence Testing ([Testcontainers](https://rust.testcontainers.org))

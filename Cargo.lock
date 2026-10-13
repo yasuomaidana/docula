@@ -1646,6 +1646,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "uuid",
+ "zip",
 ]
 
 [[package]]
@@ -1738,10 +1739,13 @@ dependencies = [
 name = "docula-ingest"
 version = "0.1.0"
 dependencies = [
+ "csv",
  "docula-core",
  "lopdf",
+ "quick-xml 0.42.0",
  "serde",
  "thiserror 2.0.21",
+ "zip",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 # Dev Status: `docula`
 
-**Current Status:** All Milestones 1 through 8 fully specified, designed, imported, and verified across all subcrates with the **KitaSan (COOLJAPAN) Sovereign Pure-Rust Stack** ([cool-japan](https://github.com/cool-japan/cool-japan)) and **`diesel-cte-ext`** ([diesel-cte-ext](https://github.com/leynos/diesel-cte-ext)). Real PDF and Real Image integration tests are fully implemented and passing.
+**Current Status:** All Milestones 1 through 10 fully specified, implemented, and verified with pure-Rust zero-FFI ofimatic suite support (Excel `.xlsx`, `.csv`, `.tsv`, `.ods`, PowerPoint `.pptx`, `.odp`, Word `.docx`, `.odt`, `.txt`, `.rtf`), designed, imported, and verified across all subcrates with the **KitaSan (COOLJAPAN) Sovereign Pure-Rust Stack** ([cool-japan](https://github.com/cool-japan/cool-japan)) and **`diesel-cte-ext`** ([diesel-cte-ext](https://github.com/leynos/diesel-cte-ext)). Real PDF and Real Image integration tests are fully implemented and passing.
 
 ---
 
@@ -93,3 +93,9 @@ Integration tests consuming **real PDF files** and **real raster images** (PNG, 
 - [x] DOC-902 Macro-Driven Bank Statement & Reconciliation Template (`docula-domains`) — `docula_bank_statement!` extensible macro, `BankStatementData` preset, ledger continuity math (`opening + credits - debits == closing`), running balance tracking, and custom audit tags.
 - [x] DOC-903 Macro-Driven Receipt & Expense Normalization Template (`docula-domains`) — `docula_receipt!` extensible macro, `ReceiptData` preset, OCR jitter & tip/tax math tolerance, and custom expense classification metadata.
 - [x] DOC-904 Macro-Driven Logistics & Shipping Manifest Template (`docula-domains`) — `docula_bill_of_lading!` extensible macro, `BillOfLadingData` preset, pure-Rust ISO 6346 container checksum verification, cargo weight validation, and custom freight fields.
+
+### Milestone 10: Pure-Rust Ofimatic & Office Suite Ingestion Engine (`docula-core`, `docula-ingest`, `docula-preprocess`, `docula`)
+- [x] DOC-1001 Universal Ofimatic Source Primitives & Format Detection (`docula-core`) — `OfficeFormat` domain enum, subtype classifications (Spreadsheet, Presentation, WordProcessing), extension/magic detection, and `DocumentSource` extension.
+- [x] DOC-1002 Pure-Rust OOXML & Delimited Spreadsheet Ingestion (`docula-ingest`) — SAX/StAX Excel `.xlsx`, `.ods`, `.csv`, `.tsv` cell parsing, 2D tabular spatial grid projection, and sheet-to-page mapping.
+- [x] DOC-1003 Pure-Rust Presentation & Word Document Ingestion (`docula-ingest`) — PowerPoint `.pptx` slide shapes, Word `.docx`, `.odt`, `.txt` paragraph flows, and `OfficeInspector` integration.
+- [x] DOC-1004 Ofimatic Visual Rasterization & Pipeline Facade Integration (`docula-preprocess`, `docula`) — `OfficeRasterizer` tiny-skia synthetic pixel buffer generation, screenshot/crop support, barcode scanning, and end-to-end `DoculaPipeline` execution.

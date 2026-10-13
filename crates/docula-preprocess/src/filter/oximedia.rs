@@ -466,12 +466,12 @@ fn apply_median_3x3(img: &mut RgbaImage) -> Result<(), PreprocessError> {
             }
         }
 
-        let filtered = filter
-            .apply(&channel_buf, width, height)
-            .map_err(|e| PreprocessError::FilterExecution {
+        let filtered = filter.apply(&channel_buf, width, height).map_err(|e| {
+            PreprocessError::FilterExecution {
                 filter: "OxiMediaDenoiseFilter",
                 reason: e.to_string(),
-            })?;
+            }
+        })?;
 
         for y in 0..height {
             for x in 0..width {
@@ -532,15 +532,12 @@ impl OxiMediaStitcher {
                     // Linear alpha blending in the overlap zone
                     let alpha = y as f32 / actual_overlap as f32;
                     let top_pixel = canvas.get_pixel(x, canvas_y);
-                    let blended_r =
-                        ((1.0 - alpha) * top_pixel[0] as f32 + alpha * bottom_pixel[0] as f32)
-                            as u8;
-                    let blended_g =
-                        ((1.0 - alpha) * top_pixel[1] as f32 + alpha * bottom_pixel[1] as f32)
-                            as u8;
-                    let blended_b =
-                        ((1.0 - alpha) * top_pixel[2] as f32 + alpha * bottom_pixel[2] as f32)
-                            as u8;
+                    let blended_r = ((1.0 - alpha) * top_pixel[0] as f32
+                        + alpha * bottom_pixel[0] as f32) as u8;
+                    let blended_g = ((1.0 - alpha) * top_pixel[1] as f32
+                        + alpha * bottom_pixel[1] as f32) as u8;
+                    let blended_b = ((1.0 - alpha) * top_pixel[2] as f32
+                        + alpha * bottom_pixel[2] as f32) as u8;
                     canvas.put_pixel(x, canvas_y, Rgba([blended_r, blended_g, blended_b, 255]));
                 } else {
                     canvas.put_pixel(x, canvas_y, *bottom_pixel);

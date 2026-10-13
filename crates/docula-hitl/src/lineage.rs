@@ -264,7 +264,9 @@ impl CorrectionLineageTracker {
         let id_col = &self.config.id_column;
         let parent_col = &self.config.parent_id_column;
 
-        let seed = format!("SELECT {id_col} AS id, {parent_col} AS parent_id FROM {table} WHERE {id_col} = {start_id}");
+        let seed = format!(
+            "SELECT {id_col} AS id, {parent_col} AS parent_id FROM {table} WHERE {id_col} = {start_id}"
+        );
         let step = format!(
             "SELECT r.{id_col} AS id, r.{parent_col} AS parent_id FROM {table} r \
              INNER JOIN lineage l ON r.{id_col} = l.parent_id"
@@ -306,7 +308,9 @@ impl CorrectionLineageTracker {
         let id_col = &self.config.id_column;
         let parent_col = &self.config.parent_id_column;
 
-        let seed = format!("SELECT {id_col} AS id, {parent_col} AS parent_id FROM {table} WHERE {id_col} = {root_id}");
+        let seed = format!(
+            "SELECT {id_col} AS id, {parent_col} AS parent_id FROM {table} WHERE {id_col} = {root_id}"
+        );
         let step = format!(
             "SELECT r.{id_col} AS id, r.{parent_col} AS parent_id FROM {table} r \
              INNER JOIN lineage l ON r.{parent_col} = l.id"

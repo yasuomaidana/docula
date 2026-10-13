@@ -155,7 +155,10 @@ async fn test_oxirag_engine_query() {
         "Invoice #10023 issued by Acme Corp on 2026-10-10.",
         "Total amount payable is ,250.00 within 30 days.",
     ];
-    let ans = engine.query_verified(&corpus, "What is the invoice number?").await.expect("oxirag success");
+    let ans = engine
+        .query_verified(&corpus, "What is the invoice number?")
+        .await
+        .expect("oxirag success");
     assert!(!ans.is_empty());
 }
 
@@ -164,8 +167,16 @@ fn test_oxirs_knowledge_graph() {
     use docula_rag::DocumentKnowledgeGraph;
 
     let mut kg = DocumentKnowledgeGraph::new();
-    kg.add_fact("http://example.org/invoice/101", "http://example.org/vendor", "Acme Corp");
-    kg.add_fact("http://example.org/invoice/101", "http://example.org/total", "500.00");
+    kg.add_fact(
+        "http://example.org/invoice/101",
+        "http://example.org/vendor",
+        "Acme Corp",
+    );
+    kg.add_fact(
+        "http://example.org/invoice/101",
+        "http://example.org/total",
+        "500.00",
+    );
 
     assert_eq!(kg.len(), 2);
     let facts = kg.find_by_subject("http://example.org/invoice/101");

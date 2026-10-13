@@ -36,7 +36,13 @@ fn test_lineage_tracker_in_memory_and_ancestry() {
         .insert_revision(3, Some(2), "item-100", "annotator_1", "Corrected subtotal")
         .expect("insert 3");
     tracker
-        .insert_revision(4, Some(3), "item-100", "annotator_3", "Final approval patch")
+        .insert_revision(
+            4,
+            Some(3),
+            "item-100",
+            "annotator_3",
+            "Final approval patch",
+        )
         .expect("insert 4");
     tracker
         .insert_revision(5, Some(1), "item-100", "annotator_4", "Alternative branch")
@@ -56,7 +62,9 @@ fn test_lineage_tracker_in_memory_and_ancestry() {
     assert_eq!(descendants, vec![2, 3, 4]);
 
     // Descendants of root 1: [1, 2, 3, 4, 5]
-    let all_descendants = tracker.get_descendant_lineage(1).expect("get descendants of 1");
+    let all_descendants = tracker
+        .get_descendant_lineage(1)
+        .expect("get descendants of 1");
     assert_eq!(all_descendants, vec![1, 2, 3, 4, 5]);
 
     assert_eq!(tracker.database_type(), "sqlite");

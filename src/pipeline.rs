@@ -8,12 +8,16 @@ use docula_compliance::ComplianceRedactor;
 use docula_core::{DoculaError, DocumentSource};
 use docula_exemplar::ExemplarPool;
 use docula_hitl::{HitlError, TriageDecision, TriageGate, TriageItem, TriageQueue};
-use docula_ingest::{DocumentRouter, IngestError};
+use docula_ingest::{DocumentRouter, IngestError, PageRoute};
 use docula_llm::{LlmBackend, LlmError, MockLlmBackend};
 use docula_ocr::{MockOcrEngine, OcrEngine, OcrError, SpatialLayoutMap};
-use docula_preprocess::{PageRasterBuffer, PreprocessError, Rasterizer, TinySkiaRasterizer};
+use docula_preprocess::{
+    OfficeRasterizer, PageRasterBuffer, PreprocessError, Rasterizer, TinySkiaRasterizer,
+};
 use docula_rag::{DocumentChunk, RagRetriever};
-use docula_schema::{DocuValidate, SchemaError, ValidationError, ValidationMode, ValidationOutcome};
+use docula_schema::{
+    DocuValidate, SchemaError, ValidationError, ValidationMode, ValidationOutcome,
+};
 use docula_vision_codes::{OpticalCodeDetector, OpticalCodeError, OpticalCodeResult};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::sync::Arc;
@@ -136,8 +140,9 @@ pub struct ExtractionResult<T> {
 /// High-level sovereign document intelligence pipeline facade.
 pub struct DoculaPipeline {
     config: PipelineConfig,
-    _router: DocumentRouter,
+    router: DocumentRouter,
     rasterizer: TinySkiaRasterizer,
+    office_rasterizer: OfficeRasterizer,
     ocr_engine: Arc<dyn OcrEngine>,
     code_detector: OpticalCodeDetector,
     compliance_redactor: ComplianceRedactor,
@@ -160,8 +165,9 @@ impl DoculaPipeline {
     pub fn new() -> Self {
         Self {
             config: PipelineConfig::default(),
-            _router: DocumentRouter::new(),
+            router: DocumentRouter::new(),
             rasterizer: TinySkiaRasterizer::new(),
+            office_rasterizer: OfficeRasterizer::new(),
             ocr_engine: Arc::new(MockOcrEngine::new()),
             code_detector: OpticalCodeDetector::new(),
             compliance_redactor: ComplianceRedactor::default(),
@@ -200,15 +206,35 @@ impl DoculaPipeline {
     where
         T: DocuValidate + schemars::JsonSchema + DeserializeOwned + Serialize + Send + Sync + Clone,
     {
-        let mut buffer = self.render_or_load_source(source)?;
+        let routing_report = self.router.route_source(source)?;
+        let first_route = routing_report.routes.first();
+
+        let (mut buffer, mut spans) = match first_route {
+            Some(PageRoute::BornDigital { text_layer, .. }) if !source.is_pdf() => {
+                let spans = text_layer.clone();
+                let buf = self
+                    .office_rasterizer
+                    .render_spans(&spans, 0, self.config.dpi)
+                    .map_err(DoculaPipelineError::Preprocess)?;
+                (buf, spans)
+            }
+            Some(PageRoute::BornDigital { text_layer, .. }) => {
+                let buf = self.render_or_load_source(source)?;
+                let spans = text_layer.clone();
+                (buf, spans)
+            }
+            _ => {
+                let buf = self.render_or_load_source(source)?;
+                let spans = self.ocr_engine.extract_spans(&buf.image)?;
+                (buf, spans)
+            }
+        };
 
         let optical_codes = if self.config.enable_vision_codes {
             self.code_detector.detect(&buffer.image)?
         } else {
             Vec::new()
         };
-
-        let mut spans = self.ocr_engine.extract_spans(&buffer.image)?;
 
         if self.config.enable_redaction {
             self.compliance_redactor
@@ -228,8 +254,10 @@ impl DoculaPipeline {
 
             let query = format!("{document_id} {formatted_text}");
             let mut chunks = retriever.retrieve(&query, None);
-            if chunks.is_empty() && !layout_map.is_empty()
-                && let Some(first_line) = layout_map.lines.first() {
+            if chunks.is_empty()
+                && !layout_map.is_empty()
+                && let Some(first_line) = layout_map.lines.first()
+            {
                 chunks = retriever.retrieve(&first_line.text, None);
             }
 
@@ -243,8 +271,7 @@ impl DoculaPipeline {
             }
         }
 
-        let prompt_context =
-            build_prompt_context(&formatted_text, &optical_codes, &rag_context);
+        let prompt_context = build_prompt_context(&formatted_text, &optical_codes, &rag_context);
 
         let schema = schemars::schema_for!(T);
         let (outcome, final_data, final_json, repair_attempts, domain_errors) = self
@@ -259,11 +286,12 @@ impl DoculaPipeline {
             0.20
         };
 
-        let (routed_to_triage, triage_reasons) = if self.config.validation_mode == ValidationMode::Permissive {
-            (false, Vec::new())
-        } else {
-            self.evaluate_triage(&layout_map, &final_json, confidence, &domain_errors)
-        };
+        let (routed_to_triage, triage_reasons) =
+            if self.config.validation_mode == ValidationMode::Permissive {
+                (false, Vec::new())
+            } else {
+                self.evaluate_triage(&layout_map, &final_json, confidence, &domain_errors)
+            };
 
         Ok(ExtractionResult {
             document_id: document_id.to_string(),
@@ -282,10 +310,20 @@ impl DoculaPipeline {
     }
 
     /// Renders or loads raw source bytes into a single-page [`PageRasterBuffer`].
-    fn render_or_load_source(
+    pub fn render_or_load_source(
         &self,
         source: &DocumentSource,
     ) -> Result<PageRasterBuffer, DoculaPipelineError> {
+        if source.is_office() {
+            let routing_report = self.router.route_source(source)?;
+            if let Some(PageRoute::BornDigital { text_layer, .. }) = routing_report.routes.first() {
+                return self
+                    .office_rasterizer
+                    .render_spans(text_layer, 0, self.config.dpi)
+                    .map_err(DoculaPipelineError::Preprocess);
+            }
+        }
+
         let (bytes, is_pdf) = load_source_payload(source)?;
         if is_pdf {
             let buffer = self
@@ -308,7 +346,16 @@ impl DoculaPipeline {
         &self,
         prompt_context: &str,
         schema: &schemars::Schema,
-    ) -> Result<(ValidationOutcome<T>, Option<T>, String, usize, Vec<ValidationError>), DoculaPipelineError>
+    ) -> Result<
+        (
+            ValidationOutcome<T>,
+            Option<T>,
+            String,
+            usize,
+            Vec<ValidationError>,
+        ),
+        DoculaPipelineError,
+    >
     where
         T: DocuValidate + DeserializeOwned + Serialize + Send + Sync + Clone,
     {
@@ -432,6 +479,11 @@ fn load_source_payload(source: &DocumentSource) -> Result<(Vec<u8>, bool), Docul
             let bytes = std::fs::read(path)?;
             Ok((bytes, false))
         }
+        DocumentSource::OfficeBytes { data, .. } => Ok((data.clone(), false)),
+        DocumentSource::OfficePath { path, .. } => {
+            let bytes = std::fs::read(path)?;
+            Ok((bytes, false))
+        }
         _ => Err(DoculaPipelineError::ExecutionFailure(
             "Batch sources must be processed via batch API".to_string(),
         )),
@@ -469,6 +521,7 @@ fn build_prompt_context(
 #[derive(Default)]
 pub struct DoculaPipelineBuilder {
     config: PipelineConfig,
+    router: Option<DocumentRouter>,
     ocr_engine: Option<Arc<dyn OcrEngine>>,
     llm_backend: Option<Arc<dyn LlmBackend>>,
     compliance_redactor: Option<ComplianceRedactor>,
@@ -481,6 +534,13 @@ impl DoculaPipelineBuilder {
     #[must_use]
     pub fn with_config(mut self, config: PipelineConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Sets a custom document router instance.
+    #[must_use]
+    pub fn with_router(mut self, router: DocumentRouter) -> Self {
+        self.router = Some(router);
         self
     }
 
@@ -524,8 +584,9 @@ impl DoculaPipelineBuilder {
         DoculaPipeline {
             triage_gate: TriageGate::new(self.config.min_token_confidence),
             config: self.config,
-            _router: DocumentRouter::new(),
+            router: self.router.unwrap_or_default(),
             rasterizer: TinySkiaRasterizer::new(),
+            office_rasterizer: OfficeRasterizer::new(),
             ocr_engine: self
                 .ocr_engine
                 .unwrap_or_else(|| Arc::new(MockOcrEngine::new())),

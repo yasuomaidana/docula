@@ -466,8 +466,8 @@ fn test_real_receipt_png_oximedia_cv_enhancement() {
     // Compute original luminance mean
     let mut orig_lum = 0u64;
     for pixel in rgba_img.pixels() {
-        orig_lum += (0.299 * pixel[0] as f32 + 0.587 * pixel[1] as f32 + 0.114 * pixel[2] as f32)
-            as u64;
+        orig_lum +=
+            (0.299 * pixel[0] as f32 + 0.587 * pixel[1] as f32 + 0.114 * pixel[2] as f32) as u64;
     }
     let orig_mean = (orig_lum / ((orig_w * orig_h) as u64)) as f32;
 
@@ -482,8 +482,8 @@ fn test_real_receipt_png_oximedia_cv_enhancement() {
     // Verify contrast modification occurred
     let mut post_lum = 0u64;
     for pixel in rgba_img.pixels() {
-        post_lum += (0.299 * pixel[0] as f32 + 0.587 * pixel[1] as f32 + 0.114 * pixel[2] as f32)
-            as u64;
+        post_lum +=
+            (0.299 * pixel[0] as f32 + 0.587 * pixel[1] as f32 + 0.114 * pixel[2] as f32) as u64;
     }
     let post_mean = (post_lum / ((orig_w * orig_h) as u64)) as f32;
     // Mean luminance stays closely centered while contrast expands

@@ -15,11 +15,11 @@ pub use docula_ocr as ocr;
 pub use docula_preprocess as preprocess;
 pub use docula_rag as rag;
 pub use docula_schema as schema;
-pub use docula_vision_codes as vision_codes;
-pub use pipeline::{DoculaPipeline, DoculaPipelineBuilder, ExtractionResult, PipelineConfig};
 pub use docula_schema::{
     DocuValidate, ValidationError, ValidationMode, ValidationOutcome, Validator, docula_model,
 };
+pub use docula_vision_codes as vision_codes;
+pub use pipeline::{DoculaPipeline, DoculaPipelineBuilder, ExtractionResult, PipelineConfig};
 
 #[cfg(test)]
 mod tests {

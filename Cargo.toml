@@ -54,6 +54,7 @@ pdf_oxide = { version = "0.3", features = ["rendering"] }
 tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
 rxing = "0.6"
 criterion = { version = "0.5", features = ["html_reports"] }
+zip = { version = "8.6", default-features = false, features = ["deflate"] }
 
 [[bench]]
 name = "docula_benchmarks"

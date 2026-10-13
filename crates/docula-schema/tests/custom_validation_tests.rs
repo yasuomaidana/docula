@@ -1,4 +1,4 @@
-use docula_schema::{docula_model, DocuValidate, ValidationOutcome};
+use docula_schema::{DocuValidate, ValidationOutcome, docula_model};
 
 // 1. Bill struct where total is strictly: sum(items) - discount
 docula_model! {

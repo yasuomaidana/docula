@@ -1,4 +1,4 @@
-use docula_domains::{docula_invoice, LineItem};
+use docula_domains::{LineItem, docula_invoice};
 use docula_schema::DocuValidate;
 
 // Define a custom invoice with line-item and invoice discounts, plus custom enterprise fields
@@ -57,7 +57,10 @@ fn test_macro_invoice_custom_fields_and_schema_reflection() {
     let deserialized: CustomEnterpriseInvoice =
         serde_json::from_str(&serialized).expect("deserialization succeeds");
     assert_eq!(invoice, deserialized);
-    assert_eq!(deserialized.cost_center, Some("CC-ENGINEERING-402".to_string()));
+    assert_eq!(
+        deserialized.cost_center,
+        Some("CC-ENGINEERING-402".to_string())
+    );
     assert_eq!(deserialized.purchase_order, Some("PO-88219".to_string()));
     assert!(deserialized.internal_approval);
 
@@ -180,7 +183,10 @@ fn test_macro_invoice_optical_barcode_adapters() {
     assert_eq!(invoice.currency, "EUR");
     assert_eq!(invoice.total_amount, 1000.0);
     let payment = invoice.payment_info.as_ref().unwrap();
-    assert_eq!(payment.iban, Some("FR7630006000011234567890189".to_string()));
+    assert_eq!(
+        payment.iban,
+        Some("FR7630006000011234567890189".to_string())
+    );
     assert_eq!(payment.bic, Some("BNPAFRPP".to_string()));
     assert!(invoice.validate_integrity().is_ok());
 }

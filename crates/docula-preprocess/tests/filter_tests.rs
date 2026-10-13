@@ -3,7 +3,7 @@ use docula_preprocess::{
     OxiMediaStitcher, PreprocessedImage, PreprocessingFilterChain, ResizeMode, SimdResizeFilter,
 };
 use image::{Rgba, RgbaImage};
-use oximedia_cv::transform::{warp_affine_image, AffineTransform};
+use oximedia_cv::transform::{AffineTransform, warp_affine_image};
 
 /// Helper to generate a test image with clean horizontal dark lines on white background.
 fn create_horizontal_lines_image(width: u32, height: u32) -> RgbaImage {

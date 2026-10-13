@@ -1,6 +1,4 @@
-use docula_domains::{
-    docula_bill_of_lading, BillOfLadingData, CargoItem, ShippingContainer,
-};
+use docula_domains::{BillOfLadingData, CargoItem, ShippingContainer, docula_bill_of_lading};
 use docula_schema::DocuValidate;
 
 docula_bill_of_lading! {
@@ -22,24 +20,20 @@ fn test_bill_of_lading_valid_iso_checksum_passes() {
         voyage_number: Some("2604W".to_string()),
         port_of_loading: "Yokohama, Japan".to_string(),
         port_of_discharge: "Rotterdam, Netherlands".to_string(),
-        containers: vec![
-            ShippingContainer {
-                container_number: "CSQU3054383".to_string(), // Valid ISO 6346!
-                seal_number: Some("SL-99120".to_string()),
-                container_type: Some("40HC".to_string()),
-                weight_kg: Some(3800.0),
-            },
-        ],
-        cargo_items: vec![
-            CargoItem {
-                description: "Precision Industrial Robot Arms".to_string(),
-                quantity: 12,
-                package_type: Some("Crates".to_string()),
-                gross_weight_kg: 18500.0,
-                volume_cbm: Some(58.2),
-                hazmat: false,
-            },
-        ],
+        containers: vec![ShippingContainer {
+            container_number: "CSQU3054383".to_string(), // Valid ISO 6346!
+            seal_number: Some("SL-99120".to_string()),
+            container_type: Some("40HC".to_string()),
+            weight_kg: Some(3800.0),
+        }],
+        cargo_items: vec![CargoItem {
+            description: "Precision Industrial Robot Arms".to_string(),
+            quantity: 12,
+            package_type: Some("Crates".to_string()),
+            gross_weight_kg: 18500.0,
+            volume_cbm: Some(58.2),
+            hazmat: false,
+        }],
         total_weight_kg: 18500.0,
     };
 
@@ -67,7 +61,11 @@ fn test_bill_of_lading_corrupt_container_checksum_fails() {
     let res = bol.validate_integrity();
     assert!(res.is_err());
     let errors = res.unwrap_err();
-    assert!(errors.iter().any(|e| e.field_path == "containers[0].container_number"));
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.field_path == "containers[0].container_number")
+    );
 }
 
 #[test]
@@ -91,7 +89,11 @@ fn test_bill_of_lading_invalid_container_length_fails() {
     let res = bol.validate_integrity();
     assert!(res.is_err());
     let errors = res.unwrap_err();
-    assert!(errors.iter().any(|e| e.field_path == "containers[0].container_number"));
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.field_path == "containers[0].container_number")
+    );
 }
 
 #[test]
@@ -105,19 +107,15 @@ fn test_bill_of_lading_cargo_weight_sum_mismatch() {
         voyage_number: None,
         port_of_loading: "Hamburg".to_string(),
         port_of_discharge: "Singapore".to_string(),
-        containers: vec![
-            ShippingContainer::new("CSQU3054383"),
-        ],
-        cargo_items: vec![
-            CargoItem {
-                description: "Auto Parts".to_string(),
-                quantity: 100,
-                package_type: None,
-                gross_weight_kg: 5000.0,
-                volume_cbm: None,
-                hazmat: false,
-            },
-        ],
+        containers: vec![ShippingContainer::new("CSQU3054383")],
+        cargo_items: vec![CargoItem {
+            description: "Auto Parts".to_string(),
+            quantity: 100,
+            package_type: None,
+            gross_weight_kg: 5000.0,
+            volume_cbm: None,
+            hazmat: false,
+        }],
         total_weight_kg: 7000.0, // Stated 7000 vs item 5000!
     };
 

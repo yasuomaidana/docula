@@ -51,11 +51,7 @@ impl ReceiptItem {
 
     /// Creates an itemized receipt line item with quantity and unit price.
     #[must_use]
-    pub fn itemized(
-        description: impl Into<String>,
-        quantity: f64,
-        unit_price: f64,
-    ) -> Self {
+    pub fn itemized(description: impl Into<String>, quantity: f64, unit_price: f64) -> Self {
         let total = (quantity * unit_price * 100.0).round() / 100.0;
         Self {
             description: description.into(),
@@ -86,7 +82,11 @@ pub fn validate_receipt_totals(
                 field_path: "total_amount".to_string(),
                 error_message: format!(
                     "Calculated total ({:.2} = subtotal {:.2} + tax {:.2} + tip {:.2}) does not match total_amount ({:.2})",
-                    calculated, sub, tax.unwrap_or(0.0), tip.unwrap_or(0.0), total
+                    calculated,
+                    sub,
+                    tax.unwrap_or(0.0),
+                    tip.unwrap_or(0.0),
+                    total
                 ),
             });
         }

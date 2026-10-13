@@ -153,4 +153,3 @@ async fn test_oxibonsai_backend_generation() {
     let parsed: SimpleRecord = serde_json::from_str(&result).unwrap();
     assert_eq!(parsed.id, 30);
 }
-

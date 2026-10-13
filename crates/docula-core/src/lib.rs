@@ -7,6 +7,7 @@
 //! - Spatial coordinate primitives ([`Point`], [`PixelRect`], [`BoundingBox`], [`Polygon`], [`SpatialSpan`]).
 //! - Day 0 visual crop abstractions ([`ImageCrop`], [`CropFormat`], [`RegionCropper`]).
 //! - Universal document input abstractions ([`DocumentSource`]).
+//! - Office suite format abstractions ([`OfficeFormat`], [`SpreadsheetSubtype`], [`PresentationSubtype`], [`WordSubtype`]).
 //! - Zero-storage RAII smart pointer ([`NonStored`]).
 //! - Consumer-driven layered configuration ([`DoculaConfig`], [`DoculaConfigBuilder`]).
 //! - Typed domain error hierarchies ([`DoculaError`], [`GeometryError`], [`SourceError`],
@@ -17,6 +18,7 @@ pub mod crop;
 pub mod error;
 pub mod geometry;
 pub mod non_stored;
+pub mod office;
 pub mod source;
 
 pub use config::{
@@ -27,4 +29,5 @@ pub use crop::{CropFormat, ImageCrop, RegionCropper};
 pub use error::{ConfigError, CropError, DoculaError, GeometryError, SourceError};
 pub use geometry::{BoundingBox, PixelRect, Point, Polygon, SpatialSpan};
 pub use non_stored::NonStored;
+pub use office::{OfficeFormat, PresentationSubtype, SpreadsheetSubtype, WordSubtype};
 pub use source::DocumentSource;

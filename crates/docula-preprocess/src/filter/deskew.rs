@@ -2,8 +2,8 @@ use super::ImageFilter;
 use super::binarize::compute_otsu_level;
 use crate::error::PreprocessError;
 use image::{GrayImage, Luma, RgbaImage};
-use oximedia_cv::hough_transform::{hough_lines, HoughLineConfig};
-use oximedia_cv::transform::{warp_affine_image, AffineTransform};
+use oximedia_cv::hough_transform::{HoughLineConfig, hough_lines};
+use oximedia_cv::transform::{AffineTransform, warp_affine_image};
 use std::collections::HashMap;
 
 /// Hough transform based image deskew filter.
@@ -228,10 +228,12 @@ impl ImageFilter for HoughDeskewFilter {
             let cy = height as f64 / 2.0;
 
             let forward = AffineTransform::rotation_around(correction_radians, cx, cy);
-            let inv = forward.inverse().ok_or_else(|| PreprocessError::FilterExecution {
-                filter: self.name(),
-                reason: "singular affine transform matrix".to_string(),
-            })?;
+            let inv = forward
+                .inverse()
+                .ok_or_else(|| PreprocessError::FilterExecution {
+                    filter: self.name(),
+                    reason: "singular affine transform matrix".to_string(),
+                })?;
             let [[a, b, c], [d, e, f], _] = inv.as_matrix();
 
             let mut warped = warp_affine_image(

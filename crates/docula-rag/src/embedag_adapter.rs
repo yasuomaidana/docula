@@ -44,11 +44,8 @@ impl EmbedagGraphRetriever {
     pub fn add_chunk(&mut self, chunk: DocumentChunk, embedding: Option<Vec<f32>>) {
         let chunk_uuid = Uuid::from_u128((chunk.id as u128) + 1);
 
-        self.lexical_index.insert(
-            chunk_uuid,
-            format!("chunk_{}", chunk.id),
-            &chunk.text,
-        );
+        self.lexical_index
+            .insert(chunk_uuid, format!("chunk_{}", chunk.id), &chunk.text);
 
         if let Some(emb) = embedding {
             let _ = self.dense_index.insert(chunk_uuid, emb);

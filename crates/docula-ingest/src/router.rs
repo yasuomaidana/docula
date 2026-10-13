@@ -1,5 +1,6 @@
 use crate::error::IngestError;
 use crate::inspector::PdfInspector;
+use crate::office::OfficeInspector;
 use crate::types::{DocumentRoutingReport, PageRoute, RasterJob, RouterConfig};
 use docula_core::DocumentSource;
 use lopdf::Document;
@@ -8,6 +9,7 @@ use std::fs;
 /// Intelligent document routing orchestrator.
 ///
 /// Evaluates incoming document payloads, inspects PDF font mappings and object hierarchies,
+/// parses structured office suite documents (Excel, PowerPoint, Word, CSV, ODS, ODP, ODT),
 /// and partitions pages into born-digital vector fast-path or computer vision OCR routes.
 #[derive(Clone, Debug, Default)]
 pub struct DocumentRouter {
@@ -48,6 +50,9 @@ impl DocumentRouter {
             DocumentSource::PdfPath(path) => {
                 let bytes = fs::read(path)?;
                 self.route_pdf_bytes(&bytes)
+            }
+            DocumentSource::OfficeBytes { .. } | DocumentSource::OfficePath { .. } => {
+                OfficeInspector::inspect_source(source)
             }
             DocumentSource::ImageBytes { data, .. } => {
                 if data.is_empty() {

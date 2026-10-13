@@ -1,6 +1,4 @@
-use docula_domains::{
-    docula_bank_statement, BankStatementData, BankTransaction, TransactionType,
-};
+use docula_domains::{BankStatementData, BankTransaction, TransactionType, docula_bank_statement};
 use docula_schema::DocuValidate;
 
 docula_bank_statement! {
@@ -80,9 +78,7 @@ fn test_bank_statement_flow_totals_mismatch() {
         currency: "EUR".to_string(),
         opening_balance: 1000.0,
         closing_balance: 1500.0,
-        transactions: vec![
-            BankTransaction::credit("2026-09-02", "Payroll", 500.0),
-        ],
+        transactions: vec![BankTransaction::credit("2026-09-02", "Payroll", 500.0)],
         total_credits: Some(800.0), // Mismatch!
         total_debits: None,
     };
@@ -114,7 +110,11 @@ fn test_bank_statement_running_balance_mismatch() {
     let res = statement.validate_integrity();
     assert!(res.is_err());
     let errors = res.unwrap_err();
-    assert!(errors.iter().any(|e| e.field_path == "transactions[0].balance_after"));
+    assert!(
+        errors
+            .iter()
+            .any(|e| e.field_path == "transactions[0].balance_after")
+    );
 }
 
 #[test]
@@ -127,7 +127,11 @@ fn test_macro_bank_statement_custom_fields_and_schema() {
         currency: "EUR".to_string(),
         opening_balance: 20000.0,
         closing_balance: 22000.0,
-        transactions: vec![BankTransaction::credit("2026-09-05", "Customer Inbound", 2000.0)],
+        transactions: vec![BankTransaction::credit(
+            "2026-09-05",
+            "Customer Inbound",
+            2000.0,
+        )],
         total_credits: Some(2000.0),
         total_debits: Some(0.0),
         gl_account_id: "GL-1001-CASH".to_string(),
