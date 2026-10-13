@@ -2,7 +2,7 @@
 
 ## 1. Executive Roadmap & Workspace Blueprint
 
-This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **8-Milestone phased execution model** across a 13-crate Cargo Monorepo Workspace, standardizing on the **KitaSan (COOLJAPAN) open-source stack** (`oximedia`, `oxillama`, `oxibonsai`, `oxirag`, `oxirs`, `scirs2`, `oxiz`) and **`diesel-cte-ext`**.
+This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **9-Milestone phased execution model** across a 14-crate Cargo Monorepo Workspace, standardizing on the **KitaSan (COOLJAPAN) open-source stack** (`oximedia`, `oxillama`, `oxibonsai`, `oxirag`, `oxirs`, `scirs2`, `oxiz`) and **`diesel-cte-ext`**.
 
 Optical Code Detection (QR / 1D Barcodes) and Visual Region Cropping (Document Screenshots / ROI Crops) are scheduled for **Milestone 7 (Advanced Vision)** as the latest functional capabilities. However, all foundational abstractions (`BoundingBox` pixel projection, `ImageCrop` value objects, `RegionCropper` trait, and schema reflection tags) are engineered **from Day 0 in Milestone 1 and Milestone 2** to guarantee zero breaking changes or hard refactoring when Milestone 7 lands.
 
@@ -49,6 +49,12 @@ gantt
     DOC-801 High-Level DoculaPipeline & Self-Repair (docula)   :done, m8_1, after m7_2, 6d
     DOC-802 Terminal CLI Utility (docula-cli)                  :done, m8_2, after m8_1, 5d
     DOC-803 cargo-geiger Zero-FFI Safety & Criterion Benchmarks:done, m8_3, after m8_2, 4d
+
+    section Milestone 9: Domain Verticals & Templates
+    DOC-901 Invoicing & AP Template (docula-domains)           :active, m9_1, after m8_3, 5d
+    DOC-902 Bank Statement & Ledger Template (docula-domains)  :m9_2, after m9_1, 5d
+    DOC-903 Receipt & Expense Template (docula-domains)        :m9_3, after m9_2, 4d
+    DOC-904 Logistics & Shipping Manifest (docula-domains)     :m9_4, after m9_3, 4d
 ```
 
 ---
@@ -97,7 +103,8 @@ docula/
 │   ├── docula-exemplar/        # Dual-stage retrieval, diesel-cte-ext template inheritance, few-shot builder
 │   ├── docula-hitl/            # Active learning flywheel, triage gates, diesel-cte-ext correction DAGs
 │   ├── docula/                 # High-level developer facade offering typed API
-│   └── docula-cli/             # Sovereign command-line tool
+│   ├── docula-cli/             # Sovereign command-line tool
+│   └── docula-domains/         # Standard domain vertical schemas, DocuValidate rules & optical code adapters
 └── tests/
     ├── fixtures/               # Test PDFs, bills, receipts, QR invoices
     └── integration_tests/      # End-to-end integration and fuzz suites
@@ -403,6 +410,57 @@ docula/
   2. Single-page born-digital PDF completes in $< 15\,\text{ms}$.
   3. Scanned receipt OCR + 1-bit LLM (`oxibonsai`) completes in $< 1.2\,\text{s}$ on standard CPU.
   4. General GGUF extraction (`oxillama`) completes with zero memory leaks.
+
+---
+
+### Milestone 9: Standard Domain Verticals & Template Catalog (`docula-domains`)
+
+#### Ticket DOC-901: Invoicing & Accounts Payable Domain Template (`docula-domains`)
+* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md), [`17_OPTICAL_CODE_EXTRACTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/17_OPTICAL_CODE_EXTRACTION.md)
+* **Single Responsibility:** Provide standard `InvoiceData`, `LineItem`, `TaxDetail`, and `PaymentInfo` schemas with arithmetic `DocuValidate` integrity checks, ISO-4217 currency validation, and optical code payload adapters (SEPA EPC / SAT CFDI).
+* **Design Pattern:** **Domain Model Pattern**, **Specification / Policy Pattern** (`DocuValidate`), and **Adapter Pattern**.
+* **Acceptance Criteria:**
+  1. `InvoiceData` implements `schemars::JsonSchema`, `serde::Serialize`, `serde::Deserialize`, and `DocuValidate`.
+  2. Arithmetic validation checks:
+     - $\sum \text{line\_items.total} == \text{subtotal} \pm \$0.05$
+     - $\text{subtotal} + \text{tax} - \text{discount} == \text{total\_amount} \pm \$0.05$
+     - $\text{quantity} \times \text{unit\_price} == \text{total} \pm \$0.05$ for every line item.
+  3. Provides adapter functions `from_sepa_epc` and `from_cfdi_qr` to populate financial fields from decoded 2D barcodes.
+* **Test Scenarios:**
+  * `test_invoice_valid_arithmetic_passes`: Properly balanced invoice passes validation without errors.
+  * `test_invoice_arithmetic_mismatch_fails`: Imbalanced invoice yields explicit `ValidationError` entries.
+  * `test_invoice_line_item_math_fails`: Mismatch between unit price, quantity, and total is flagged.
+  * `test_invoice_sepa_epc_adapter`: Bridges `SepaEpcPayload` into invoice payment fields.
+
+#### Ticket DOC-902: Bank Statement & Financial Reconciliation Template (`docula-domains`)
+* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
+* **Single Responsibility:** Provide `BankStatementData`, `BankTransaction`, and `TransactionType` with running balance ledger continuity validation.
+* **Design Pattern:** **Domain Model Pattern** & **Invariant Verification Pattern**.
+* **Acceptance Criteria:**
+  1. `BankStatementData` implements `schemars::JsonSchema`, `serde::Serialize`, `serde::Deserialize`, and `DocuValidate`.
+  2. Balance continuity validation: $\text{opening\_balance} + \sum \text{credits} - \sum \text{debits} == \text{closing\_balance} \pm \$0.05$.
+* **Test Scenarios:**
+  * `test_bank_statement_balanced_ledger`: Balanced ledger passes validation.
+  * `test_bank_statement_discrepancy_detected`: Out-of-balance statement flags specific discrepancies.
+
+#### Ticket DOC-903: Receipt & Travel/Expense Normalization Template (`docula-domains`)
+* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
+* **Single Responsibility:** Provide `ReceiptData` schema with merchant normalization, tip/tax extraction, and OCR jitter tolerance.
+* **Design Pattern:** **Value Object Pattern** & **Fuzzy Math Tolerance**.
+* **Acceptance Criteria:**
+  1. `ReceiptData` implements `JsonSchema`, `Serialize`, `Deserialize`, and `DocuValidate`.
+  2. Validates subtotal + tax + tip == grand total within configurable tolerance.
+* **Test Scenarios:**
+  * `test_receipt_tip_and_tax_validation`: Validates restaurant or taxi receipt math.
+
+#### Ticket DOC-904: Logistics & Shipping Manifest Template (`docula-domains`)
+* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md)
+* **Single Responsibility:** Provide `BillOfLadingData` schema with ISO 6346 shipping container checksum validation.
+* **Design Pattern:** **Specification Pattern** & **Checksum Verification**.
+* **Acceptance Criteria:**
+  1. `BillOfLadingData` validates ISO 6346 4-letter owner code and check digit.
+* **Test Scenarios:**
+  * `test_shipping_container_iso_checksum`: Valid container number passes, corrupt check digit fails.
 
 ---
 
