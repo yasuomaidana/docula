@@ -1751,6 +1751,7 @@ dependencies = [
  "async-trait",
  "candle-core",
  "docula-schema",
+ "oxibonsai",
  "oxibonsai-runtime",
  "oxillama",
  "schemars",
@@ -4322,6 +4323,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxibonsai"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8cfa59049cf98d5b4c89de5b386ab6ace1a82f950cab6e903ee972ef22065318"
+dependencies = [
+ "oxibonsai-core",
+ "oxibonsai-kernels",
+ "oxibonsai-model",
+ "oxibonsai-runtime",
+]
+
+[[package]]
 name = "oxibonsai-core"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4918,7 +4931,7 @@ dependencies = [
  "oxiri",
  "oxrdf",
  "ryu-js",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
 ]
 
@@ -4931,7 +4944,7 @@ dependencies = [
  "oxilangtag",
  "oxiri",
  "rand 0.9.5",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -4944,7 +4957,7 @@ dependencies = [
  "oxiri",
  "oxrdf",
  "quick-xml 0.37.5",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
  "tokio",
 ]
 
@@ -4954,7 +4967,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c17c2ae62ac34fda465f6331105906c0e17b4e088dac3249e1f229b962062503"
 dependencies = [
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -4967,7 +4980,7 @@ dependencies = [
  "oxilangtag",
  "oxiri",
  "oxrdf",
- "thiserror 1.0.69",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

@@ -21,6 +21,7 @@ serde_json = "1.0"
 async-trait = "0.1"
 thiserror = "2.0"
 oxillama = "0.1.4"
+oxibonsai = "0.2.3"
 oxibonsai-runtime = "0.2.3"
 candle-core = { version = "0.11", default-features = false, optional = true }
 

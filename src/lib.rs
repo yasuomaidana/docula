@@ -61,6 +61,15 @@ mod tests {
         let invoice_item = domains::LineItem::new("Widget", 2.0, 10.0);
         assert_eq!(invoice_item.total, 20.0);
 
+        let bank_tx = domains::BankTransaction::credit("2026-10-12", "Deposit", 100.0);
+        assert_eq!(bank_tx.amount, 100.0);
+
+        let receipt_item = domains::ReceiptItem::new("Coffee", 4.5);
+        assert_eq!(receipt_item.total, 4.5);
+
+        let container = domains::ShippingContainer::new("CSQU3054383");
+        assert_eq!(container.container_number, "CSQU3054383");
+
         let pipeline = DoculaPipeline::new();
         assert_eq!(pipeline.config().dpi, 150);
     }
