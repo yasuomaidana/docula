@@ -1,8 +1,8 @@
 use chrono::Utc;
 use docula_core::{BoundingBox, SpatialSpan};
 use docula_hitl::{
-    ColdArchiveStore, CorrectionTriad, JsonPatchDiff, PromotionGate, TriadMetadata, TriageDecision,
-    TriageGate, TriageItem, TriageQueue,
+    ColdArchiveStore, CorrectionTriad, JsonPatchDiff, PromotionPolicy, ThresholdPromotionPolicy,
+    TriadMetadata, TriageDecision, TriageGate, TriageItem, TriageQueue,
 };
 use docula_ocr::SpatialLayoutMap;
 use docula_schema::ValidationError;
@@ -108,25 +108,25 @@ fn test_triage_queue_fifo() {
 }
 
 #[test]
-fn test_promotion_gate_blocks_single_occurrence() {
-    let gate = PromotionGate::new(3);
+fn test_promotion_policy_blocks_single_occurrence() {
+    let policy = ThresholdPromotionPolicy::new(3);
     let triad = sample_triad(Some("VendorA"), 0x1234);
 
     // Recurrence count 1 should be blocked (< 3)
-    let qualified = gate.evaluate_promotion(&triad, 1, &[]);
+    let qualified = policy.evaluate_promotion(&triad, 1, &[]);
     assert!(!qualified, "Single occurrence must not be promoted");
 }
 
 #[test]
-fn test_promotion_gate_accepts_recurring_triad() {
-    let gate = PromotionGate::new(3);
+fn test_promotion_policy_accepts_recurring_triad() {
+    let policy = ThresholdPromotionPolicy::new(3);
     let triad = sample_triad(Some("VendorA"), 0x1234);
 
     // Recurrence count 3 qualifies
-    let qualified = gate.evaluate_promotion(&triad, 3, &[]);
+    let qualified = policy.evaluate_promotion(&triad, 3, &[]);
     assert!(qualified, "Recurring pattern must qualify for promotion");
 
-    let promoted = gate.promote(&triad, "invoice").unwrap();
+    let promoted = policy.promote(&triad, "invoice").unwrap();
     assert_eq!(promoted.metadata.document_type, "invoice");
     assert_eq!(
         promoted.metadata.layout_fingerprint,

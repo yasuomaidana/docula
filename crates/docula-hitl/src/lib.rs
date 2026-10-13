@@ -11,8 +11,8 @@ pub mod triad;
 pub mod triage;
 
 pub use error::HitlError;
-pub use lineage::{CorrectionLineageTracker, LineageRevision};
-pub use promotion::PromotionGate;
+pub use lineage::{CorrectionLineageTracker, LineageRevision, LineageTableConfig};
+pub use promotion::{PromotionPolicy, ThresholdPromotionPolicy};
 pub use storage::ColdArchiveStore;
 pub use triad::{CorrectionTriad, JsonPatchDiff, TriadMetadata};
 pub use triage::{TriageDecision, TriageGate, TriageItem, TriageQueue};
