@@ -92,6 +92,44 @@ impl DocuValidate for InvoiceData {
 }
 ```
 
+### 2.2 Macro-Driven Extensible Template Approach (`docula_invoice!`)
+
+In production enterprise deployments, invoices rarely conform to a single rigid schema:
+1. **Invoice-Level Discount Only**: Traditional invoices deduct a blanket discount from the subtotal.
+2. **Line-Item Discount Only**: Retail and wholesale invoices deduct itemized discounts from individual lines.
+3. **Dual Discount (Both)**: Complex AP invoices feature both per-line promotional discounts and an invoice-level prompt-payment discount.
+4. **Custom Enterprise Metadata**: Organizations require arbitrary custom fields (e.g. `cost_center`, `purchase_order_number`, `approver_id`, `custom_tags`) without having to manually rewrite boilerplate `DocuValidate`, `serde`, and `JsonSchema` implementations.
+
+To solve this, `docula-domains` provides the `docula_invoice!` macro:
+
+```rust
+use docula_domains::docula_invoice;
+
+// Define an enterprise invoice with dual discounts and custom internal routing fields
+docula_invoice! {
+    pub struct CustomEnterpriseInvoice {
+        discount_policy = both,  // Options: "none" | "invoice" | "line_item" | "both"
+        payment_info = true,
+
+        // Custom enterprise fields seamlessly merged into extraction:
+        pub cost_center: Option<String>,
+        pub purchase_order_number: Option<String>,
+        pub department_code: String,
+    }
+}
+```
+
+The macro automatically synthesizes:
+* Standard fields (`vendor_name`, `vendor_tax_id`, `invoice_number`, `issue_date`, `due_date`, `currency`, `subtotal_amount`, `tax_amount`, `total_amount`, and `payment_info`).
+* Conditional `discount_amount: Option<f64>` (for `invoice` and `both` policies).
+* Composable `LineItem` schema with optional `discount: Option<f64>` (for `line_item` and `both` policies).
+* Automatic `DocuValidate` implementation with dynamic arithmetic consistency formulas:
+  - Line items: $(qty \times unit\_price) - discount == total \\pm \$0.05$
+  - Subtotal integrity: $\sum line\_items.total == subtotal\_amount \\pm \$0.05$
+  - Grand total integrity: $subtotal + tax - discount == total\_amount \\pm \$0.05$
+  - ISO-4217 uppercase 3-letter currency code verification.
+* Optical code adapters (`apply_sepa_epc`, `apply_sat_cfdi`, `apply_swiss_qr`).
+
 ---
 
 ## 3. Practical Usage Examples

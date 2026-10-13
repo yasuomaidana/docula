@@ -16,9 +16,7 @@ docula-ocr = { path = "../docula-ocr" }
 embedag-rag = { path = "../../../embedag/crates/embedag-rag", optional = true }
 uuid = "1.10"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 thiserror = "2.0"
-strsim = "0.11"
 oxirag = "0.1.1"
 oxirs-core = "0.4.1"
 

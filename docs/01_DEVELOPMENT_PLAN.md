@@ -50,11 +50,11 @@ gantt
     DOC-802 Terminal CLI Utility (docula-cli)                  :done, m8_2, after m8_1, 5d
     DOC-803 cargo-geiger Zero-FFI Safety & Criterion Benchmarks:done, m8_3, after m8_2, 4d
 
-    section Milestone 9: Domain Verticals & Templates
-    DOC-901 Invoicing & AP Template (docula-domains)           :active, m9_1, after m8_3, 5d
-    DOC-902 Bank Statement & Ledger Template (docula-domains)  :m9_2, after m9_1, 5d
-    DOC-903 Receipt & Expense Template (docula-domains)        :m9_3, after m9_2, 4d
-    DOC-904 Logistics & Shipping Manifest (docula-domains)     :m9_4, after m9_3, 4d
+    section Milestone 9: Macro-Driven Domain Verticals & Templates
+    DOC-901 Macro Invoicing & AP Template (docula-domains)     :active, m9_1, after m8_3, 5d
+    DOC-902 Macro Bank Statement & Ledger Template             :m9_2, after m9_1, 5d
+    DOC-903 Macro Receipt & Expense Template                   :m9_3, after m9_2, 4d
+    DOC-904 Macro Logistics & Shipping Manifest Template       :m9_4, after m9_3, 4d
 ```
 
 ---
@@ -413,54 +413,87 @@ docula/
 
 ---
 
-### Milestone 9: Standard Domain Verticals & Template Catalog (`docula-domains`)
+### Milestone 9: Macro-Driven Domain Verticals & Extensible Template Catalog (`docula-domains` & `docula-macros`)
 
-#### Ticket DOC-901: Invoicing & Accounts Payable Domain Template (`docula-domains`)
+#### Architectural Shift: Macro-Driven Template Synthesis
+Rather than prescribing rigid, static structs that fail when real-world documents deviate from standard schemas, Milestone 9 adopts an **extensible macro-driven template engine** (`#[docula_invoice]`, `docula_invoice!`, `#[docula_bank_statement]`, `#[docula_receipt]`, `#[docula_bill_of_lading]`).
+The macro synthesizes standard vertical domain fields with schema descriptions, embeds user-defined custom fields seamlessly, and dynamically constructs arithmetic `DocuValidate` rules and optical barcode adapters tailored to the template configuration.
+
+```rust
+// Example: Custom Invoice with line-item and invoice-level discounts, plus custom enterprise fields
+docula_invoice! {
+    pub struct EnterpriseInvoice {
+        discount_policy = both, // "none" | "invoice" | "line_item" | "both"
+        tax_policy = flat,      // "flat" | "breakdown"
+        payment_info = true,
+
+        // Custom enterprise fields:
+        pub cost_center: Option<String>,
+        pub purchase_order_number: Option<String>,
+        pub internal_gl_code: Option<String>,
+    }
+}
+```
+
+#### Ticket DOC-901: Macro-Driven Invoicing & AP Domain Template (`docula-domains`)
 * **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md), [`17_OPTICAL_CODE_EXTRACTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/17_OPTICAL_CODE_EXTRACTION.md)
-* **Single Responsibility:** Provide standard `InvoiceData`, `LineItem`, `TaxDetail`, and `PaymentInfo` schemas with arithmetic `DocuValidate` integrity checks, ISO-4217 currency validation, and optical code payload adapters (SEPA EPC / SAT CFDI).
-* **Design Pattern:** **Domain Model Pattern**, **Specification / Policy Pattern** (`DocuValidate`), and **Adapter Pattern**.
+* **Single Responsibility:** Provide the `docula_invoice!` macro and standard `InvoiceData` preset, generating composable invoice schemas supporting custom user fields, flexible discount strategies, dynamic arithmetic `DocuValidate` validation, ISO-4217 currency checks, and optical code adapters (SEPA EPC, SAT CFDI, Swiss QR).
+* **Design Pattern:** **Macro Generation Pattern**, **Strategy Pattern** (discount/tax policies), **Policy / Specification Pattern** (`DocuValidate`), and **Adapter Pattern**.
+* **Flexible Domain Configurations:**
+  - `discount_policy = "none"`: No discount fields; validates $\text{subtotal} + \text{tax} == \text{total} \pm \$0.05$.
+  - `discount_policy = "invoice"`: Emits `discount_amount: Option<f64>`; validates $\text{subtotal} + \text{tax} - \text{discount} == \text{total} \pm \$0.05$.
+  - `discount_policy = "line_item"`: Emits `LineItem.discount: Option<f64>`; validates $(qty \times unit\_price) - discount == item.total$ per line item, and $\text{subtotal} + \text{tax} == \text{total} \pm \$0.05$.
+  - `discount_policy = "both"`: Emits both invoice-level `discount_amount` and `LineItem.discount`; verifies both line-item math and invoice-level equation.
 * **Acceptance Criteria:**
-  1. `InvoiceData` implements `schemars::JsonSchema`, `serde::Serialize`, `serde::Deserialize`, and `DocuValidate`.
-  2. Arithmetic validation checks:
-     - $\sum \text{line\_items.total} == \text{subtotal} \pm \$0.05$
-     - $\text{subtotal} + \text{tax} - \text{discount} == \text{total\_amount} \pm \$0.05$
-     - $\text{quantity} \times \text{unit\_price} == \text{total} \pm \$0.05$ for every line item.
-  3. Provides adapter functions `from_sepa_epc` and `from_cfdi_qr` to populate financial fields from decoded 2D barcodes.
+  1. `docula_invoice!` generates valid structs implementing `schemars::JsonSchema`, `serde::Serialize`, `serde::Deserialize`, and `DocuValidate`.
+  2. Preserves user-declared custom fields (types, doc comments, visibility) alongside synthesized vertical fields.
+  3. Dynamic arithmetic validation automatically adapts to the chosen `discount_policy`.
+  4. Provides barcode adapter methods `apply_sepa_epc`, `apply_sat_cfdi`, and `apply_swiss_qr` to enrich financial coordinates.
+  5. Zero-warning compilation and cyclomatic complexity per generated function $\le 10$.
 * **Test Scenarios:**
-  * `test_invoice_valid_arithmetic_passes`: Properly balanced invoice passes validation without errors.
-  * `test_invoice_arithmetic_mismatch_fails`: Imbalanced invoice yields explicit `ValidationError` entries.
-  * `test_invoice_line_item_math_fails`: Mismatch between unit price, quantity, and total is flagged.
-  * `test_invoice_sepa_epc_adapter`: Bridges `SepaEpcPayload` into invoice payment fields.
+  * `test_invoice_macro_default_standard_schema`: Verifies standard `InvoiceData` preset matches reference specification.
+  * `test_invoice_macro_custom_fields_serialization`: Verifies custom user fields (`cost_center`, `po_number`) serialize, deserialize, and reflect in JSON Schema.
+  * `test_invoice_macro_discount_invoice_level`: Verifies arithmetic validation when only document-level discount is active.
+  * `test_invoice_macro_discount_line_item_level`: Verifies arithmetic validation when discounts apply per line item.
+  * `test_invoice_macro_discount_both`: Verifies balanced math when both line-item discounts and invoice-level discounts co-exist.
+  * `test_invoice_macro_arithmetic_mismatch_fails`: Flags imbalanced sums and invalid math with targeted `ValidationError` entries.
+  * `test_invoice_macro_optical_code_adapters`: Validates SEPA EPC, SAT CFDI, and Swiss QR barcode ingestion into generated invoice structs.
 
-#### Ticket DOC-902: Bank Statement & Financial Reconciliation Template (`docula-domains`)
+#### Ticket DOC-902: Macro-Driven Bank Statement & Reconciliation Template (`docula-domains`)
 * **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
-* **Single Responsibility:** Provide `BankStatementData`, `BankTransaction`, and `TransactionType` with running balance ledger continuity validation.
-* **Design Pattern:** **Domain Model Pattern** & **Invariant Verification Pattern**.
+* **Single Responsibility:** Provide `docula_bank_statement!` macro and `BankStatementData` preset, generating ledger schemas with customizable transaction types, user account metadata, and running balance continuity validation.
+* **Design Pattern:** **Macro Generation Pattern** & **Invariant Verification Pattern**.
 * **Acceptance Criteria:**
-  1. `BankStatementData` implements `schemars::JsonSchema`, `serde::Serialize`, `serde::Deserialize`, and `DocuValidate`.
-  2. Balance continuity validation: $\text{opening\_balance} + \sum \text{credits} - \sum \text{debits} == \text{closing\_balance} \pm \$0.05$.
+  1. `docula_bank_statement!` generates structs implementing `JsonSchema`, `Serialize`, `Deserialize`, and `DocuValidate`.
+  2. Invariant validation verifies ledger continuity: $\text{opening\_balance} + \sum \text{credits} - \sum \text{debits} == \text{closing\_balance} \pm \$0.05$.
+  3. Supports custom user reconciliation tags (e.g., `gl_account_id`, `reconciliation_status`).
 * **Test Scenarios:**
-  * `test_bank_statement_balanced_ledger`: Balanced ledger passes validation.
-  * `test_bank_statement_discrepancy_detected`: Out-of-balance statement flags specific discrepancies.
+  * `test_bank_statement_balanced_ledger`: Balanced transactions pass validation.
+  * `test_bank_statement_discrepancy_detected`: Out-of-balance ledger produces field-level errors.
+  * `test_bank_statement_custom_metadata`: User-injected tracking fields are parsed and validated.
 
-#### Ticket DOC-903: Receipt & Travel/Expense Normalization Template (`docula-domains`)
+#### Ticket DOC-903: Macro-Driven Receipt & Expense Normalization Template (`docula-domains`)
 * **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
-* **Single Responsibility:** Provide `ReceiptData` schema with merchant normalization, tip/tax extraction, and OCR jitter tolerance.
-* **Design Pattern:** **Value Object Pattern** & **Fuzzy Math Tolerance**.
+* **Single Responsibility:** Provide `docula_receipt!` macro and `ReceiptData` preset with configurable tip/tax structures, OCR jitter tolerance, and corporate expense tracking fields.
+* **Design Pattern:** **Value Object Pattern**, **Fuzzy Math Tolerance**, and **Macro Generation**.
 * **Acceptance Criteria:**
-  1. `ReceiptData` implements `JsonSchema`, `Serialize`, `Deserialize`, and `DocuValidate`.
-  2. Validates subtotal + tax + tip == grand total within configurable tolerance.
+  1. `docula_receipt!` implements `JsonSchema`, `Serialize`, `Deserialize`, and `DocuValidate`.
+  2. Validates subtotal + tax + tip == grand total within configurable tolerance ($\pm \$0.05$ to $\pm \$0.10$).
+  3. Allows adding custom employee ID, project code, and expense category fields.
 * **Test Scenarios:**
-  * `test_receipt_tip_and_tax_validation`: Validates restaurant or taxi receipt math.
+  * `test_receipt_tip_and_tax_validation`: Validates tip, tax, and total arithmetic with configurable tolerance.
+  * `test_receipt_custom_expense_fields`: Custom reimbursement metadata compiles and validates.
 
-#### Ticket DOC-904: Logistics & Shipping Manifest Template (`docula-domains`)
+#### Ticket DOC-904: Macro-Driven Logistics & Shipping Manifest Template (`docula-domains`)
 * **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md)
-* **Single Responsibility:** Provide `BillOfLadingData` schema with ISO 6346 shipping container checksum validation.
-* **Design Pattern:** **Specification Pattern** & **Checksum Verification**.
+* **Single Responsibility:** Provide `docula_bill_of_lading!` macro and `BillOfLadingData` preset with ISO 6346 shipping container checksum validation and customizable cargo/voyage attributes.
+* **Design Pattern:** **Specification Pattern**, **Checksum Verification**, and **Macro Generation**.
 * **Acceptance Criteria:**
-  1. `BillOfLadingData` validates ISO 6346 4-letter owner code and check digit.
+  1. `docula_bill_of_lading!` validates ISO 6346 4-letter owner code and check digit.
+  2. Seamlessly integrates user custom tracking tags (e.g., `hazmat_un_number`, `port_of_entry`).
 * **Test Scenarios:**
   * `test_shipping_container_iso_checksum`: Valid container number passes, corrupt check digit fails.
+  * `test_logistics_custom_fields`: Custom customs and logistics fields validate correctly.
 
 ---
 

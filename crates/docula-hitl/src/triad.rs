@@ -77,7 +77,8 @@ impl CorrectionTriad {
     pub fn hash_artifact(bytes: &[u8]) -> String {
         let mut hasher = Sha256::new();
         hasher.update(bytes);
-        format!("{:x}", hasher.finalize())
+        let digest = hasher.finalize();
+        digest.iter().map(|b| format!("{b:02x}")).collect()
     }
 
     /// Computes cryptographic SHA-256 hex digest of this entire triad record.
