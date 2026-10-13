@@ -44,6 +44,12 @@ impl TinySkiaRasterizer {
     pub const fn new() -> Self {
         Self
     }
+
+    /// Creates a [`DocumentVisualExtractor`] bound to the given PDF bytes.
+    #[inline]
+    pub fn extractor<'a>(&self, pdf_bytes: &'a [u8]) -> DocumentVisualExtractor<'a> {
+        DocumentVisualExtractor::new(pdf_bytes)
+    }
 }
 
 impl Rasterizer for TinySkiaRasterizer {
@@ -114,44 +120,79 @@ impl Rasterizer for TinySkiaRasterizer {
     }
 }
 
-/// PDF page screenshot and ROI region cropper backed by [`TinySkiaRasterizer`].
+/// PDF visual extractor and region cropper with compliance blackout guarantees.
 ///
-/// Implements [`RegionCropper`] to integrate with downstream visual verification and OCR.
-pub struct PdfRegionCropper<'a> {
+/// Implements [`RegionCropper`] to extract page screenshots and sub-image ROIs while
+/// enforcing the Compliance Precedence Invariant (censored bounding boxes are blacked out).
+#[derive(Clone, Debug)]
+pub struct DocumentVisualExtractor<'a> {
     pdf_bytes: &'a [u8],
     rasterizer: TinySkiaRasterizer,
     default_dpi: u32,
+    censor_boxes: Vec<BoundingBox>,
 }
 
-impl<'a> PdfRegionCropper<'a> {
-    /// Creates a new `PdfRegionCropper` for the given PDF byte stream with default 150 DPI.
+impl<'a> DocumentVisualExtractor<'a> {
+    /// Creates a new visual extractor for the given PDF bytes with default 150 DPI.
     pub fn new(pdf_bytes: &'a [u8]) -> Self {
         Self {
             pdf_bytes,
             rasterizer: TinySkiaRasterizer::new(),
             default_dpi: 150,
+            censor_boxes: Vec::new(),
         }
     }
 
-    /// Sets a custom default DPI for region crops.
+    /// Sets a custom default DPI for page rasterization.
     pub fn with_dpi(mut self, dpi: u32) -> Self {
         self.default_dpi = dpi;
         self
     }
+
+    /// Configures compliance censor boxes to blackout on all extracted crops.
+    pub fn with_censor_boxes(mut self, boxes: Vec<BoundingBox>) -> Self {
+        self.censor_boxes = boxes;
+        self
+    }
+
+    /// Appends an individual censor box.
+    pub fn add_censor_box(&mut self, bbox: BoundingBox) {
+        self.censor_boxes.push(bbox);
+    }
+
+    /// Returns a slice of configured censor boxes.
+    #[inline]
+    pub fn censor_boxes(&self) -> &[BoundingBox] {
+        &self.censor_boxes
+    }
+
+    /// Renders a page buffer and applies all configured censor blackouts.
+    fn render_censored_page(
+        &self,
+        page_index: usize,
+        dpi: u32,
+    ) -> Result<PageRasterBuffer, DoculaError> {
+        let mut buffer = self
+            .rasterizer
+            .render_page(self.pdf_bytes, page_index, dpi)
+            .map_err(map_preprocess_to_docula)?;
+
+        for censor in &self.censor_boxes {
+            buffer.apply_blackout(censor);
+        }
+
+        Ok(buffer)
+    }
 }
 
-impl RegionCropper for PdfRegionCropper<'_> {
+impl RegionCropper for DocumentVisualExtractor<'_> {
     fn capture_page(
         &self,
         page_index: usize,
         dpi: u32,
         format: CropFormat,
     ) -> Result<ImageCrop, DoculaError> {
-        let buffer = self
-            .rasterizer
-            .render_page(self.pdf_bytes, page_index, dpi)
-            .map_err(map_preprocess_to_docula)?;
-
+        let buffer = self.render_censored_page(page_index, dpi)?;
         let unit_box = BoundingBox::from_coords_clamped(0.0, 0.0, 1.0, 1.0);
         buffer
             .crop_to_image_crop(&unit_box, format)
@@ -165,10 +206,7 @@ impl RegionCropper for PdfRegionCropper<'_> {
         padding: f32,
         format: CropFormat,
     ) -> Result<ImageCrop, DoculaError> {
-        let buffer = self
-            .rasterizer
-            .render_page(self.pdf_bytes, page_index, self.default_dpi)
-            .map_err(map_preprocess_to_docula)?;
+        let buffer = self.render_censored_page(page_index, self.default_dpi)?;
 
         let target_box = if padding > 0.0 {
             BoundingBox::from_coords_clamped(
@@ -186,6 +224,9 @@ impl RegionCropper for PdfRegionCropper<'_> {
             .map_err(map_preprocess_to_docula)
     }
 }
+
+/// Type alias maintaining full backward compatibility with earlier API references.
+pub type PdfRegionCropper<'a> = DocumentVisualExtractor<'a>;
 
 /// Helper to map `PreprocessError` to `DoculaError`.
 fn map_preprocess_to_docula(err: PreprocessError) -> DoculaError {

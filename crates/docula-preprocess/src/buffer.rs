@@ -1,7 +1,7 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use docula_core::{BoundingBox, CropError, CropFormat, ImageCrop};
-use image::{DynamicImage, ImageEncoder, RgbaImage};
+use image::{DynamicImage, ImageEncoder, Rgba, RgbaImage};
 
 use crate::error::PreprocessError;
 
@@ -60,6 +60,25 @@ impl PageRasterBuffer {
     #[inline]
     pub fn into_image(self) -> RgbaImage {
         self.image
+    }
+
+    /// Applies a deterministic compliance blackout, setting all pixels overlapping `bbox` to opaque black `[0, 0, 0, 255]`.
+    pub fn apply_blackout(&mut self, bbox: &BoundingBox) {
+        let (width, height) = self.dimensions();
+        if width == 0 || height == 0 {
+            return;
+        }
+
+        let rect = bbox.to_pixel_rect(width, height);
+        let x_end = (rect.x + rect.width).min(width);
+        let y_end = (rect.y + rect.height).min(height);
+        let black = Rgba([0, 0, 0, 255]);
+
+        for y in rect.y..y_end {
+            for x in rect.x..x_end {
+                self.image.put_pixel(x, y, black);
+            }
+        }
     }
 
     /// Crops a sub-image region corresponding to a normalized [`BoundingBox`].
@@ -164,6 +183,23 @@ mod tests {
 
         let consumed = buffer.into_image();
         assert_eq!(consumed.dimensions(), (100, 200));
+    }
+
+    #[test]
+    fn test_buffer_blackout() {
+        let mut img = RgbaImage::new(100, 100);
+        for pixel in img.pixels_mut() {
+            *pixel = Rgba([255, 255, 255, 255]);
+        }
+        let mut buffer = PageRasterBuffer::new(0, img, 150).unwrap();
+        let censor = BoundingBox::from_coords(0.2, 0.2, 0.4, 0.4).unwrap();
+        buffer.apply_blackout(&censor);
+
+        let p_inside = buffer.image.get_pixel(30, 30);
+        assert_eq!(p_inside, &Rgba([0, 0, 0, 255]));
+
+        let p_outside = buffer.image.get_pixel(10, 10);
+        assert_eq!(p_outside, &Rgba([255, 255, 255, 255]));
     }
 
     #[test]

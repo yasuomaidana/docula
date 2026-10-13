@@ -4,6 +4,16 @@ members = [
     ".",
     "crates/docula-core",
     "crates/docula-preprocess",
+    "crates/docula-ingest",
+    "crates/docula-ocr",
+    "crates/docula-compliance",
+    "crates/docula-schema",
+    "crates/docula-llm",
+    "crates/docula-rag",
+    "crates/docula-exemplar",
+    "crates/docula-hitl",
+    "crates/docula-vision-codes",
+    "crates/docula-cli",
 ]
 
 [workspace.dependencies]
@@ -18,3 +28,31 @@ edition = "2024"
 [dependencies]
 docula-core = { path = "crates/docula-core" }
 docula-preprocess = { path = "crates/docula-preprocess" }
+docula-ingest = { path = "crates/docula-ingest" }
+docula-ocr = { path = "crates/docula-ocr" }
+docula-compliance = { path = "crates/docula-compliance" }
+docula-schema = { path = "crates/docula-schema" }
+docula-llm = { path = "crates/docula-llm" }
+docula-rag = { path = "crates/docula-rag" }
+docula-exemplar = { path = "crates/docula-exemplar" }
+docula-hitl = { path = "crates/docula-hitl" }
+docula-vision-codes = { path = "crates/docula-vision-codes" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = "1.0"
+thiserror = "2.0"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+async-trait = "0.1"
+tokio = { version = "1.43", features = ["rt", "macros"] }
+uuid = { version = "1.10", features = ["v7", "serde"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
+pdf_oxide = { version = "0.3", features = ["rendering"] }
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
+rxing = "0.6"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "docula_benchmarks"
+harness = false

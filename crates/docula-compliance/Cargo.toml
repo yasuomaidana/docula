@@ -1,0 +1,17 @@
+[package]
+name = "docula-compliance"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Compliance action tags, spatial blackout, and PII sanitization for docula"
+
+[dependencies]
+docula-core = { path = "../docula-core" }
+image = { version = "0.25", default-features = false }
+regex = "1.11"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[dev-dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }

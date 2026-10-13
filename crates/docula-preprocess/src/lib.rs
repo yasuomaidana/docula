@@ -6,13 +6,24 @@
 //! This crate provides:
 //! - Pure-Rust PDF rendering strategy powered by `pdf_oxide` and `tiny-skia` ([`Rasterizer`], [`TinySkiaRasterizer`]).
 //! - In-memory RGBA page raster buffer with sub-image ROI extraction ([`PageRasterBuffer`]).
-//! - Day 0 bridge to core region cropping abstractions ([`PdfRegionCropper`]).
+//! - Day 0 bridge to core region cropping abstractions ([`PdfRegionCropper`], [`DocumentVisualExtractor`]).
+//! - Composable image filter chain pipeline ([`ImageFilter`], [`PreprocessingFilterChain`]).
+//! - Pure-Rust computer vision enhancement via KitaSan `oximedia` ([`OxiMediaFilter`], [`OxiMediaStitcher`]).
+//! - Hough transform text baseline deskewing with sub-degree accuracy ([`HoughDeskewFilter`]).
+//! - Adaptive local mean and Otsu binarization for shadow removal ([`AdaptiveBinarizeFilter`]).
+//! - SIMD-accelerated aspect ratio preserving image rescaler ([`SimdResizeFilter`], [`ResizeMode`]).
+//! - Normalized preprocessing container with OCR planar tensor ([`PreprocessedImage`]).
 //! - Typed preprocessing error hierarchy ([`PreprocessError`]).
 
 pub mod buffer;
 pub mod error;
+pub mod filter;
 pub mod raster;
 
 pub use buffer::PageRasterBuffer;
 pub use error::PreprocessError;
-pub use raster::{PdfRegionCropper, Rasterizer, TinySkiaRasterizer};
+pub use filter::{
+    AdaptiveBinarizeFilter, HoughDeskewFilter, ImageFilter, OxiMediaFilter, OxiMediaStitcher,
+    PreprocessedImage, PreprocessingFilterChain, ResizeMode, SimdResizeFilter,
+};
+pub use raster::{DocumentVisualExtractor, PdfRegionCropper, Rasterizer, TinySkiaRasterizer};

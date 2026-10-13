@@ -1,0 +1,19 @@
+[package]
+name = "docula-ingest"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "PDF hierarchy inspection, font ToUnicode validation, and intelligent document routing heuristics"
+
+[dependencies]
+docula-core = { path = "../docula-core" }
+docula-preprocess = { path = "../docula-preprocess" }
+lopdf = "0.45"
+thiserror = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+rayon = "1.10"
+
+[dev-dependencies]
+tempfile = "3.27.0"
