@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "dendrite-synapse-docula-embedag": {
+      "command": "/Users/yasuomaidana/go/bin/dendrite",
+      "args": [
+        "mcp",
+        "serve",
+        "--synapse",
+        "docula-embedag"
+      ]
+    }
+  }
+}
