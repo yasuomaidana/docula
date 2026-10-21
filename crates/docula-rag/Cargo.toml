@@ -1,0 +1,24 @@
+[package]
+name = "docula-rag"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Layout-aware table chunking, in-memory vector store, and hybrid BM25 retrieval for docula"
+
+[features]
+default = ["embedag-integration"]
+embedag-integration = ["dep:embedag-rag"]
+
+[dependencies]
+docula-core = { path = "../docula-core" }
+docula-ocr = { path = "../docula-ocr" }
+embedag-rag = { path = "../../../embedag/crates/embedag-rag", optional = true }
+uuid = "1.10"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+oxirag = "0.1.1"
+oxirs-core = "0.4.1"
+
+[dev-dependencies]
+tokio = { version = "1.43", features = ["macros", "rt-multi-thread"] }
