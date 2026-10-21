@@ -1,0 +1,30 @@
+[package]
+name = "docula-llm"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Sovereign local-embedded and remote LLM backends with DFA logits masking for docula"
+
+[features]
+default = ["local-embedded", "local-candle"]
+local-embedded = []
+local-candle = ["dep:candle-core"]
+local-onnx = []
+remote-ollama = []
+remote-openai = []
+
+[dependencies]
+docula-schema = { path = "../docula-schema" }
+schemars = "1.0"
+serde_json = "1.0"
+async-trait = "0.1"
+thiserror = "2.0"
+oxillama = "0.1.4"
+oxibonsai = "0.2.3"
+oxibonsai-runtime = "0.2.3"
+candle-core = { version = "0.11", default-features = false, optional = true }
+
+[dev-dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.43", features = ["macros", "rt-multi-thread"] }

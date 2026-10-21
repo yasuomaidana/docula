@@ -1,0 +1,28 @@
+[package]
+name = "docula-ocr"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Multi-lingual PP-OCRv6 text detection, CRNN recognition, and spatial layout clustering for docula"
+
+[features]
+default = ["ocr-latin"]
+ocr-latin = []
+ocr-multilingual = []
+lang-cjk = ["ocr-multilingual"]
+lang-arabic = ["ocr-multilingual"]
+lang-cyrillic = ["ocr-multilingual"]
+lang-devanagari = ["ocr-multilingual"]
+
+[dependencies]
+docula-core = { path = "../docula-core" }
+docula-preprocess = { path = "../docula-preprocess" }
+image = { version = "0.25", default-features = false }
+thiserror = "2.0"
+rayon = "1.10"
+memmap2 = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"
