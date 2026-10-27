@@ -127,7 +127,11 @@ impl DocuValidate for ItemizedApplication {
         v.assert_non_empty("full_name", &self.full_name, "Full name");
         v.assert_non_empty("phone_number", &self.phone_number, "Phone number");
         v.assert_non_empty("address", &self.address, "Address");
-        v.assert(!self.records.is_empty(), "records", "Records must not be empty");
+        v.assert(
+            !self.records.is_empty(),
+            "records",
+            "Records must not be empty",
+        );
         for (idx, r) in self.records.iter().enumerate() {
             if let Some(end) = r.end_date {
                 v.assert(
@@ -475,8 +479,14 @@ async fn test_handwritten_application_itemized_table_extraction() {
     let data = result.data.unwrap();
     assert_eq!(data.full_name, "Jane Doe");
     assert_eq!(data.records.len(), 3);
-    assert_eq!(data.records[0].reason_for_leaving, Some(ReasonForLeaving::Relocated));
-    assert_eq!(data.records[1].reason_for_leaving, Some(ReasonForLeaving::BetterOp));
+    assert_eq!(
+        data.records[0].reason_for_leaving,
+        Some(ReasonForLeaving::Relocated)
+    );
+    assert_eq!(
+        data.records[1].reason_for_leaving,
+        Some(ReasonForLeaving::BetterOp)
+    );
     assert_eq!(data.records[2].reason_for_leaving, None);
 }
 
