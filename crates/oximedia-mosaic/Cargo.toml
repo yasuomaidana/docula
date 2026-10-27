@@ -1,0 +1,10 @@
+[package]
+name = "oximedia-mosaic"
+version = "0.1.0"
+edition = "2024"
+description = "Pure-Rust 2D image registration, ZMAD strip overlap detection, ECC drift estimation, and mosaic stitching"
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+oximedia-cv = "0.2.1"
+thiserror = "2.0"
