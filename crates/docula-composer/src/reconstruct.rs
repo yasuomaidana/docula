@@ -1,9 +1,9 @@
-use docula_core::DocumentSource;
-use docula_preprocess::PageRasterBuffer;
-use image::{ImageFormat, RgbaImage};
 use cv_mosaic::{
     OverlapAxis, detect_strip_overlap_zmad, estimate_orthogonal_drift_ecc, stitch_frames_feathered,
 };
+use docula_core::DocumentSource;
+use docula_preprocess::PageRasterBuffer;
+use image::{ImageFormat, RgbaImage};
 use oximedia_cv::registration::panorama as reg_pano;
 use serde::{Deserialize, Serialize};
 
@@ -80,8 +80,8 @@ pub struct ReconstructedDocument {
 }
 
 impl ReconstructedDocument {
+    /// Consumes or accesses the underlying canvas raster image.
     #[must_use]
-    #[inline]
     pub fn image(&self) -> &RgbaImage {
         &self.buffer.image
     }
@@ -176,8 +176,12 @@ impl DocumentReconstructor {
         }
 
         let (offsets, alignments) = match self.config.stitch_mode {
-            StitchMode::VerticalStrip => self.align_strip_sequence(fragments, OverlapAxis::Vertical)?,
-            StitchMode::HorizontalStrip => self.align_strip_sequence(fragments, OverlapAxis::Horizontal)?,
+            StitchMode::VerticalStrip => {
+                self.align_strip_sequence(fragments, OverlapAxis::Vertical)?
+            }
+            StitchMode::HorizontalStrip => {
+                self.align_strip_sequence(fragments, OverlapAxis::Horizontal)?
+            }
             StitchMode::PlanarHomography => self.align_planar_homography(fragments)?,
             StitchMode::Auto => {
                 let first = &fragments[0];
@@ -209,8 +213,10 @@ impl DocumentReconstructor {
 
         let min_x = offsets.iter().map(|(x, _)| *x).min().unwrap_or(0);
         let min_y = offsets.iter().map(|(_, y)| *y).min().unwrap_or(0);
-        let normalized_offsets: Vec<(i64, i64)> =
-            offsets.iter().map(|(x, y)| (x - min_x, y - min_y)).collect();
+        let normalized_offsets: Vec<(i64, i64)> = offsets
+            .iter()
+            .map(|(x, y)| (x - min_x, y - min_y))
+            .collect();
 
         let mut max_x = 0i64;
         let mut max_y = 0i64;
@@ -314,7 +320,7 @@ impl DocumentReconstructor {
     ) -> Result<AlignmentResult, ComposerError> {
         let grays: Vec<Vec<u8>> = fragments
             .iter()
-            .map(|img| cv_mosaic::rgba_to_luma_vec(img))
+            .map(cv_mosaic::rgba_to_luma_vec)
             .collect();
 
         let image_slices: Vec<(&[u8], u32, u32)> = grays

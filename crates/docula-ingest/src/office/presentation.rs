@@ -125,6 +125,15 @@ impl PresentationReader {
     }
 }
 
+#[inline]
+fn commit_paragraph(current: &mut String, acc: &mut Vec<String>) {
+    let text = std::mem::take(current);
+    let trimmed = text.trim();
+    if !trimmed.is_empty() {
+        acc.push(trimmed.to_string());
+    }
+}
+
 /// Parses individual PPTX slide XML into a [`PresentationSlide`].
 fn parse_pptx_slide_xml(xml: &str, slide_idx: usize) -> Result<PresentationSlide, IngestError> {
     let mut reader = Reader::from_str(xml);
@@ -143,11 +152,7 @@ fn parse_pptx_slide_xml(xml: &str, slide_idx: usize) -> Result<PresentationSlide
                 in_text = false;
             }
             Event::End(ref e) if e.name().as_ref() == "a:p" => {
-                let trimmed = current_para.trim();
-                if !trimmed.is_empty() {
-                    paragraphs.push(trimmed.to_string());
-                }
-                current_para.clear();
+                commit_paragraph(&mut current_para, &mut paragraphs);
             }
             Event::Text(ref e) if in_text => {
                 current_para.push_str(e.as_ref());

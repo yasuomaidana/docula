@@ -105,8 +105,7 @@ pub fn vectorize_rgba_to_svg(img: &RgbaImage, config: VectorizeConfig) -> Vector
 
     let mut gray = Vec::with_capacity((width * height) as usize);
     for p in img.pixels() {
-        let luma =
-            (u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000;
+        let luma = (u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000;
         gray.push(luma as u8);
     }
 
@@ -127,8 +126,7 @@ pub fn vectorize_rgba_to_svg(img: &RgbaImage, config: VectorizeConfig) -> Vector
         }
     }
 
-    let raw_contours =
-        trace_moore_neighbor_contours(&binary_grid, grid_w, grid_h, step, step);
+    let raw_contours = trace_moore_neighbor_contours(&binary_grid, grid_w, grid_h, step, step);
 
     let mut paths = Vec::with_capacity(raw_contours.len());
     for raw in raw_contours {

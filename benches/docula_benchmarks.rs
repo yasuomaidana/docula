@@ -1,4 +1,5 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 use docula::compliance::ComplianceRedactor;
 use docula::exemplar::compute_layout_fingerprint;
 use docula::ocr::SpatialLayoutMap;

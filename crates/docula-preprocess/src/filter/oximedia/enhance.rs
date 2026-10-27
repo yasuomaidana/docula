@@ -2,10 +2,10 @@
 
 use crate::error::PreprocessError;
 use crate::filter::ImageFilter;
+use cv_mosaic::map_rgb_channels;
 use image::RgbaImage;
 use oximedia_core::pixel_format::PixelFormat;
 use oximedia_cv::enhance::sharpening::{UnsharpMaskParams, laplacian_sharpen, unsharp_mask};
-use cv_mosaic::map_rgb_channels;
 
 use super::denoise::{MorphologyDenoiseConfig, apply_morphology};
 use super::denoise::{MorphologyOp, MorphologyShape};
@@ -166,9 +166,7 @@ impl ImageFilter for OxiMediaFilter {
                 threshold: unsharp_cfg.threshold,
             };
 
-            map_rgb_channels(img, |_c, chan, w, h| {
-                unsharp_mask(chan, w, h, &params)
-            });
+            map_rgb_channels(img, |_c, chan, w, h| unsharp_mask(chan, w, h, &params));
         }
 
         if let Some(lap_strength) = self.laplacian_strength {

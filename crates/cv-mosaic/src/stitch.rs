@@ -2,9 +2,7 @@
 
 use crate::error::MosaicError;
 use image::{Rgba, RgbaImage};
-use oximedia_cv::panorama_stitch::{
-    PanoFormat, PanoramaConfig, PanoramaStitcher, StitchFrame,
-};
+use oximedia_cv::panorama_stitch::{PanoFormat, PanoramaConfig, PanoramaStitcher, StitchFrame};
 
 /// Merges two vertically overlapping document image sections into a unified canvas.
 pub fn stitch_pair_vertical(

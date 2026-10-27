@@ -2,10 +2,10 @@
 
 use crate::error::PreprocessError;
 use crate::filter::ImageFilter;
+use cv_mosaic::auto_dewarp_dominant_quad;
 use image::RgbaImage;
 use oximedia_cv::lens_distortion::{CameraIntrinsics, DistortionCoeffs, LensDistortionCorrector};
 use oximedia_cv::motion_blur::{DeblurMethod, MotionBlurRemover};
-use cv_mosaic::auto_dewarp_dominant_quad;
 
 /// Lens distortion correction filter utilizing `oximedia_cv::lens_distortion`.
 #[derive(Debug, Clone, Copy)]

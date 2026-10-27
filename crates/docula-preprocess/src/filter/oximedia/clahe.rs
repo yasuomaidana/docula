@@ -2,10 +2,10 @@
 
 use crate::error::PreprocessError;
 use crate::filter::ImageFilter;
+use cv_mosaic::map_rgb_channels;
 use image::RgbaImage;
 use oximedia_cv::image::filter::{BoxBlur, ImageFilter as OxiCvFilter};
 use oximedia_cv::image::histogram::{ClaheConfig, adaptive_histogram_equalization};
-use cv_mosaic::map_rgb_channels;
 
 /// CLAHE and illumination normalization filter.
 #[derive(Debug, Clone)]
@@ -95,15 +95,21 @@ impl ImageFilter for OxiMediaClaheFilter {
         }
 
         let mut clahe_err = None;
-        map_rgb_channels(img, |_c, chan, _w, _h| {
-            match adaptive_histogram_equalization(chan, width, height, &active_config) {
+        map_rgb_channels(
+            img,
+            |_c, chan, _w, _h| match adaptive_histogram_equalization(
+                chan,
+                width,
+                height,
+                &active_config,
+            ) {
                 Ok(equalized) => equalized,
                 Err(e) => {
                     clahe_err = Some(e.to_string());
                     chan.to_vec()
                 }
-            }
-        });
+            },
+        );
 
         if let Some(err) = clahe_err {
             return Err(PreprocessError::FilterExecution {

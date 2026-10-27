@@ -1,7 +1,6 @@
 use crate::backend::LlmBackend;
 use crate::error::LlmError;
 use async_trait::async_trait;
-use docula_schema::{DfaLogitsMasker, SchemaDfa};
 use oxillama::runtime::EngineConfig;
 use std::path::{Path, PathBuf};
 
@@ -89,23 +88,13 @@ impl LlmBackend for OxiLlamaBackend {
         _user_prompt: &str,
         schema: &schemars::Schema,
     ) -> Result<String, LlmError> {
-        let dfa = SchemaDfa::compile(schema)?;
-        let masker = DfaLogitsMasker::new(dfa);
-
-        if let Some(ref canned) = self.canned_response {
-            if !masker.dfa().is_accepted(canned) {
-                return Err(LlmError::InferenceFailure(
-                    "OxiLLaMa response does not conform to the required JSON schema".to_string(),
-                ));
-            }
-            return Ok(canned.clone());
-        }
-
-        if self.model_path.to_string_lossy() != ":memory:" && !self.model_path.exists() {
-            return Err(LlmError::ModelNotFound(format!(
-                "OxiLLaMa GGUF model file not found at: {}",
-                self.model_path.display()
-            )));
+        if let Some(resp) = crate::common::verify_canned_or_model_path(
+            "OxiLLaMa",
+            self.canned_response.as_deref(),
+            &self.model_path,
+            schema,
+        )? {
+            return Ok(resp);
         }
 
         // Deterministic schema-compliant JSON extraction response
