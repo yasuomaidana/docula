@@ -16,6 +16,8 @@ members = [
     "crates/docula-cli",
     "crates/docula-domains",
     "crates/docula-composer",
+    "crates/oximedia-mosaic",
+    "crates/oximedia-vectorize",
 ]
 
 [workspace.dependencies]

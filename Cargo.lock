@@ -4721,10 +4721,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "oximedia-mosaic"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "oximedia-cv",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "oximedia-simd"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "454c8301a208c9416e9bbc15573b34ecfa4ad803bf6af41df9338dceea9946ae"
+
+[[package]]
+name = "oximedia-vectorize"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "oxionnx-core"

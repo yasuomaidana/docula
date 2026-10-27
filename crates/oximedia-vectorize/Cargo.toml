@@ -1,0 +1,9 @@
+[package]
+name = "oximedia-vectorize"
+version = "0.1.0"
+edition = "2024"
+description = "Pure-Rust raster-to-vector contour tracing, Ramer-Douglas-Peucker simplification, and SVG path synthesis"
+
+[dependencies]
+image = { version = "0.25", default-features = false, features = ["png"] }
+thiserror = "2.0"
