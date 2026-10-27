@@ -70,9 +70,7 @@ impl From<ImageCrop> for SerializedCrop {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SignaturePayload {
     /// Variant 1: Raw / cropped image section.
-    Image {
-        crop: SerializedCrop,
-    },
+    Image { crop: SerializedCrop },
     /// Variant 2: Binary mask representation only.
     Mask {
         #[schemars(description = "Base64-encoded binary mask PNG")]
@@ -300,17 +298,26 @@ fn test_signature_variant_mask_only() {
         } else if p[0] == 0 && p[1] == 0 && p[2] == 0 && p[3] == 255 {
             black_pixels += 1;
         } else {
-            panic!("Mask must be strictly binary, found non-binary pixel: {:?}", p);
+            panic!(
+                "Mask must be strictly binary, found non-binary pixel: {:?}",
+                p
+            );
         }
     }
 
-    assert!(white_pixels > 500, "Mask must contain white foreground signature strokes");
+    assert!(
+        white_pixels > 500,
+        "Mask must contain white foreground signature strokes"
+    );
     assert!(black_pixels > 5000, "Mask must contain black background");
 
     // Also verify black-on-white mask variant
     let bow_mask = visual_region.mask_black_on_white();
     assert_eq!(bow_mask.dimensions(), visual_region.dimensions());
-    let bow_black = bow_mask.pixels().filter(|p| p[0] == 0 && p[3] == 255).count();
+    let bow_black = bow_mask
+        .pixels()
+        .filter(|p| p[0] == 0 && p[3] == 255)
+        .count();
     assert_eq!(bow_black as u32, white_pixels);
 
     // Encode mask to PNG base64 for SignaturePayload::Mask via visual_region helper
@@ -326,7 +333,11 @@ fn test_signature_variant_mask_only() {
 
     assert!(invoice.validate_amount_plus_tax_equals_total().is_ok());
     match &invoice.signature {
-        SignaturePayload::Mask { mask_png_base64, width, height } => {
+        SignaturePayload::Mask {
+            mask_png_base64,
+            width,
+            height,
+        } => {
             assert!(!mask_png_base64.is_empty());
             assert_eq!(*width, mask.width());
             assert_eq!(*height, mask.height());
@@ -373,7 +384,11 @@ fn test_signature_variant_grayscale() {
 
     assert!(invoice.validate_amount_plus_tax_equals_total().is_ok());
     match &invoice.signature {
-        SignaturePayload::Grayscale { grayscale_png_base64, width, height } => {
+        SignaturePayload::Grayscale {
+            grayscale_png_base64,
+            width,
+            height,
+        } => {
             assert!(!grayscale_png_base64.is_empty());
             assert_eq!(*width, gray_img.width());
             assert_eq!(*height, gray_img.height());
@@ -399,10 +414,19 @@ fn test_signature_variant_vectorized() {
     let svg = vectorized.to_svg();
     assert!(svg.starts_with("<svg "), "Must begin with valid <svg tag");
     assert!(svg.ends_with("</svg>"), "Must terminate with </svg>");
-    assert!(svg.contains("fill=\"#000000\""), "SVG must define fill color");
+    assert!(
+        svg.contains("fill=\"#000000\""),
+        "SVG must define fill color"
+    );
     assert!(svg.contains("viewBox="), "SVG must have viewBox attribute");
-    assert!(svg.contains("<path d="), "SVG must contain vector path elements");
-    assert!(!vectorized.path_data().is_empty(), "Path data must be non-empty");
+    assert!(
+        svg.contains("<path d="),
+        "SVG must contain vector path elements"
+    );
+    assert!(
+        !vectorized.path_data().is_empty(),
+        "Path data must be non-empty"
+    );
 
     // Verify vector polygons
     assert!(
@@ -434,7 +458,12 @@ fn test_signature_variant_vectorized() {
 
     assert!(invoice.validate_amount_plus_tax_equals_total().is_ok());
     match &invoice.signature {
-        SignaturePayload::Vectorized { svg: s, path_data: p, width, height } => {
+        SignaturePayload::Vectorized {
+            svg: s,
+            path_data: p,
+            width,
+            height,
+        } => {
             assert!(s.contains("<svg"));
             assert!(!p.is_empty());
             assert_eq!(*width, vectorized.width);
@@ -455,7 +484,9 @@ async fn test_end_to_end_invoice_example_pipeline_extraction() {
     let sig_crop = visual_region.to_image_crop(CropFormat::Png).unwrap();
 
     let expected_invoice: Invoice<SignaturePayload> = build_base_invoice(
-        SignaturePayload::Image { crop: sig_crop.into() },
+        SignaturePayload::Image {
+            crop: sig_crop.into(),
+        },
         154.06,
     );
 
@@ -479,7 +510,10 @@ async fn test_end_to_end_invoice_example_pipeline_extraction() {
     assert_eq!(extracted.bill_info.username, "John Smith");
     assert_eq!(extracted.receiver.username, "John Smith");
     assert_eq!(extracted.items.len(), 3);
-    assert_eq!(extracted.items[0].description, "Front and rear brake cables");
+    assert_eq!(
+        extracted.items[0].description,
+        "Front and rear brake cables"
+    );
     assert_eq!(extracted.taxes.len(), 1);
     assert_eq!(extracted.taxes[0].name, "Sales Tax 6.25%");
     assert_eq!(extracted.taxes[0].qty, 9.06);

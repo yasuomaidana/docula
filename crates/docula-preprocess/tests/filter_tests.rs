@@ -1,6 +1,8 @@
 use docula_preprocess::{
-    AdaptiveBinarizeFilter, HoughDeskewFilter, ImageFilter, OxiMediaDenoiseFilter, OxiMediaFilter,
-    OxiMediaStitcher, PreprocessedImage, PreprocessingFilterChain, ResizeMode, SimdResizeFilter,
+    AdaptiveBinarizeFilter, HoughDeskewFilter, ImageFilter, OxiMediaClaheFilter,
+    OxiMediaDenoiseFilter, OxiMediaFilter, OxiMediaLensUndistortFilter, OxiMediaMotionDeblurFilter,
+    OxiMediaPerspectiveDewarpFilter, OxiMediaStitcher, PreprocessedImage, PreprocessingFilterChain,
+    ResizeMode, SimdResizeFilter,
 };
 use image::{Rgba, RgbaImage};
 use oximedia_cv::transform::{AffineTransform, warp_affine_image};
@@ -519,4 +521,103 @@ fn test_robust_degraded_document_pipeline_end_to_end() {
     );
     assert!(black_count > 500, "Text lines must be captured");
     assert!(white_count > black_count, "Background must be predominant");
+}
+
+#[test]
+fn test_oximedia_clahe_and_illumination_filter() {
+    let mut img = RgbaImage::from_pixel(100, 100, Rgba([100, 100, 100, 255]));
+    // Add artificial shadow gradient
+    for y in 0..100 {
+        for x in 0..100 {
+            let shadow = ((x + y) / 2) as u8;
+            img.put_pixel(
+                x,
+                y,
+                Rgba([
+                    180u8.saturating_sub(shadow),
+                    180u8.saturating_sub(shadow),
+                    180u8.saturating_sub(shadow),
+                    255,
+                ]),
+            );
+        }
+    }
+
+    let filter = OxiMediaClaheFilter::new()
+        .with_tiles(4, 4)
+        .with_clip_limit(2.0);
+    assert_eq!(filter.name(), "OxiMediaClaheFilter");
+    filter.apply(&mut img).expect("clahe filter must succeed");
+    assert_eq!(img.dimensions(), (100, 100));
+}
+
+#[test]
+fn test_oximedia_lens_undistort_filter() {
+    let mut img = RgbaImage::from_pixel(64, 64, Rgba([200, 200, 200, 255]));
+    let filter = OxiMediaLensUndistortFilter::new(60.0, 0.15);
+    assert_eq!(filter.name(), "OxiMediaLensUndistortFilter");
+    filter.apply(&mut img).expect("lens undistort must succeed");
+    assert_eq!(img.dimensions(), (64, 64));
+}
+
+#[test]
+fn test_oximedia_perspective_dewarp_filter() {
+    let mut img = RgbaImage::from_pixel(100, 100, Rgba([30, 30, 30, 255]));
+    // Draw a bright document sheet in center
+    for y in 20..80 {
+        for x in 20..80 {
+            img.put_pixel(x, y, Rgba([240, 240, 240, 255]));
+        }
+    }
+
+    let filter = OxiMediaPerspectiveDewarpFilter::new(0.15);
+    assert_eq!(filter.name(), "OxiMediaPerspectiveDewarpFilter");
+    filter
+        .apply(&mut img)
+        .expect("perspective dewarp must succeed");
+    assert_eq!(img.dimensions(), (100, 100));
+}
+
+#[test]
+fn test_oximedia_motion_deblur_filter() {
+    let mut img = RgbaImage::from_pixel(32, 32, Rgba([150, 150, 150, 255]));
+    let filter = OxiMediaMotionDeblurFilter::default();
+    assert_eq!(filter.name(), "OxiMediaMotionDeblurFilter");
+    filter.apply(&mut img).expect("motion deblur must succeed");
+    assert_eq!(img.dimensions(), (32, 32));
+}
+
+#[test]
+fn test_oximedia_stitch_horizontal_and_feathered() {
+    let left = RgbaImage::from_pixel(50, 40, Rgba([120, 120, 120, 255]));
+    let right = RgbaImage::from_pixel(50, 40, Rgba([220, 220, 220, 255]));
+
+    let stitched = OxiMediaStitcher::stitch_horizontal(&left, &right, 10)
+        .expect("horizontal stitch must succeed");
+    assert_eq!(stitched.dimensions(), (90, 40));
+
+    // Test feathered multi-frame stitcher
+    let frames = [(&left, 0i64, 0i64), (&right, 40i64, 0i64)];
+    let feathered = OxiMediaStitcher::stitch_frames_feathered(&frames, 10)
+        .expect("feathered panorama stitch must succeed");
+    assert_eq!(feathered.dimensions(), (90, 40));
+}
+
+#[test]
+fn test_bad_shape_reconstruction_pipeline_execution() {
+    let mut img = RgbaImage::from_pixel(120, 120, Rgba([160, 160, 160, 255]));
+    // Simulate folded paper crease
+    for y in 55..65 {
+        for x in 0..120 {
+            img.put_pixel(x, y, Rgba([80, 80, 80, 255]));
+        }
+    }
+
+    let pipeline = PreprocessingFilterChain::bad_shape_reconstruction_pipeline();
+    assert_eq!(pipeline.len(), 4);
+
+    let result = pipeline
+        .process_to_preprocessed(img)
+        .expect("bad shape reconstruction pipeline must process degraded image");
+    assert_eq!(result.original_dimensions(), (120, 120));
 }
