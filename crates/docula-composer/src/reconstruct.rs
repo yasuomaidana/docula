@@ -1,8 +1,7 @@
 use docula_core::DocumentSource;
 use docula_preprocess::ImageFilter;
 use docula_preprocess::filter::{
-    OxiMediaClaheFilter, OxiMediaLensUndistortFilter, OxiMediaPerspectiveDewarpFilter,
-    OxiMediaStitcher,
+    OxiMediaClaheFilter, OxiMediaLensUndistortFilter, OxiMediaStitcher,
 };
 use docula_preprocess::{PageRasterBuffer, PreprocessError, Rasterizer, TinySkiaRasterizer};
 use image::{DynamicImage, ImageEncoder, ImageFormat, RgbaImage};
@@ -262,36 +261,22 @@ impl DocumentReconstructor {
             });
         }
 
-        // 1. Optionally apply physical restoration filters to each individual fragment
-        let mut preprocessed_fragments = fragments.to_vec();
-        if self.config.apply_bad_shape_filters {
-            let clahe = OxiMediaClaheFilter::default().with_background_division(Some(16));
-            let lens = OxiMediaLensUndistortFilter::default();
-            let dewarp = OxiMediaPerspectiveDewarpFilter::default();
-
-            for frag in &mut preprocessed_fragments {
-                let _ = lens.apply(frag);
-                let _ = clahe.apply(frag);
-                let _ = dewarp.apply(frag);
-            }
-        }
-
-        // 2. Determine stitching orientation
+        // 1. Determine stitching orientation
         let mode = match self.config.stitch_mode {
-            StitchMode::Auto => self.detect_stitching_mode(&preprocessed_fragments),
+            StitchMode::Auto => self.detect_stitching_mode(fragments),
             explicit => explicit,
         };
 
-        // 3. Compute pairwise alignments and absolute canvas coordinates
+        // 2. Compute pairwise alignments and absolute canvas coordinates
         let (offsets, alignments) = match mode {
-            StitchMode::VerticalStrip => self.align_vertical_strip(&preprocessed_fragments)?,
-            StitchMode::HorizontalStrip => self.align_horizontal_strip(&preprocessed_fragments)?,
+            StitchMode::VerticalStrip => self.align_vertical_strip(fragments)?,
+            StitchMode::HorizontalStrip => self.align_horizontal_strip(fragments)?,
             StitchMode::PlanarHomography | StitchMode::Auto => {
-                self.align_planar_homography(&preprocessed_fragments)?
+                self.align_planar_homography(fragments)?
             }
         };
 
-        // 4. Normalize coordinates so (min_x, min_y) == (0, 0)
+        // 3. Normalize coordinates so (min_x, min_y) == (0, 0)
         let min_x = offsets.iter().map(|(ox, _)| *ox).min().unwrap_or(0);
         let min_y = offsets.iter().map(|(_, oy)| *oy).min().unwrap_or(0);
         let normalized_offsets: Vec<(i64, i64)> = offsets
@@ -299,8 +284,8 @@ impl DocumentReconstructor {
             .map(|(ox, oy)| (ox - min_x, oy - min_y))
             .collect();
 
-        // 5. Compose frames using alpha-feathered multi-frame stitching
-        let frame_tuples: Vec<(&RgbaImage, i64, i64)> = preprocessed_fragments
+        // 4. Compose frames using alpha-feathered multi-frame stitching
+        let frame_tuples: Vec<(&RgbaImage, i64, i64)> = fragments
             .iter()
             .zip(normalized_offsets.iter())
             .map(|(img, (ox, oy))| (img, *ox, *oy))
@@ -312,13 +297,22 @@ impl DocumentReconstructor {
             0
         };
 
-        let merged_canvas = OxiMediaStitcher::stitch_frames_feathered(&frame_tuples, blend_width)
-            .map_err(|e| ComposerError::AlignmentFailed(e.to_string()))?;
+        let mut merged_canvas =
+            OxiMediaStitcher::stitch_frames_feathered(&frame_tuples, blend_width)
+                .map_err(|e| ComposerError::AlignmentFailed(e.to_string()))?;
+
+        // 5. Apply physical restoration filters to the unified reconstructed canvas
+        if self.config.apply_bad_shape_filters {
+            let clahe = OxiMediaClaheFilter::default().with_background_division(Some(16));
+            let lens = OxiMediaLensUndistortFilter::default();
+            let _ = lens.apply(&mut merged_canvas);
+            let _ = clahe.apply(&mut merged_canvas);
+        }
 
         let (stitched_width, stitched_height) = merged_canvas.dimensions();
 
         // 6. Compute coverage ratio
-        let total_fragment_area: u64 = preprocessed_fragments
+        let total_fragment_area: u64 = fragments
             .iter()
             .map(|f| u64::from(f.width()) * u64::from(f.height()))
             .sum();
@@ -337,7 +331,7 @@ impl DocumentReconstructor {
             stitched_width,
             stitched_height,
             alignments,
-            fragment_count: preprocessed_fragments.len(),
+            fragment_count: fragments.len(),
             estimated_coverage_ratio,
         })
     }
@@ -351,26 +345,13 @@ impl DocumentReconstructor {
         let first = &fragments[0];
         let second = &fragments[1];
 
-        let (w1, h1) = first.dimensions();
-        let (w2, h2) = second.dimensions();
+        // 1. Measure best vertical and horizontal overlaps and their Zero-Mean errors
+        let (vert_overlap, vert_err) = self.measure_vertical_overlap(first, second);
+        let (horiz_overlap, horiz_err) = detect_overlap_horizontal(first, second);
 
-        // If fragments are significantly taller than wide, vertical scanning is typical
-        if h1 > (w1 * 3 / 2) && h2 > (w2 * 3 / 2) {
-            return StitchMode::VerticalStrip;
-        }
-
-        // If fragments are significantly wider than tall, horizontal scanning is typical
-        if w1 > (h1 * 3 / 2) && w2 > (h2 * 3 / 2) {
-            return StitchMode::HorizontalStrip;
-        }
-
-        // Measure vertical vs horizontal overlap correlation score
-        let vert_overlap = OxiMediaStitcher::detect_overlap_vertical(first, second);
-        let horiz_overlap = detect_overlap_horizontal(first, second);
-
-        if vert_overlap >= horiz_overlap && vert_overlap > 10 {
+        if vert_err <= horiz_err && vert_overlap > 8 {
             StitchMode::VerticalStrip
-        } else if horiz_overlap > 10 {
+        } else if horiz_overlap > 8 {
             StitchMode::HorizontalStrip
         } else {
             StitchMode::PlanarHomography
@@ -394,7 +375,7 @@ impl DocumentReconstructor {
             let ref_img = &fragments[i];
             let tgt_img = &fragments[i + 1];
 
-            let overlap_y = self.measure_vertical_overlap(ref_img, tgt_img);
+            let (overlap_y, _err) = self.measure_vertical_overlap(ref_img, tgt_img);
             let drift_x = self.measure_horizontal_drift(ref_img, tgt_img, overlap_y);
 
             let confidence = if overlap_y > 0 { 0.90 } else { 0.50 };
@@ -433,7 +414,7 @@ impl DocumentReconstructor {
             let ref_img = &fragments[i];
             let tgt_img = &fragments[i + 1];
 
-            let overlap_x = detect_overlap_horizontal(ref_img, tgt_img);
+            let (overlap_x, _err) = detect_overlap_horizontal(ref_img, tgt_img);
             let drift_y = self.measure_vertical_drift(ref_img, tgt_img, overlap_x);
 
             let confidence = if overlap_x > 0 { 0.90 } else { 0.50 };
@@ -509,26 +490,28 @@ impl DocumentReconstructor {
         }
     }
 
-    /// Measures vertical overlap between two consecutive images using normalized cross difference across candidate zone.
-    fn measure_vertical_overlap(&self, top: &RgbaImage, bottom: &RgbaImage) -> u32 {
+    /// Measures vertical overlap between two consecutive images using Zero-Mean Absolute Difference (ZMAD).
+    fn measure_vertical_overlap(&self, top: &RgbaImage, bottom: &RgbaImage) -> (u32, f64) {
         let (w_top, h_top) = top.dimensions();
         let (w_bot, h_bot) = bottom.dimensions();
         let w = w_top.min(w_bot);
 
-        let min_overlap = ((h_top as f64 * self.config.min_overlap_ratio) as u32).max(8);
+        let min_overlap = ((h_top as f64 * self.config.min_overlap_ratio) as u32).max(12);
         let max_overlap = ((h_top as f64 * self.config.max_overlap_ratio) as u32)
-            .min(h_top)
-            .min(h_bot);
+            .min(h_top.saturating_sub(1))
+            .min(h_bot.saturating_sub(1));
 
         if max_overlap <= min_overlap {
-            return min_overlap;
+            return (min_overlap, f64::MAX);
         }
 
         let mut best_overlap = min_overlap;
         let mut min_avg_diff = f64::MAX;
 
         for cand in min_overlap..=max_overlap {
-            let mut diff_sum = 0u64;
+            // 1. Compute mean intensity of top strip and bottom strip
+            let mut sum1 = 0u64;
+            let mut sum2 = 0u64;
             let mut count = 0u64;
 
             let step_r = (cand / 15).max(1);
@@ -537,25 +520,50 @@ impl DocumentReconstructor {
                 let y_bot = r;
                 for x in (0..w).step_by(3) {
                     let p1 = top.get_pixel(x, y_top);
+                    let l1 = (u32::from(p1[0]) + u32::from(p1[1]) + u32::from(p1[2])) / 3;
+                    sum1 += u64::from(l1);
+
                     let p2 = bottom.get_pixel(x, y_bot);
-                    let d = (i32::from(p1[0]) - i32::from(p2[0])).unsigned_abs() as u64
-                        + (i32::from(p1[1]) - i32::from(p2[1])).unsigned_abs() as u64
-                        + (i32::from(p1[2]) - i32::from(p2[2])).unsigned_abs() as u64;
-                    diff_sum += d;
+                    let l2 = (u32::from(p2[0]) + u32::from(p2[1]) + u32::from(p2[2])) / 3;
+                    sum2 += u64::from(l2);
+
                     count += 1;
                 }
             }
 
-            if count > 0 {
-                let avg_diff = diff_sum as f64 / count as f64;
-                if avg_diff < min_avg_diff {
-                    min_avg_diff = avg_diff;
-                    best_overlap = cand;
+            if count == 0 {
+                continue;
+            }
+
+            let mean1 = sum1 as f64 / count as f64;
+            let mean2 = sum2 as f64 / count as f64;
+
+            // 2. Compute Zero-Mean Absolute Difference (ZMAD)
+            let mut diff_sum = 0.0f64;
+            for r in (0..cand).step_by(step_r as usize) {
+                let y_top = h_top - cand + r;
+                let y_bot = r;
+                for x in (0..w).step_by(3) {
+                    let p1 = top.get_pixel(x, y_top);
+                    let l1 = (u32::from(p1[0]) + u32::from(p1[1]) + u32::from(p1[2])) as f64 / 3.0;
+
+                    let p2 = bottom.get_pixel(x, y_bot);
+                    let l2 = (u32::from(p2[0]) + u32::from(p2[1]) + u32::from(p2[2])) as f64 / 3.0;
+
+                    let zero_mean_1 = l1 - mean1;
+                    let zero_mean_2 = l2 - mean2;
+                    diff_sum += (zero_mean_1 - zero_mean_2).abs();
                 }
+            }
+
+            let avg_diff = diff_sum / count as f64;
+            if avg_diff < min_avg_diff {
+                min_avg_diff = avg_diff;
+                best_overlap = cand;
             }
         }
 
-        best_overlap
+        (best_overlap, min_avg_diff)
     }
 
     /// Measures small horizontal drift `dx` between overlapping slices.
@@ -659,25 +667,29 @@ impl DocumentReconstructor {
     }
 }
 
-/// Detects horizontal overlap between left and right document image sections using normalized cross-difference.
+/// Detects horizontal overlap between left and right document image sections using Zero-Mean Absolute Difference (ZMAD).
 #[must_use]
-pub fn detect_overlap_horizontal(left: &RgbaImage, right: &RgbaImage) -> u32 {
+pub fn detect_overlap_horizontal(left: &RgbaImage, right: &RgbaImage) -> (u32, f64) {
     let (w_left, h_left) = left.dimensions();
     let (w_right, h_right) = right.dimensions();
     let h = h_left.min(h_right);
 
-    let min_overlap = 8u32;
-    let max_overlap = (w_left * 3 / 4).min(w_right * 3 / 4).max(10);
+    let min_overlap = 12u32;
+    let max_overlap = (w_left * 3 / 4)
+        .min(w_right * 3 / 4)
+        .min(w_left.saturating_sub(1))
+        .max(12);
 
     if max_overlap <= min_overlap {
-        return min_overlap;
+        return (min_overlap, f64::MAX);
     }
 
     let mut best_overlap = min_overlap;
     let mut min_avg_diff = f64::MAX;
 
     for cand in min_overlap..=max_overlap {
-        let mut diff_sum = 0u64;
+        let mut sum1 = 0u64;
+        let mut sum2 = 0u64;
         let mut count = 0u64;
 
         let step_c = (cand / 15).max(1);
@@ -686,25 +698,49 @@ pub fn detect_overlap_horizontal(left: &RgbaImage, right: &RgbaImage) -> u32 {
             let x_right = c;
             for y in (0..h).step_by(3) {
                 let p1 = left.get_pixel(x_left, y);
+                let l1 = (u32::from(p1[0]) + u32::from(p1[1]) + u32::from(p1[2])) / 3;
+                sum1 += u64::from(l1);
+
                 let p2 = right.get_pixel(x_right, y);
-                let d = (i32::from(p1[0]) - i32::from(p2[0])).unsigned_abs() as u64
-                    + (i32::from(p1[1]) - i32::from(p2[1])).unsigned_abs() as u64
-                    + (i32::from(p1[2]) - i32::from(p2[2])).unsigned_abs() as u64;
-                diff_sum += d;
+                let l2 = (u32::from(p2[0]) + u32::from(p2[1]) + u32::from(p2[2])) / 3;
+                sum2 += u64::from(l2);
+
                 count += 1;
             }
         }
 
-        if count > 0 {
-            let avg_diff = diff_sum as f64 / count as f64;
-            if avg_diff < min_avg_diff {
-                min_avg_diff = avg_diff;
-                best_overlap = cand;
+        if count == 0 {
+            continue;
+        }
+
+        let mean1 = sum1 as f64 / count as f64;
+        let mean2 = sum2 as f64 / count as f64;
+
+        let mut diff_sum = 0.0f64;
+        for c in (0..cand).step_by(step_c as usize) {
+            let x_left = w_left - cand + c;
+            let x_right = c;
+            for y in (0..h).step_by(3) {
+                let p1 = left.get_pixel(x_left, y);
+                let l1 = (u32::from(p1[0]) + u32::from(p1[1]) + u32::from(p1[2])) as f64 / 3.0;
+
+                let p2 = right.get_pixel(x_right, y);
+                let l2 = (u32::from(p2[0]) + u32::from(p2[1]) + u32::from(p2[2])) as f64 / 3.0;
+
+                let zero_mean_1 = l1 - mean1;
+                let zero_mean_2 = l2 - mean2;
+                diff_sum += (zero_mean_1 - zero_mean_2).abs();
             }
+        }
+
+        let avg_diff = diff_sum / count as f64;
+        if avg_diff < min_avg_diff {
+            min_avg_diff = avg_diff;
+            best_overlap = cand;
         }
     }
 
-    best_overlap
+    (best_overlap, min_avg_diff)
 }
 
 /// Loads a document source into an in-memory RGBA image.

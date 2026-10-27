@@ -5,12 +5,17 @@
 //! few-shot exemplar injection, and self-repair loops.
 
 use docula_compliance::ComplianceRedactor;
-use docula_core::{DoculaError, DocumentSource};
+use docula_composer::{
+    ComposerError, DocumentReconstructor, MultiDocumentSegmenter, ReconstructedDocument,
+    ReconstructionConfig, SegmentationConfig, SegmentedSubDocument, SubDocumentIdentity,
+};
+use docula_core::{DoculaError, DocumentSource, SpatialSpan};
 use docula_exemplar::ExemplarPool;
 use docula_hitl::{HitlError, TriageDecision, TriageGate, TriageItem, TriageQueue};
 use docula_ingest::{DocumentRouter, IngestError, PageRoute};
 use docula_llm::{LlmBackend, LlmError, MockLlmBackend};
 use docula_ocr::{MockOcrEngine, OcrEngine, OcrError, SpatialLayoutMap};
+use docula_preprocess::filter::PreprocessingFilterChain;
 use docula_preprocess::{
     OfficeRasterizer, PageRasterBuffer, PreprocessError, Rasterizer, TinySkiaRasterizer,
 };
@@ -58,6 +63,10 @@ pub enum DoculaPipelineError {
     /// Optical barcode and QR scanning error.
     #[error("Optical code error: {0}")]
     VisionCodes(#[from] OpticalCodeError),
+
+    /// Multi-shot reconstruction or multi-document instance segmentation error.
+    #[error("Composer error: {0}")]
+    Composer(#[from] ComposerError),
 
     /// JSON serialization or deserialization error.
     #[error("JSON error: {0}")]
@@ -253,7 +262,7 @@ impl DoculaPipeline {
         let routing_report = self.router.route_source(source)?;
         let first_route = routing_report.routes.first();
 
-        let (mut buffer, mut spans) = match first_route {
+        let (buffer, spans) = match first_route {
             Some(PageRoute::BornDigital { text_layer, .. }) if !source.is_pdf() => {
                 let spans = text_layer.clone();
                 let buf = self
@@ -274,6 +283,36 @@ impl DoculaPipeline {
             }
         };
 
+        self.extract_with_prepared_spans(document_id, buffer, spans)
+            .await
+    }
+
+    /// Extracts structured schema `T` directly from an in-memory [`PageRasterBuffer`].
+    ///
+    /// Executes OCR, optical barcode detection, compliance redaction, and schema-constrained LLM inference.
+    pub async fn extract_from_buffer<T>(
+        &self,
+        document_id: &str,
+        buffer: &PageRasterBuffer,
+    ) -> Result<ExtractionResult<T>, DoculaPipelineError>
+    where
+        T: DocuValidate + schemars::JsonSchema + DeserializeOwned + Serialize + Send + Sync + Clone,
+    {
+        let spans = self.ocr_engine.extract_spans(&buffer.image)?;
+        self.extract_with_prepared_spans(document_id, buffer.clone(), spans)
+            .await
+    }
+
+    /// Internal extraction core executing optical scanning, redaction, layout map generation, and self-repair.
+    async fn extract_with_prepared_spans<T>(
+        &self,
+        document_id: &str,
+        mut buffer: PageRasterBuffer,
+        mut spans: Vec<SpatialSpan>,
+    ) -> Result<ExtractionResult<T>, DoculaPipelineError>
+    where
+        T: DocuValidate + schemars::JsonSchema + DeserializeOwned + Serialize + Send + Sync + Clone,
+    {
         let optical_codes = if self.config.enable_vision_codes {
             self.code_detector.detect(&buffer.image)?
         } else {
@@ -351,6 +390,114 @@ impl DoculaPipeline {
             rag_applied,
             rag_retrieved_chunks,
         })
+    }
+
+    /// **Stage 1 (Image Merging)**: Merges multiple overlapping page raster buffers into a unified reconstructed canvas.
+    pub fn merge_document_fragments(
+        &self,
+        fragments: &[PageRasterBuffer],
+        config: Option<ReconstructionConfig>,
+    ) -> Result<ReconstructedDocument, DoculaPipelineError> {
+        let reconstructor = DocumentReconstructor::new(config.unwrap_or_default());
+        reconstructor
+            .reconstruct_from_buffers(fragments)
+            .map_err(DoculaPipelineError::Composer)
+    }
+
+    /// **Stage 1 (Image Merging)**: Merges multiple overlapping document sources into a unified reconstructed canvas.
+    pub fn merge_document_source(
+        &self,
+        sources: &[DocumentSource],
+        config: Option<ReconstructionConfig>,
+    ) -> Result<ReconstructedDocument, DoculaPipelineError> {
+        let reconstructor = DocumentReconstructor::new(config.unwrap_or_default());
+        reconstructor
+            .reconstruct_from_sources(sources)
+            .map_err(DoculaPipelineError::Composer)
+    }
+
+    /// **Stage 2 (Instance Segmentation)**: Detects, segments, perspective-rectifies, and fingerprints multiple sub-documents.
+    pub fn segment_multi_documents(
+        &self,
+        parent: &PageRasterBuffer,
+        config: Option<SegmentationConfig>,
+    ) -> Result<Vec<SegmentedSubDocument>, DoculaPipelineError> {
+        let segmenter = MultiDocumentSegmenter::new(config.unwrap_or_default());
+        segmenter
+            .segment_from_buffer(parent)
+            .map_err(DoculaPipelineError::Composer)
+    }
+
+    /// **Stage 2 (Instance Segmentation)**: Detects, segments, perspective-rectifies, and fingerprints multiple sub-documents from source.
+    pub fn segment_multi_document_source(
+        &self,
+        source: &DocumentSource,
+        config: Option<SegmentationConfig>,
+    ) -> Result<Vec<SegmentedSubDocument>, DoculaPipelineError> {
+        let segmenter = MultiDocumentSegmenter::new(config.unwrap_or_default());
+        segmenter
+            .segment_from_source(source)
+            .map_err(DoculaPipelineError::Composer)
+    }
+
+    /// **Stage 3 (Preprocessing)**: Applies a physical restoration filter chain to an in-memory page buffer.
+    pub fn preprocess_buffer(
+        &self,
+        buffer: &mut PageRasterBuffer,
+        filter_chain: Option<&PreprocessingFilterChain>,
+    ) -> Result<(), DoculaPipelineError> {
+        if let Some(chain) = filter_chain {
+            chain
+                .process(&mut buffer.image)
+                .map_err(DoculaPipelineError::Preprocess)?;
+        } else {
+            let default_chain = PreprocessingFilterChain::bad_shape_reconstruction_pipeline();
+            default_chain
+                .process(&mut buffer.image)
+                .map_err(DoculaPipelineError::Preprocess)?;
+        }
+        Ok(())
+    }
+
+    /// **Scenario 1 Facade**: Reconstructs a large document from multiple camera shots,
+    /// applies physical restoration, and extracts structured data `T`.
+    pub async fn reconstruct_and_extract<T>(
+        &self,
+        fragments: &[DocumentSource],
+        config: Option<ReconstructionConfig>,
+    ) -> Result<ExtractionResult<T>, DoculaPipelineError>
+    where
+        T: DocuValidate + schemars::JsonSchema + DeserializeOwned + Serialize + Send + Sync + Clone,
+    {
+        let merged = self.merge_document_source(fragments, config)?;
+        let doc_id = fragments
+            .first()
+            .map(|s| s.infer_document_id())
+            .unwrap_or_else(|| "reconstructed-doc".to_string());
+        self.extract_from_buffer::<T>(&doc_id, &merged.buffer).await
+    }
+
+    /// **Scenario 2 Facade**: Ingests a single photo containing multiple smaller documents,
+    /// identifies each document instance, perspective-rectifies each, and extracts batch schema `T`.
+    pub async fn segment_and_extract_batch<T>(
+        &self,
+        source: &DocumentSource,
+        config: Option<SegmentationConfig>,
+    ) -> Result<Vec<(SubDocumentIdentity, ExtractionResult<T>)>, DoculaPipelineError>
+    where
+        T: DocuValidate + schemars::JsonSchema + DeserializeOwned + Serialize + Send + Sync + Clone,
+    {
+        let subdocs = self.segment_multi_document_source(source, config)?;
+        let mut results = Vec::with_capacity(subdocs.len());
+
+        for subdoc in subdocs {
+            let ext = self
+                .extract_from_buffer::<T>(&subdoc.identity.instance_id, &subdoc.buffer)
+                .await?;
+            results.push((subdoc.identity, ext));
+        }
+
+        Ok(results)
     }
 
     /// Renders or loads raw source bytes into a single-page [`PageRasterBuffer`].
