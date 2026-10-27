@@ -15,6 +15,8 @@ base64 = { version = "0.23" }
 oximedia-core = "0.2.1"
 oximedia = "0.2.1"
 oximedia-cv = "0.2.1"
+cv-mosaic = { path = "../cv-mosaic" }
+cv-vectorize = { path = "../cv-vectorize" }
 
 [dev-dependencies]
 tempfile = "3.27.0"
