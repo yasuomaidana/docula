@@ -131,7 +131,10 @@ impl PageRasterBuffer {
     }
 
     /// Loads or rasterizes an input [`DocumentSource`] into an in-memory `PageRasterBuffer`.
-    pub fn from_document_source(source: &DocumentSource, dpi: u32) -> Result<Self, PreprocessError> {
+    pub fn from_document_source(
+        source: &DocumentSource,
+        dpi: u32,
+    ) -> Result<Self, PreprocessError> {
         match source {
             DocumentSource::ImagePath(path) => {
                 let img = image::open(path).map_err(|e| PreprocessError::FilterExecution {
@@ -169,7 +172,10 @@ impl PageRasterBuffer {
     }
 
     /// Converts this in-memory buffer into an encoded [`DocumentSource::ImageBytes`] payload.
-    pub fn to_document_source(&self, format: ImageFormat) -> Result<DocumentSource, PreprocessError> {
+    pub fn to_document_source(
+        &self,
+        format: ImageFormat,
+    ) -> Result<DocumentSource, PreprocessError> {
         let (width, height) = self.dimensions();
         let mut encoded = Vec::new();
         match format {

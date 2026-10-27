@@ -6,13 +6,17 @@ pub mod enhance;
 pub mod geometry;
 
 pub use clahe::OxiMediaClaheFilter;
-pub use denoise::{DenoiseMode, MorphologyDenoiseConfig, MorphologyOp, MorphologyShape, OxiMediaDenoiseFilter};
+pub use denoise::{
+    DenoiseMode, MorphologyDenoiseConfig, MorphologyOp, MorphologyShape, OxiMediaDenoiseFilter,
+};
 pub use enhance::{OxiMediaFilter, UnsharpMaskConfig};
-pub use geometry::{OxiMediaLensUndistortFilter, OxiMediaMotionDeblurFilter, OxiMediaPerspectiveDewarpFilter};
+pub use geometry::{
+    OxiMediaLensUndistortFilter, OxiMediaMotionDeblurFilter, OxiMediaPerspectiveDewarpFilter,
+};
 
 use crate::error::PreprocessError;
-use image::RgbaImage;
 use cv_mosaic::{stitch_frames_feathered, stitch_pair_horizontal, stitch_pair_vertical};
+use image::RgbaImage;
 
 /// Pure-Rust image stitcher utilizing CV mosaic primitives.
 pub struct OxiMediaStitcher;
@@ -24,9 +28,11 @@ impl OxiMediaStitcher {
         bottom: &RgbaImage,
         overlap_height: u32,
     ) -> Result<RgbaImage, PreprocessError> {
-        stitch_pair_vertical(top, bottom, overlap_height).map_err(|e| PreprocessError::FilterExecution {
-            filter: "OxiMediaStitcher",
-            reason: e.to_string(),
+        stitch_pair_vertical(top, bottom, overlap_height).map_err(|e| {
+            PreprocessError::FilterExecution {
+                filter: "OxiMediaStitcher",
+                reason: e.to_string(),
+            }
         })
     }
 
@@ -36,9 +42,11 @@ impl OxiMediaStitcher {
         right: &RgbaImage,
         overlap_width: u32,
     ) -> Result<RgbaImage, PreprocessError> {
-        stitch_pair_horizontal(left, right, overlap_width).map_err(|e| PreprocessError::FilterExecution {
-            filter: "OxiMediaStitcher",
-            reason: e.to_string(),
+        stitch_pair_horizontal(left, right, overlap_width).map_err(|e| {
+            PreprocessError::FilterExecution {
+                filter: "OxiMediaStitcher",
+                reason: e.to_string(),
+            }
         })
     }
 
@@ -60,9 +68,11 @@ impl OxiMediaStitcher {
         frames: &[(&RgbaImage, i64, i64)],
         blend_width_px: u32,
     ) -> Result<RgbaImage, PreprocessError> {
-        stitch_frames_feathered(frames, blend_width_px).map_err(|e| PreprocessError::FilterExecution {
-            filter: "OxiMediaStitcher",
-            reason: e.to_string(),
+        stitch_frames_feathered(frames, blend_width_px).map_err(|e| {
+            PreprocessError::FilterExecution {
+                filter: "OxiMediaStitcher",
+                reason: e.to_string(),
+            }
         })
     }
 }

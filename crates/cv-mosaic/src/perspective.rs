@@ -93,7 +93,8 @@ pub fn auto_dewarp_dominant_quad(
     let candidates = finder.filter_by_area(&contours);
 
     for contour in candidates {
-        if contour.points.len() >= 4 && let Some((min_x, min_y, max_x, max_y)) = contour.bounding_box()
+        if contour.points.len() >= 4
+            && let Some((min_x, min_y, max_x, max_y)) = contour.bounding_box()
         {
             let w = (max_x - min_x).max(1) as f64;
             let h = (max_y - min_y).max(1) as f64;

@@ -21,9 +21,7 @@ use docula_llm::{LlmBackend, MockLlmBackend};
 use docula_ocr::{MockOcrEngine, OcrEngine, SpatialLayoutMap};
 use docula_preprocess::{OfficeRasterizer, PageRasterBuffer};
 use docula_rag::{DocumentChunk, RagRetriever};
-use docula_schema::{
-    DocuValidate, ValidationError, ValidationMode, ValidationOutcome,
-};
+use docula_schema::{DocuValidate, ValidationError, ValidationMode, ValidationOutcome};
 use docula_vision_codes::{OpticalCodeDetector, OpticalCodeResult};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::sync::Arc;

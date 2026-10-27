@@ -260,6 +260,22 @@ impl BoundingBox {
         }
     }
 
+    /// Compares two bounding boxes in standard spatial reading order (top-to-bottom, left-to-right).
+    #[inline]
+    #[must_use]
+    pub fn compare_reading_order(&self, other: &BoundingBox) -> std::cmp::Ordering {
+        self.top_left
+            .y
+            .partial_cmp(&other.top_left.y)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| {
+                self.top_left
+                    .x
+                    .partial_cmp(&other.top_left.x)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+    }
+
     /// Expands the bounding box by uniform percentage padding (e.g. 0.05 for 5% margin), clamped to $[0.0, 1.0]$.
     pub fn with_padding(&self, padding_fraction: f32) -> Self {
         let w = self.width();

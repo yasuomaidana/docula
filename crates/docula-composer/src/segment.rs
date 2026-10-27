@@ -1,3 +1,4 @@
+use cv_mosaic::unwarp_quad_rgba;
 use docula_core::{BoundingBox, DocumentSource};
 use docula_preprocess::filter::{OxiMediaClaheFilter, OxiMediaLensUndistortFilter};
 use docula_preprocess::{ImageFilter, PageRasterBuffer, PreprocessError};
@@ -6,7 +7,6 @@ use image::{ImageFormat, RgbaImage};
 use oximedia_cv::contour::{ContourApprox, ContourConfig, ContourFinder};
 use oximedia_cv::fingerprint::phash::{compute_dhash, compute_phash};
 use oximedia_cv::instance_segmentation::{InstanceSegmenter, SegmentationConfig as OxiSegConfig};
-use cv_mosaic::unwarp_quad_rgba;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -108,10 +108,11 @@ impl MultiDocumentSegmenter {
         &self,
         source: &DocumentSource,
     ) -> Result<Vec<SegmentedSubDocument>, ComposerError> {
-        let buf = PageRasterBuffer::from_document_source(source, self.config.target_dpi)
-            .map_err(|e: PreprocessError| {
+        let buf = PageRasterBuffer::from_document_source(source, self.config.target_dpi).map_err(
+            |e: PreprocessError| {
                 ComposerError::Fragment(format!("Failed to load source for segmentation: {e}"))
-            })?;
+            },
+        )?;
         self.segment_from_rgba(&buf.image, self.config.target_dpi)
     }
 

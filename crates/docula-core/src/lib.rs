@@ -17,9 +17,12 @@ pub mod config;
 pub mod crop;
 pub mod error;
 pub mod geometry;
+pub mod math;
 pub mod non_stored;
 pub mod office;
 pub mod source;
+
+pub use math::cosine_similarity;
 
 pub use config::{
     ComplianceConfig, DoculaConfig, DoculaConfigBuilder, ExemplarConfig, GeneralConfig, HitlConfig,

@@ -2,10 +2,10 @@
 
 use crate::error::PreprocessError;
 use crate::filter::ImageFilter;
+use cv_mosaic::map_rgb_channels;
 use image::RgbaImage;
 use oximedia_cv::image::filter::{ImageFilter as OxiCvFilter, MedianFilter};
 use oximedia_cv::morphology::{StructuringElement, StructuringElementShape, closing, opening};
-use cv_mosaic::map_rgb_channels;
 
 /// Structuring element shape for mathematical morphology operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -172,7 +172,10 @@ pub fn apply_morphology(
             MorphologyOp::Closing => closing(&float_buf, w, h, &se),
             MorphologyOp::FullRestoration => opening(&float_buf, w, h, &se),
         };
-        processed.into_iter().map(|v| v.round().clamp(0.0, 255.0) as u8).collect()
+        processed
+            .into_iter()
+            .map(|v| v.round().clamp(0.0, 255.0) as u8)
+            .collect()
     });
 
     Ok(())

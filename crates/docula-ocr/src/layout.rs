@@ -94,20 +94,7 @@ impl SpatialLayoutMap {
         }
 
         // Sort spans primarily by vertical Y, secondarily by horizontal X
-        spans.sort_by(|a, b| {
-            a.bbox
-                .top_left
-                .y
-                .partial_cmp(&b.bbox.top_left.y)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| {
-                    a.bbox
-                        .top_left
-                        .x
-                        .partial_cmp(&b.bbox.top_left.x)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-        });
+        spans.sort_by(|a, b| a.bbox.compare_reading_order(&b.bbox));
 
         // Cluster spans into horizontal lines
         let mut clustered_lines: Vec<Vec<SpatialSpan>> = Vec::new();
