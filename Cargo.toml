@@ -15,6 +15,7 @@ members = [
     "crates/docula-vision-codes",
     "crates/docula-cli",
     "crates/docula-domains",
+    "crates/docula-composer",
 ]
 
 [workspace.dependencies]
@@ -29,6 +30,7 @@ edition = "2024"
 [dependencies]
 docula-core = { path = "crates/docula-core" }
 docula-preprocess = { path = "crates/docula-preprocess" }
+docula-composer = { path = "crates/docula-composer" }
 docula-ingest = { path = "crates/docula-ingest" }
 docula-ocr = { path = "crates/docula-ocr" }
 docula-compliance = { path = "crates/docula-compliance" }

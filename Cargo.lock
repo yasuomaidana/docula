@@ -1626,6 +1626,7 @@ dependencies = [
  "chrono",
  "criterion",
  "docula-compliance",
+ "docula-composer",
  "docula-core",
  "docula-domains",
  "docula-exemplar",
@@ -1677,6 +1678,24 @@ dependencies = [
  "image",
  "regex",
  "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "docula-composer"
+version = "0.1.0"
+dependencies = [
+ "docula-core",
+ "docula-preprocess",
+ "docula-vision-codes",
+ "image",
+ "oximedia",
+ "oximedia-core",
+ "oximedia-cv",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
  "thiserror 2.0.21",
 ]
 
