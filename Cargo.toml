@@ -16,13 +16,13 @@ members = [
     "crates/docula-cli",
     "crates/docula-domains",
     "crates/docula-composer",
-    "crates/oximedia-mosaic",
-    "crates/oximedia-vectorize",
+    "crates/cv-mosaic",
+    "crates/cv-vectorize",
 ]
 
 [workspace.dependencies]
 testcontainers = "0.28"
-testcontainers-modules = "0.20"
+testcontainers-modules = "0.15"
 
 [package]
 name = "docula"
@@ -57,9 +57,9 @@ uuid = { version = "1.10", features = ["v7", "serde"] }
 tempfile = "3.27.0"
 pdf_oxide = { version = "0.3", features = ["rendering"] }
 tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
-rxing = "0.6"
-criterion = { version = "0.5", features = ["html_reports"] }
-zip = { version = "8.6", default-features = false, features = ["deflate"] }
+rxing = "0.9.3"
+criterion = { version = "0.8.2", features = ["html_reports"] }
+zip = { version = "9.1.2", default-features = false, features = ["deflate"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 [[bench]]

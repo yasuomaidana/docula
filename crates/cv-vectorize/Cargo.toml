@@ -1,5 +1,5 @@
 [package]
-name = "oximedia-vectorize"
+name = "cv-vectorize"
 version = "0.1.0"
 edition = "2024"
 description = "Pure-Rust raster-to-vector contour tracing, Ramer-Douglas-Peucker simplification, and SVG path synthesis"
