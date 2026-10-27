@@ -563,6 +563,15 @@ impl ImageFilter for OxiMediaClaheFilter {
             });
         }
 
+        // Extremely small sub-images or micro-crops lack sufficient pixel density for CLAHE tiling
+        if width < 32 || height < 32 {
+            return Ok(());
+        }
+
+        let mut active_config = self.clahe_config;
+        active_config.tiles_x = (width / 16).clamp(1, self.clahe_config.tiles_x);
+        active_config.tiles_y = (height / 16).clamp(1, self.clahe_config.tiles_y);
+
         let w = width as usize;
         let h = height as usize;
 
@@ -601,7 +610,7 @@ impl ImageFilter for OxiMediaClaheFilter {
             }
 
             let equalized =
-                adaptive_histogram_equalization(&channel_buf, width, height, &self.clahe_config)
+                adaptive_histogram_equalization(&channel_buf, width, height, &active_config)
                     .map_err(|e| PreprocessError::FilterExecution {
                         filter: self.name(),
                         reason: e.to_string(),
