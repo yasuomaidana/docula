@@ -1,9 +1,10 @@
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use docula_core::{BoundingBox, CropError, CropFormat, ImageCrop};
-use image::{DynamicImage, ImageEncoder, Rgba, RgbaImage};
+use docula_core::{BoundingBox, CropError, CropFormat, DocumentSource, ImageCrop};
+use image::{DynamicImage, ImageEncoder, ImageFormat, Rgba, RgbaImage};
 
 use crate::error::PreprocessError;
+use crate::raster::{Rasterizer, TinySkiaRasterizer};
 use crate::visual_region::VisualRegion;
 
 /// In-memory rasterized representation of a single document page.
@@ -128,10 +129,102 @@ impl PageRasterBuffer {
 
         Ok(crop)
     }
+
+    /// Loads or rasterizes an input [`DocumentSource`] into an in-memory `PageRasterBuffer`.
+    pub fn from_document_source(
+        source: &DocumentSource,
+        dpi: u32,
+    ) -> Result<Self, PreprocessError> {
+        match source {
+            DocumentSource::ImagePath(path) => {
+                let img = image::open(path).map_err(|e| PreprocessError::FilterExecution {
+                    filter: "PageRasterBuffer::from_document_source",
+                    reason: e.to_string(),
+                })?;
+                Self::new(0, img.to_rgba8(), dpi)
+            }
+            DocumentSource::ImageBytes { data, .. } => {
+                let img = image::load_from_memory(data).map_err(|e| {
+                    PreprocessError::FilterExecution {
+                        filter: "PageRasterBuffer::from_document_source",
+                        reason: e.to_string(),
+                    }
+                })?;
+                Self::new(0, img.to_rgba8(), dpi)
+            }
+            DocumentSource::PdfBytes(data) => {
+                let rasterizer = TinySkiaRasterizer::new();
+                rasterizer.render_page(data, 0, dpi)
+            }
+            DocumentSource::PdfPath(path) => {
+                let bytes = std::fs::read(path).map_err(|e| PreprocessError::FilterExecution {
+                    filter: "PageRasterBuffer::from_document_source",
+                    reason: e.to_string(),
+                })?;
+                let rasterizer = TinySkiaRasterizer::new();
+                rasterizer.render_page(&bytes, 0, dpi)
+            }
+            _ => Err(PreprocessError::FilterExecution {
+                filter: "PageRasterBuffer::from_document_source",
+                reason: "Unsupported document source type for page rasterization".to_string(),
+            }),
+        }
+    }
+
+    /// Converts this in-memory buffer into an encoded [`DocumentSource::ImageBytes`] payload.
+    pub fn to_document_source(
+        &self,
+        format: ImageFormat,
+    ) -> Result<DocumentSource, PreprocessError> {
+        let (width, height) = self.dimensions();
+        let mut encoded = Vec::new();
+        match format {
+            ImageFormat::Png => {
+                let encoder = image::codecs::png::PngEncoder::new(&mut encoded);
+                encoder
+                    .write_image(
+                        self.image.as_raw(),
+                        width,
+                        height,
+                        image::ExtendedColorType::Rgba8,
+                    )
+                    .map_err(|e| PreprocessError::ImageEncodingError {
+                        reason: e.to_string(),
+                    })?;
+            }
+            ImageFormat::Jpeg => {
+                let mut encoder =
+                    image::codecs::jpeg::JpegEncoder::new_with_quality(&mut encoded, 90);
+                let rgb_img = DynamicImage::ImageRgba8(self.image.clone()).to_rgb8();
+                encoder
+                    .encode(
+                        rgb_img.as_raw(),
+                        width,
+                        height,
+                        image::ExtendedColorType::Rgb8,
+                    )
+                    .map_err(|e| PreprocessError::ImageEncodingError {
+                        reason: e.to_string(),
+                    })?;
+            }
+            _ => {
+                return Err(PreprocessError::ImageEncodingError {
+                    reason: "Unsupported image encoding format for document source".to_string(),
+                });
+            }
+        }
+
+        let fmt_str = match format {
+            ImageFormat::Png => Some("png"),
+            ImageFormat::Jpeg => Some("jpeg"),
+            _ => None,
+        };
+        Ok(DocumentSource::from_image_bytes(encoded, fmt_str))
+    }
 }
 
 /// Helper function to encode an [`RgbaImage`] into byte representation for the target format.
-fn encode_rgba_image(img: &RgbaImage, format: CropFormat) -> Result<Vec<u8>, PreprocessError> {
+pub fn encode_rgba_image(img: &RgbaImage, format: CropFormat) -> Result<Vec<u8>, PreprocessError> {
     let mut bytes = Vec::new();
     match format {
         CropFormat::RawRgba => {

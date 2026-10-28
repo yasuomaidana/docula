@@ -11,6 +11,7 @@
 
 pub mod backend;
 pub mod candle;
+pub mod common;
 pub mod error;
 pub mod mock;
 pub mod oxibonsai;

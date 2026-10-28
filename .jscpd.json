@@ -1,0 +1,15 @@
+{
+  "threshold": 0,
+  "minLines": 12,
+  "minTokens": 70,
+  "ignore": [
+    "**/tests/**",
+    "**/benches/**",
+    "**/examples/**",
+    "**/*test*.rs",
+    "target/**",
+    "node_modules/**"
+  ],
+  "format": ["rust"],
+  "mode": "strict"
+}

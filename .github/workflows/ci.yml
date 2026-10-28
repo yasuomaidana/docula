@@ -12,6 +12,21 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
+  code-hygiene:
+    name: 500-Line Limit & Zero Duplicated Code Policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run CI Hygiene Gate (500 Lines & 0 Duplication)
+        run: python3 scripts/ci_hygiene_check.py .
+
   format:
     name: Code Formatting (rustfmt)
     runs-on: ubuntu-latest

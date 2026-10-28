@@ -15,6 +15,7 @@ base64 = { version = "0.23" }
 oximedia-core = "0.2.1"
 oximedia = "0.2.1"
 oximedia-cv = "0.2.1"
+oxipix = { path = "../../../oxipix", default-features = false, features = ["mosaic", "vectorize"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"

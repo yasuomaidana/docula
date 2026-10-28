@@ -25,4 +25,4 @@ tempfile = "3.27.0"
 pdf_oxide = { version = "0.3", features = ["rendering"] }
 assert_cmd = "2.0"
 predicates = "3.1"
-rxing = "0.6"
+rxing = "0.9.3"

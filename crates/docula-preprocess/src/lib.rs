@@ -28,8 +28,10 @@ pub use buffer::PageRasterBuffer;
 pub use error::PreprocessError;
 pub use filter::{
     AdaptiveBinarizeFilter, DenoiseMode, HoughDeskewFilter, ImageFilter, MorphologyDenoiseConfig,
-    MorphologyOp, MorphologyShape, OxiMediaDenoiseFilter, OxiMediaFilter, OxiMediaStitcher,
-    PreprocessedImage, PreprocessingFilterChain, ResizeMode, SimdResizeFilter, UnsharpMaskConfig,
+    MorphologyOp, MorphologyShape, OxiMediaClaheFilter, OxiMediaDenoiseFilter, OxiMediaFilter,
+    OxiMediaLensUndistortFilter, OxiMediaMotionDeblurFilter, OxiMediaPerspectiveDewarpFilter,
+    OxiMediaStitcher, PreprocessedImage, PreprocessingFilterChain, ResizeMode, SimdResizeFilter,
+    UnsharpMaskConfig,
 };
 pub use office_raster::OfficeRasterizer;
 pub use raster::{DocumentVisualExtractor, PdfRegionCropper, Rasterizer, TinySkiaRasterizer};

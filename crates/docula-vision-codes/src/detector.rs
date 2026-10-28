@@ -4,8 +4,7 @@ use crate::types::{OpticalCodeResult, OpticalCodeType};
 use docula_core::{BoundingBox, Point};
 use image::{DynamicImage, RgbaImage};
 use rxing::{
-    BarcodeFormat, BinaryBitmap, BufferedImageLuminanceSource, Exceptions, MultiFormatReader,
-    ResultPoint,
+    BarcodeFormat, BinaryBitmap, Exceptions, Luma8LuminanceSource, MultiFormatReader,
     common::HybridBinarizer,
     multi::{GenericMultipleBarcodeReader, MultipleBarcodeReader},
 };
@@ -37,7 +36,12 @@ impl OpticalCodeDetector {
             return Err(OpticalCodeError::InvalidImageDimensions { width, height });
         }
 
-        let source = BufferedImageLuminanceSource::new(image.clone());
+        // Luma8Source keeps a proper origin/stride view when the multi-reader crops;
+        // rxing 0.9.3's RGBLuminanceSource slices out of range on cropped regions.
+        let source = Luma8LuminanceSource::new(image.to_luma8().into_raw(), width, height)
+            .map_err(|err| OpticalCodeError::DecodingFailure {
+                reason: err.to_string(),
+            })?;
         let mut bitmap = BinaryBitmap::new(HybridBinarizer::new(source));
         let mut reader = GenericMultipleBarcodeReader::new(MultiFormatReader::default());
 
@@ -107,8 +111,8 @@ fn extract_points_and_bbox(
     let mut max_y = 0.0f32;
 
     for pt in raw_points {
-        let x = (pt.getX() / w).clamp(0.0, 1.0);
-        let y = (pt.getY() / h).clamp(0.0, 1.0);
+        let x = (pt.x / w).clamp(0.0, 1.0);
+        let y = (pt.y / h).clamp(0.0, 1.0);
         min_x = min_x.min(x);
         min_y = min_y.min(y);
         max_x = max_x.max(x);

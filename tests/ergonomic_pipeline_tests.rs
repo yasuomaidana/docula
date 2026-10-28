@@ -16,7 +16,10 @@ struct SimpleReceipt {
 impl DocuValidate for SimpleReceipt {
     fn validate_integrity(&self) -> Result<(), Vec<ValidationError>> {
         if self.total < 0.0 {
-            return Err(vec![ValidationError::new("total", "Total cannot be negative")]);
+            return Err(vec![ValidationError::new(
+                "total",
+                "Total cannot be negative",
+            )]);
         }
         Ok(())
     }

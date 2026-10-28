@@ -255,20 +255,7 @@ impl DbNetDetector {
 
     /// Sorts detections top-to-bottom, left-to-right.
     fn sort_detections(detections: &mut [DetectionBox]) {
-        detections.sort_by(|a, b| {
-            a.bbox
-                .top_left
-                .y
-                .partial_cmp(&b.bbox.top_left.y)
-                .unwrap_or(std::cmp::Ordering::Equal)
-                .then_with(|| {
-                    a.bbox
-                        .top_left
-                        .x
-                        .partial_cmp(&b.bbox.top_left.x)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-        });
+        detections.sort_by(|a, b| a.bbox.compare_reading_order(&b.bbox));
     }
 
     /// Merges horizontally adjacent character bounding boxes into cohesive word/line segments.

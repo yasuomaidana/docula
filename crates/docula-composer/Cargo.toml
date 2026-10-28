@@ -1,0 +1,24 @@
+[package]
+name = "docula-composer"
+version = "0.1.0"
+edition = "2024"
+authors = ["docula contributors"]
+license = "MIT OR Apache-2.0"
+description = "Multi-shot document reconstruction and single-shot multi-document instance segmentation for docula"
+
+[dependencies]
+docula-core = { path = "../docula-core" }
+docula-preprocess = { path = "../docula-preprocess" }
+docula-vision-codes = { path = "../docula-vision-codes" }
+oximedia-core = "0.2.1"
+oximedia = "0.2.1"
+oximedia-cv = "0.2.1"
+oxipix = { path = "../../../oxipix", default-features = false, features = ["mosaic"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+sha2 = "0.10"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+
+[dev-dependencies]
+tempfile = "3.27.0"
