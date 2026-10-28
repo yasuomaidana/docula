@@ -16,8 +16,6 @@ members = [
     "crates/docula-cli",
     "crates/docula-domains",
     "crates/docula-composer",
-    "crates/cv-mosaic",
-    "crates/cv-vectorize",
 ]
 
 [workspace.dependencies]
