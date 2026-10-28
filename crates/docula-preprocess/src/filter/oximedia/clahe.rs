@@ -2,10 +2,10 @@
 
 use crate::error::PreprocessError;
 use crate::filter::ImageFilter;
-use cv_mosaic::map_rgb_channels;
 use image::RgbaImage;
 use oximedia_cv::image::filter::{BoxBlur, ImageFilter as OxiCvFilter};
 use oximedia_cv::image::histogram::{ClaheConfig, adaptive_histogram_equalization};
+use oxipix::mosaic::map_rgb_channels;
 
 /// CLAHE and illumination normalization filter.
 #[derive(Debug, Clone)]

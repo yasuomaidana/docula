@@ -15,8 +15,8 @@ pub use geometry::{
 };
 
 use crate::error::PreprocessError;
-use cv_mosaic::{stitch_frames_feathered, stitch_pair_horizontal, stitch_pair_vertical};
 use image::RgbaImage;
+use oxipix::mosaic::{stitch_frames_feathered, stitch_pair_horizontal, stitch_pair_vertical};
 
 /// Pure-Rust image stitcher utilizing CV mosaic primitives.
 pub struct OxiMediaStitcher;
@@ -53,10 +53,10 @@ impl OxiMediaStitcher {
     /// Automatically detects vertical overlap between two consecutive document slices.
     #[must_use]
     pub fn detect_overlap_vertical(top: &RgbaImage, bottom: &RgbaImage) -> u32 {
-        let (best_overlap, _) = cv_mosaic::detect_strip_overlap_zmad(
+        let (best_overlap, _) = oxipix::mosaic::detect_strip_overlap_zmad(
             top,
             bottom,
-            cv_mosaic::OverlapAxis::Vertical,
+            oxipix::mosaic::OverlapAxis::Vertical,
             0.05,
             0.50,
         );

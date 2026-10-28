@@ -1,4 +1,3 @@
-use cv_mosaic::unwarp_quad_rgba;
 use docula_core::{BoundingBox, DocumentSource};
 use docula_preprocess::filter::{OxiMediaClaheFilter, OxiMediaLensUndistortFilter};
 use docula_preprocess::{ImageFilter, PageRasterBuffer, PreprocessError};
@@ -7,6 +6,7 @@ use image::{ImageFormat, RgbaImage};
 use oximedia_cv::contour::{ContourApprox, ContourConfig, ContourFinder};
 use oximedia_cv::fingerprint::phash::{compute_dhash, compute_phash};
 use oximedia_cv::instance_segmentation::{InstanceSegmenter, SegmentationConfig as OxiSegConfig};
+use oxipix::mosaic::unwarp_quad_rgba;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -298,7 +298,7 @@ impl MultiDocumentSegmenter {
         let mut binary = Vec::with_capacity((w * h) as usize);
 
         for p in img.pixels() {
-            let luma = cv_mosaic::rgb_to_luma_u8(p[0], p[1], p[2]);
+            let luma = oxipix::mosaic::rgb_to_luma_u8(p[0], p[1], p[2]);
             binary.push(if luma > thresh { 255 } else { 0 });
         }
 

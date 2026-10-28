@@ -1,10 +1,10 @@
-use cv_mosaic::{
-    OverlapAxis, detect_strip_overlap_zmad, estimate_orthogonal_drift_ecc, stitch_frames_feathered,
-};
 use docula_core::DocumentSource;
 use docula_preprocess::PageRasterBuffer;
 use image::{ImageFormat, RgbaImage};
 use oximedia_cv::registration::panorama as reg_pano;
+use oxipix::mosaic::{
+    OverlapAxis, detect_strip_overlap_zmad, estimate_orthogonal_drift_ecc, stitch_frames_feathered,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::error::ComposerError;
@@ -320,7 +320,7 @@ impl DocumentReconstructor {
     ) -> Result<AlignmentResult, ComposerError> {
         let grays: Vec<Vec<u8>> = fragments
             .iter()
-            .map(cv_mosaic::rgba_to_luma_vec)
+            .map(oxipix::mosaic::rgba_to_luma_vec)
             .collect();
 
         let image_slices: Vec<(&[u8], u32, u32)> = grays

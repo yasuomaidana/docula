@@ -2,10 +2,10 @@
 
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
-use cv_mosaic::rgb_to_luma_u8;
-use cv_vectorize::{VectorizeConfig, VectorizedGraphic, vectorize_rgba_to_svg};
 use docula_core::{BoundingBox, CropFormat, ImageCrop, Point, Polygon};
 use image::{Rgba, RgbaImage};
+use oxipix::mosaic::rgb_to_luma_u8;
+use oxipix::vectorize::{VectorizeConfig, VectorizedGraphic, vectorize_rgba_to_svg};
 
 use crate::buffer::encode_rgba_image;
 use crate::error::PreprocessError;
@@ -238,6 +238,6 @@ impl VisualRegion {
             .pixels()
             .map(|p| rgb_to_luma_u8(p[0], p[1], p[2]))
             .collect();
-        cv_vectorize::otsu_threshold(&grays)
+        oxipix::vectorize::otsu_threshold(&grays)
     }
 }

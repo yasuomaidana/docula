@@ -2,10 +2,10 @@
 
 use crate::error::PreprocessError;
 use crate::filter::ImageFilter;
-use cv_mosaic::map_rgb_channels;
 use image::RgbaImage;
 use oximedia_core::pixel_format::PixelFormat;
 use oximedia_cv::enhance::sharpening::{UnsharpMaskParams, laplacian_sharpen, unsharp_mask};
+use oxipix::mosaic::map_rgb_channels;
 
 use super::denoise::{MorphologyDenoiseConfig, apply_morphology};
 use super::denoise::{MorphologyOp, MorphologyShape};

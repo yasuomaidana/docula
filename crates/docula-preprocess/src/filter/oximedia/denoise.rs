@@ -2,10 +2,10 @@
 
 use crate::error::PreprocessError;
 use crate::filter::ImageFilter;
-use cv_mosaic::map_rgb_channels;
 use image::RgbaImage;
 use oximedia_cv::image::filter::{ImageFilter as OxiCvFilter, MedianFilter};
 use oximedia_cv::morphology::{StructuringElement, StructuringElementShape, closing, opening};
+use oxipix::mosaic::map_rgb_channels;
 
 /// Structuring element shape for mathematical morphology operations.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
