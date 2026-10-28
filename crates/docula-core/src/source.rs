@@ -214,13 +214,12 @@ impl DocumentSource {
     /// identifier is not available, allowing callers to parse documents directly from source.
     pub fn infer_document_id(&self) -> String {
         match self {
-            Self::PdfPath(path) | Self::ImagePath(path) | Self::OfficePath { path, .. } => {
-                path.file_stem()
-                    .and_then(|s| s.to_str())
-                    .filter(|s| !s.is_empty())
-                    .map(ToString::to_string)
-                    .unwrap_or_else(|| "doc-unnamed-file".to_string())
-            }
+            Self::PdfPath(path) | Self::ImagePath(path) | Self::OfficePath { path, .. } => path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .filter(|s| !s.is_empty())
+                .map(ToString::to_string)
+                .unwrap_or_else(|| "doc-unnamed-file".to_string()),
             Self::PdfBytes(bytes) => Self::digest_to_id("doc", bytes),
             Self::ImageBytes { data, .. } | Self::OfficeBytes { data, .. } => {
                 Self::digest_to_id("doc", data)
@@ -296,7 +295,8 @@ mod tests {
 
     #[test]
     fn test_infer_document_id_from_paths() {
-        let pdf_src = DocumentSource::from_pdf_path(PathBuf::from("/tmp/invoices/INV-2026-001.pdf"));
+        let pdf_src =
+            DocumentSource::from_pdf_path(PathBuf::from("/tmp/invoices/INV-2026-001.pdf"));
         assert_eq!(pdf_src.infer_document_id(), "INV-2026-001");
 
         let img_src = DocumentSource::from_image_path(PathBuf::from("assets/receipt_dec_12.png"));
@@ -320,7 +320,10 @@ mod tests {
         let img_id = img_src.infer_document_id();
 
         assert!(pdf_id.starts_with("doc-"));
-        assert_eq!(pdf_id, img_id, "Identical payloads must yield identical IDs");
+        assert_eq!(
+            pdf_id, img_id,
+            "Identical payloads must yield identical IDs"
+        );
         assert_eq!(pdf_id.len(), 20, "Prefix 'doc-' (4) + 16 hex chars = 20");
     }
 

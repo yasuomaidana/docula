@@ -22,8 +22,9 @@ pub use binarize::AdaptiveBinarizeFilter;
 pub use chain::PreprocessingFilterChain;
 pub use deskew::HoughDeskewFilter;
 pub use oximedia::{
-    DenoiseMode, MorphologyDenoiseConfig, MorphologyOp, MorphologyShape, OxiMediaDenoiseFilter,
-    OxiMediaFilter, OxiMediaStitcher, UnsharpMaskConfig,
+    DenoiseMode, MorphologyDenoiseConfig, MorphologyOp, MorphologyShape, OxiMediaClaheFilter,
+    OxiMediaDenoiseFilter, OxiMediaFilter, OxiMediaLensUndistortFilter, OxiMediaMotionDeblurFilter,
+    OxiMediaPerspectiveDewarpFilter, OxiMediaStitcher, UnsharpMaskConfig,
 };
 pub use preprocessed::PreprocessedImage;
 pub use resize::{ResizeMode, SimdResizeFilter};

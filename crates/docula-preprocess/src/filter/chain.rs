@@ -1,7 +1,7 @@
 use super::ImageFilter;
 use super::binarize::AdaptiveBinarizeFilter;
 use super::deskew::HoughDeskewFilter;
-use super::oximedia::{OxiMediaDenoiseFilter, OxiMediaFilter};
+use super::oximedia::{OxiMediaClaheFilter, OxiMediaDenoiseFilter, OxiMediaFilter};
 use super::preprocessed::PreprocessedImage;
 use crate::error::PreprocessError;
 use image::RgbaImage;
@@ -60,6 +60,28 @@ impl PreprocessingFilterChain {
             )
             .with_filter(HoughDeskewFilter::new())
             .with_filter(AdaptiveBinarizeFilter::adaptive(12))
+    }
+
+    /// Creates a comprehensive quality restoration pipeline specifically designed for documents
+    /// in bad physical shape: uneven phone camera lighting, paper fold creases, shadow gradients,
+    /// sensor noise, and slight skew.
+    ///
+    /// Pipeline order:
+    /// 1. [`OxiMediaClaheFilter`]: CLAHE tile contrast equalization + box blur background illumination leveling.
+    /// 2. [`OxiMediaDenoiseFilter`]: Salt-and-pepper and crease noise removal via morphology.
+    /// 3. [`OxiMediaFilter`]: Unsharp mask edge restoration and contrast tuning.
+    /// 4. [`HoughDeskewFilter`]: Sub-degree text baseline deskewing.
+    #[must_use]
+    pub fn bad_shape_reconstruction_pipeline() -> Self {
+        Self::new()
+            .with_filter(OxiMediaClaheFilter::default())
+            .with_filter(OxiMediaDenoiseFilter::full_restoration(1))
+            .with_filter(
+                OxiMediaFilter::new()
+                    .with_contrast(1.25)
+                    .with_unsharp_mask(1.0, 1.2, 2.0),
+            )
+            .with_filter(HoughDeskewFilter::new())
     }
 
     /// Fluent builder method to append a filter to the chain.

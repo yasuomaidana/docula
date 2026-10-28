@@ -614,3 +614,233 @@ async fn test_real_pdf_end_to_end_pipeline_extraction() {
     assert!(!result.routed_to_triage);
     assert_eq!(result.repair_attempts, 1);
 }
+
+#[tokio::test]
+async fn test_scenario_1_large_document_multishot_reconstruction_and_extraction() {
+    // Scenario 1: Multi-shot large document reconstruction
+    // 1. Create a large synthetic invoice with non-repeating content
+    let canvas_w = 120u32;
+    let canvas_h = 240u32;
+    let mut full_invoice = RgbaImage::from_pixel(canvas_w, canvas_h, Rgba([255, 255, 255, 255]));
+
+    // Draw header, table rows, and footer
+    for y in 0..canvas_h {
+        for x in 0..canvas_w {
+            if (x > 10 && x < canvas_w - 10) && (y % 18 < 6) {
+                let val = (((x * 17 + y * 31) % 180) + 30) as u8;
+                full_invoice.put_pixel(x, y, Rgba([val, val, val, 255]));
+            }
+        }
+    }
+
+    // Split into 2 overlapping camera shots:
+    // Top shot: [0..140]
+    // Bottom shot: [100..240] (overlap = 40 pixels)
+    let mut top_shot = RgbaImage::new(120, 140);
+    for y in 0..140 {
+        for x in 0..120 {
+            // Simulate bad lighting: camera shadow gradient
+            let shadow = (y as f32 / 140.0 * 60.0) as u8;
+            let mut p = *full_invoice.get_pixel(x, y);
+            p[0] = p[0].saturating_sub(shadow);
+            p[1] = p[1].saturating_sub(shadow);
+            p[2] = p[2].saturating_sub(shadow);
+            top_shot.put_pixel(x, y, p);
+        }
+    }
+
+    let mut bot_shot = RgbaImage::new(120, 140);
+    for y in 0..140 {
+        for x in 0..120 {
+            let mut p = *full_invoice.get_pixel(x, 100 + y);
+            // Simulate bad lighting: specular flare / brightness shift
+            p[0] = p[0].saturating_add(20);
+            p[1] = p[1].saturating_add(20);
+            p[2] = p[2].saturating_add(20);
+            bot_shot.put_pixel(x, y, p);
+        }
+    }
+
+    let mut top_bytes = Vec::new();
+    let mut bot_bytes = Vec::new();
+    top_shot
+        .write_to(
+            &mut std::io::Cursor::new(&mut top_bytes),
+            image::ImageFormat::Png,
+        )
+        .unwrap();
+    bot_shot
+        .write_to(
+            &mut std::io::Cursor::new(&mut bot_bytes),
+            image::ImageFormat::Png,
+        )
+        .unwrap();
+
+    let src1 = DocumentSource::from_image_bytes(top_bytes, Some("png"));
+    let src2 = DocumentSource::from_image_bytes(bot_bytes, Some("png"));
+    let fragment_sources = vec![src1, src2];
+
+    let expected_invoice = RealPdfInvoice {
+        invoice_number: "INV-RECONSTRUCT-2026".to_string(),
+        vendor_name: "Mega Warehouse Hardware".to_string(),
+        items: vec![
+            InvoiceLineItem {
+                description: "Industrial Bolt Set 500ct".to_string(),
+                quantity: 4,
+                unit_price: 45.0,
+                total: 180.0,
+            },
+            InvoiceLineItem {
+                description: "Hydraulic Jack Stand 3T".to_string(),
+                quantity: 2,
+                unit_price: 110.0,
+                total: 220.0,
+            },
+        ],
+        subtotal: 400.0,
+        tax: 40.0,
+        total: 440.0,
+    };
+    let canned_json = serde_json::to_string(&expected_invoice).unwrap();
+    let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
+    let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
+
+    // A. Verify direct Stage-by-Stage API access
+    // 1. Stage 1: Image Merging
+    let mut reconstructed = pipeline
+        .merge_document_source(&fragment_sources, None)
+        .expect("Stage 1: Merge document sources must succeed");
+    assert_eq!(reconstructed.fragment_count, 2);
+    assert_eq!(reconstructed.stitched_width, 120);
+    assert!(reconstructed.stitched_height >= 220 && reconstructed.stitched_height <= 260);
+
+    // 2. Stage 3: Direct Preprocessing
+    pipeline
+        .preprocess_buffer(&mut reconstructed.buffer, None)
+        .expect("Stage 3: Preprocess buffer must succeed");
+
+    // 3. Stage 4: Buffer Extraction
+    let stage_result = pipeline
+        .extract_from_buffer::<RealPdfInvoice>("invoice-multishot-stage", &reconstructed.buffer)
+        .await
+        .expect("Stage 4: Buffer extraction must succeed");
+    assert_eq!(stage_result.document_id, "invoice-multishot-stage");
+    assert_eq!(stage_result.data, Some(expected_invoice.clone()));
+
+    // B. Verify Unified End-to-End Facade API access (reconstruct_and_extract)
+    let facade_result = pipeline
+        .reconstruct_and_extract::<RealPdfInvoice>(&fragment_sources, None)
+        .await
+        .expect("Facade reconstruct_and_extract must succeed");
+    assert_eq!(facade_result.data, Some(expected_invoice));
+    assert!(facade_result.confidence >= 0.85);
+}
+
+#[tokio::test]
+async fn test_scenario_2_singleshot_multidocument_segmentation_identity_and_batch_extraction() {
+    // Scenario 2: Single-shot multi-document detection, identity fingerprinting, and batch extraction
+    // Create a 300x300 scene containing 2 distinct invoice cards on a dark background
+    let mut scene = RgbaImage::from_pixel(300, 300, Rgba([25, 25, 30, 255]));
+
+    // Draw Document 1 at top (20, 20), size 110x110
+    for y in 20..130 {
+        for x in 20..130 {
+            let is_text = (y % 16 < 4) && (x > 30 && x < 120);
+            scene.put_pixel(
+                x,
+                y,
+                if is_text {
+                    Rgba([40, 40, 40, 255])
+                } else {
+                    Rgba([245, 245, 245, 255])
+                },
+            );
+        }
+    }
+
+    // Draw Document 2 at bottom (150, 160), size 120x110
+    for y in 160..270 {
+        for x in 150..270 {
+            let is_text = (y % 16 < 4) && (x > 160 && x < 260);
+            scene.put_pixel(
+                x,
+                y,
+                if is_text {
+                    Rgba([50, 50, 50, 255])
+                } else {
+                    Rgba([235, 235, 240, 255])
+                },
+            );
+        }
+    }
+
+    let mut scene_bytes = Vec::new();
+    scene
+        .write_to(
+            &mut std::io::Cursor::new(&mut scene_bytes),
+            image::ImageFormat::Png,
+        )
+        .unwrap();
+    let scene_source = DocumentSource::from_image_bytes(scene_bytes, Some("png"));
+
+    let expected_invoice = RealPdfInvoice {
+        invoice_number: "INV-BATCH-001".to_string(),
+        vendor_name: "QuickMart Retail".to_string(),
+        items: vec![InvoiceLineItem {
+            description: "Stationery Supplies".to_string(),
+            quantity: 1,
+            unit_price: 35.0,
+            total: 35.0,
+        }],
+        subtotal: 35.0,
+        tax: 3.5,
+        total: 38.5,
+    };
+    let canned_json = serde_json::to_string(&expected_invoice).unwrap();
+    let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
+    let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
+
+    let seg_config = docula::composer::SegmentationConfig {
+        min_area_ratio: 0.05,
+        max_area_ratio: 0.80,
+        scan_optical_codes: false,
+        preprocess_subdocs: true,
+        luminance_threshold: 80,
+        ..Default::default()
+    };
+
+    // A. Verify direct Stage-by-Stage API access
+    // 1. Stage 2: Instance Segmentation
+    let subdocs = pipeline
+        .segment_multi_document_source(&scene_source, Some(seg_config.clone()))
+        .expect("Stage 2: Instance segmentation must succeed");
+    assert_eq!(subdocs.len(), 2, "Should identify both sub-documents");
+
+    // Verify deterministic identities and reading order
+    assert_eq!(subdocs[0].identity.reading_order_index, 0);
+    assert_eq!(subdocs[1].identity.reading_order_index, 1);
+    assert_ne!(
+        subdocs[0].identity.content_digest,
+        subdocs[1].identity.content_digest
+    );
+
+    // 2. Stage 4: Buffer Extraction per sub-document
+    let ext0 = pipeline
+        .extract_from_buffer::<RealPdfInvoice>(&subdocs[0].identity.instance_id, &subdocs[0].buffer)
+        .await
+        .expect("Extract sub-doc 0");
+    assert_eq!(ext0.data, Some(expected_invoice.clone()));
+
+    // B. Verify Unified End-to-End Facade API access (segment_and_extract_batch)
+    let batch_results = pipeline
+        .segment_and_extract_batch::<RealPdfInvoice>(&scene_source, Some(seg_config))
+        .await
+        .expect("Facade segment_and_extract_batch must succeed");
+
+    assert_eq!(batch_results.len(), 2);
+    for (idx, (identity, ext)) in batch_results.iter().enumerate() {
+        assert_eq!(identity.reading_order_index, idx);
+        assert_eq!(ext.data, Some(expected_invoice.clone()));
+        assert!(ext.confidence >= 0.85);
+    }
+}

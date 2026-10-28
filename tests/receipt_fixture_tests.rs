@@ -315,11 +315,19 @@ fn test_receipt_change_validation_catches_discrepancy() {
 #[tokio::test]
 async fn test_fixture_pipeline_supports_any_fixture_image() {
     // Verifies that any fixture image can be passed to the generic pipeline runner
-    let fixtures = ["receipt-v2.png", "receipt-v3.png", "receipt.png", "sample_receipt.png"];
+    let fixtures = [
+        "receipt-v2.png",
+        "receipt-v3.png",
+        "receipt.png",
+        "sample_receipt.png",
+    ];
 
     for fixture in fixtures {
         let path = fixture_image_path(fixture);
-        assert!(path.exists(), "Fixture {fixture} must exist in tests/fixtures");
+        assert!(
+            path.exists(),
+            "Fixture {fixture} must exist in tests/fixtures"
+        );
 
         let source = DocumentSource::from_image_path(&path);
         let inferred_id = source.infer_document_id();

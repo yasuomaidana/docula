@@ -5,6 +5,12 @@
 pub mod pipeline;
 
 pub use docula_compliance as compliance;
+pub use docula_composer as composer;
+pub use docula_composer::{
+    ComposerError, DocumentReconstructor, MultiDocumentSegmenter, PairwiseAlignment,
+    ReconstructedDocument, ReconstructionConfig, RegistrationMethod, SegmentationConfig,
+    SegmentedSubDocument, StitchMode, SubDocumentIdentity,
+};
 pub use docula_core::*;
 pub use docula_domains as domains;
 pub use docula_exemplar as exemplar;
@@ -67,6 +73,14 @@ mod tests {
 
         let bank_tx = domains::BankTransaction::credit("2026-10-12", "Deposit", 100.0);
         assert_eq!(bank_tx.amount, 100.0);
+
+        let reconstructor =
+            composer::DocumentReconstructor::new(composer::ReconstructionConfig::default());
+        let _ = reconstructor;
+
+        let segmenter =
+            composer::MultiDocumentSegmenter::new(composer::SegmentationConfig::default());
+        let _ = segmenter;
 
         let receipt_item = domains::ReceiptItem::new("Coffee", 4.5);
         assert_eq!(receipt_item.total, 4.5);

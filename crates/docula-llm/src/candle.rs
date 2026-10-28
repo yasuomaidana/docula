@@ -25,10 +25,7 @@ impl CandleBackend {
 
     /// Constructs an in-memory testable `CandleBackend` without requiring weights on disk.
     pub fn in_memory() -> Self {
-        Self {
-            model_path: PathBuf::from(":memory:"),
-            canned_response: None,
-        }
+        Self::new(":memory:")
     }
 
     /// Configures a deterministic canned response for testing schema conformance.
@@ -38,10 +35,11 @@ impl CandleBackend {
         self
     }
 
-    /// Model weights path.
+    /// Returns the filesystem path to the model weights.
+    #[inline]
     #[must_use]
     pub fn model_path(&self) -> &Path {
-        &self.model_path
+        self.model_path.as_path()
     }
 
     /// Verifies device allocation on the current hardware.
