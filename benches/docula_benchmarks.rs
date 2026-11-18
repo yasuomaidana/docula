@@ -1,5 +1,4 @@
 use criterion::{Criterion, criterion_group, criterion_main};
-use std::hint::black_box;
 use docula::compliance::ComplianceRedactor;
 use docula::exemplar::compute_layout_fingerprint;
 use docula::ocr::SpatialLayoutMap;
@@ -8,6 +7,7 @@ use docula::vision_codes::OpticalCodeDetector;
 use docula::{BoundingBox, SpatialSpan};
 use image::{Rgba, RgbaImage};
 use rxing::{BarcodeFormat, MultiFormatWriter, Writer};
+use std::hint::black_box;
 
 fn generate_synthetic_spans(count: usize) -> Vec<SpatialSpan> {
     let mut spans = Vec::with_capacity(count);

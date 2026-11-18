@@ -140,73 +140,125 @@ impl DbNetDetector {
 
         for y in 0..height {
             for x in 0..width {
-                let idx = (y as usize) * (width as usize) + (x as usize);
-                if visited[idx] {
-                    continue;
-                }
-
-                let val = gray.get_pixel(x, y)[0];
-                let is_fg = if text_is_dark {
-                    val <= threshold
-                } else {
-                    val >= threshold
-                };
-                if !is_fg {
-                    visited[idx] = true;
-                    continue;
-                }
-
-                let mut comp_bounds = (x, y, x, y);
-                let mut pixel_count = 0u32;
-                let mut queue = vec![(x, y)];
-                visited[idx] = true;
-
-                while let Some((cx, cy)) = queue.pop() {
-                    pixel_count += 1;
-                    comp_bounds.0 = comp_bounds.0.min(cx);
-                    comp_bounds.1 = comp_bounds.1.min(cy);
-                    comp_bounds.2 = comp_bounds.2.max(cx);
-                    comp_bounds.3 = comp_bounds.3.max(cy);
-
-                    let neighbors = [
-                        (cx.wrapping_sub(1), cy, cx > 0),
-                        (cx + 1, cy, cx + 1 < width),
-                        (cx, cy.wrapping_sub(1), cy > 0),
-                        (cx, cy + 1, cy + 1 < height),
-                    ];
-
-                    for (nx, ny, valid) in neighbors {
-                        if valid {
-                            let n_idx = (ny as usize) * (width as usize) + (nx as usize);
-                            if !visited[n_idx] {
-                                visited[n_idx] = true;
-                                let n_val = gray.get_pixel(nx, ny)[0];
-                                let n_fg = if text_is_dark {
-                                    n_val <= threshold
-                                } else {
-                                    n_val >= threshold
-                                };
-                                if n_fg {
-                                    queue.push((nx, ny));
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if pixel_count >= self.min_box_area {
-                    raw_boxes.push((
-                        comp_bounds.0,
-                        comp_bounds.1,
-                        comp_bounds.2,
-                        comp_bounds.3,
-                        pixel_count,
-                    ));
+                if let Some(comp) =
+                    self.scan_component_at(gray, &mut visited, (x, y), threshold, text_is_dark)
+                {
+                    raw_boxes.push(comp);
                 }
             }
         }
 
         raw_boxes
+    }
+
+    /// Checks if a pixel starts an unvisited foreground component and extracts it.
+    fn scan_component_at(
+        &self,
+        gray: &GrayImage,
+        visited: &mut [bool],
+        pos: (u32, u32),
+        threshold: u8,
+        text_is_dark: bool,
+    ) -> Option<(u32, u32, u32, u32, u32)> {
+        let (x, y) = pos;
+        let width = gray.width();
+        let idx = (y as usize) * (width as usize) + (x as usize);
+        if visited[idx] {
+            return None;
+        }
+
+        let val = gray.get_pixel(x, y)[0];
+        if !Self::is_foreground(val, threshold, text_is_dark) {
+            visited[idx] = true;
+            return None;
+        }
+
+        let comp = Self::flood_fill_component(gray, visited, pos, threshold, text_is_dark);
+        if comp.4 >= self.min_box_area {
+            Some(comp)
+        } else {
+            None
+        }
+    }
+
+    /// Flood-fills a connected component starting at `pos`.
+    fn flood_fill_component(
+        gray: &GrayImage,
+        visited: &mut [bool],
+        pos: (u32, u32),
+        threshold: u8,
+        text_is_dark: bool,
+    ) -> (u32, u32, u32, u32, u32) {
+        let (x, y) = pos;
+        let width = gray.width();
+        let start_idx = (y as usize) * (width as usize) + (x as usize);
+        visited[start_idx] = true;
+
+        let mut comp_bounds = (x, y, x, y);
+        let mut pixel_count = 0u32;
+        let mut queue = vec![(x, y)];
+
+        while let Some((cx, cy)) = queue.pop() {
+            pixel_count += 1;
+            comp_bounds.0 = comp_bounds.0.min(cx);
+            comp_bounds.1 = comp_bounds.1.min(cy);
+            comp_bounds.2 = comp_bounds.2.max(cx);
+            comp_bounds.3 = comp_bounds.3.max(cy);
+
+            Self::visit_neighbors(gray, visited, &mut queue, (cx, cy), threshold, text_is_dark);
+        }
+
+        (
+            comp_bounds.0,
+            comp_bounds.1,
+            comp_bounds.2,
+            comp_bounds.3,
+            pixel_count,
+        )
+    }
+
+    /// Visits 4-connected neighbors and pushes unvisited foreground pixels to the queue.
+    fn visit_neighbors(
+        gray: &GrayImage,
+        visited: &mut [bool],
+        queue: &mut Vec<(u32, u32)>,
+        pos: (u32, u32),
+        threshold: u8,
+        text_is_dark: bool,
+    ) {
+        let (cx, cy) = pos;
+        let (width, height) = gray.dimensions();
+        let neighbors = [
+            (cx.wrapping_sub(1), cy, cx > 0),
+            (cx + 1, cy, cx + 1 < width),
+            (cx, cy.wrapping_sub(1), cy > 0),
+            (cx, cy + 1, cy + 1 < height),
+        ];
+
+        for (nx, ny, valid) in neighbors {
+            if !valid {
+                continue;
+            }
+            let n_idx = (ny as usize) * (width as usize) + (nx as usize);
+            if visited[n_idx] {
+                continue;
+            }
+            visited[n_idx] = true;
+            let n_val = gray.get_pixel(nx, ny)[0];
+            if Self::is_foreground(n_val, threshold, text_is_dark) {
+                queue.push((nx, ny));
+            }
+        }
+    }
+
+    /// Determines whether a pixel intensity represents foreground text.
+    #[inline]
+    fn is_foreground(val: u8, threshold: u8, text_is_dark: bool) -> bool {
+        if text_is_dark {
+            val <= threshold
+        } else {
+            val >= threshold
+        }
     }
 
     /// Unclips merged boxes using Vatti expansion ratio and constructs polygonal detection objects.
