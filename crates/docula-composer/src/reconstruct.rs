@@ -161,56 +161,97 @@ impl DocumentReconstructor {
             return Err(ComposerError::EmptyFragments);
         }
         if fragments.len() == 1 {
-            let img = fragments[0].clone();
-            let (w, h) = img.dimensions();
-            let buffer = PageRasterBuffer::new(0, img, dpi)
-                .map_err(|e| ComposerError::Preprocessing(e.to_string()))?;
-            return Ok(ReconstructedDocument {
-                buffer,
-                stitched_width: w,
-                stitched_height: h,
-                alignments: Vec::new(),
-                fragment_count: 1,
-                estimated_coverage_ratio: 1.0,
-            });
+            return Self::single_fragment_document(&fragments[0], dpi);
         }
 
-        let (offsets, alignments) = match self.config.stitch_mode {
+        let (offsets, alignments) = self.compute_alignments(fragments)?;
+        let (normalized_offsets, stitched_width, stitched_height) =
+            Self::normalize_offsets_and_dimensions(fragments, &offsets);
+
+        let buffer = self.blend_canvas(fragments, &normalized_offsets, dpi)?;
+        let estimated_coverage_ratio =
+            Self::estimate_coverage_ratio(fragments, stitched_width, stitched_height);
+
+        Ok(ReconstructedDocument {
+            buffer,
+            stitched_width,
+            stitched_height,
+            alignments,
+            fragment_count: fragments.len(),
+            estimated_coverage_ratio,
+        })
+    }
+
+    /// Creates a reconstructed document wrapper for an isolated single fragment.
+    fn single_fragment_document(
+        fragment: &RgbaImage,
+        dpi: u32,
+    ) -> Result<ReconstructedDocument, ComposerError> {
+        let (w, h) = fragment.dimensions();
+        let buffer = PageRasterBuffer::new(0, fragment.clone(), dpi)
+            .map_err(|e| ComposerError::Preprocessing(e.to_string()))?;
+        Ok(ReconstructedDocument {
+            buffer,
+            stitched_width: w,
+            stitched_height: h,
+            alignments: Vec::new(),
+            fragment_count: 1,
+            estimated_coverage_ratio: 1.0,
+        })
+    }
+
+    /// Computes pairwise alignments and cumulative coordinate offsets across all fragments.
+    fn compute_alignments(
+        &self,
+        fragments: &[RgbaImage],
+    ) -> Result<AlignmentResult, ComposerError> {
+        match self.config.stitch_mode {
             StitchMode::VerticalStrip => {
-                self.align_strip_sequence(fragments, OverlapAxis::Vertical)?
+                self.align_strip_sequence(fragments, OverlapAxis::Vertical)
             }
             StitchMode::HorizontalStrip => {
-                self.align_strip_sequence(fragments, OverlapAxis::Horizontal)?
+                self.align_strip_sequence(fragments, OverlapAxis::Horizontal)
             }
-            StitchMode::PlanarHomography => self.align_planar_homography(fragments)?,
-            StitchMode::Auto => {
-                let first = &fragments[0];
-                let second = &fragments[1];
-                let (v_overlap, v_err) = detect_strip_overlap_zmad(
-                    first,
-                    second,
-                    OverlapAxis::Vertical,
-                    self.config.min_overlap_ratio,
-                    self.config.max_overlap_ratio,
-                );
-                let (h_overlap, h_err) = detect_strip_overlap_zmad(
-                    first,
-                    second,
-                    OverlapAxis::Horizontal,
-                    self.config.min_overlap_ratio,
-                    self.config.max_overlap_ratio,
-                );
+            StitchMode::PlanarHomography => self.align_planar_homography(fragments),
+            StitchMode::Auto => self.align_auto(fragments),
+        }
+    }
 
-                if v_err < h_err && v_overlap > 0 {
-                    self.align_strip_sequence(fragments, OverlapAxis::Vertical)?
-                } else if h_overlap > 0 {
-                    self.align_strip_sequence(fragments, OverlapAxis::Horizontal)?
-                } else {
-                    self.align_strip_sequence(fragments, OverlapAxis::Vertical)?
-                }
-            }
+    /// Automatically selects strip overlap axis by comparing ZMAD registration errors.
+    fn align_auto(&self, fragments: &[RgbaImage]) -> Result<AlignmentResult, ComposerError> {
+        let first = &fragments[0];
+        let second = &fragments[1];
+        let (v_overlap, v_err) = detect_strip_overlap_zmad(
+            first,
+            second,
+            OverlapAxis::Vertical,
+            self.config.min_overlap_ratio,
+            self.config.max_overlap_ratio,
+        );
+        let (h_overlap, h_err) = detect_strip_overlap_zmad(
+            first,
+            second,
+            OverlapAxis::Horizontal,
+            self.config.min_overlap_ratio,
+            self.config.max_overlap_ratio,
+        );
+
+        let axis = if v_err < h_err && v_overlap > 0 {
+            OverlapAxis::Vertical
+        } else if h_overlap > 0 {
+            OverlapAxis::Horizontal
+        } else {
+            OverlapAxis::Vertical
         };
 
+        self.align_strip_sequence(fragments, axis)
+    }
+
+    /// Normalizes coordinate offsets relative to the origin and determines aggregate dimensions.
+    fn normalize_offsets_and_dimensions(
+        fragments: &[RgbaImage],
+        offsets: &[(i64, i64)],
+    ) -> (Vec<(i64, i64)>, u32, u32) {
         let min_x = offsets.iter().map(|(x, _)| *x).min().unwrap_or(0);
         let min_y = offsets.iter().map(|(_, y)| *y).min().unwrap_or(0);
         let normalized_offsets: Vec<(i64, i64)> = offsets
@@ -229,6 +270,16 @@ impl DocumentReconstructor {
         let stitched_width = max_x.max(1) as u32;
         let stitched_height = max_y.max(1) as u32;
 
+        (normalized_offsets, stitched_width, stitched_height)
+    }
+
+    /// Stitches and blends placed fragment frames into a unified raster buffer.
+    fn blend_canvas(
+        &self,
+        fragments: &[RgbaImage],
+        normalized_offsets: &[(i64, i64)],
+        dpi: u32,
+    ) -> Result<PageRasterBuffer, ComposerError> {
         let frames: Vec<(&RgbaImage, i64, i64)> = fragments
             .iter()
             .zip(normalized_offsets.iter())
@@ -238,24 +289,22 @@ impl DocumentReconstructor {
         let blended_canvas = stitch_frames_feathered(&frames, self.config.blend_width_px)
             .map_err(|e| ComposerError::AlignmentFailed(e.to_string()))?;
 
-        let buffer = PageRasterBuffer::new(0, blended_canvas, dpi)
-            .map_err(|e| ComposerError::Preprocessing(e.to_string()))?;
+        PageRasterBuffer::new(0, blended_canvas, dpi)
+            .map_err(|e| ComposerError::Preprocessing(e.to_string()))
+    }
 
+    /// Computes the ratio of reconstructed canvas area to sum of individual fragment areas.
+    fn estimate_coverage_ratio(
+        fragments: &[RgbaImage],
+        stitched_width: u32,
+        stitched_height: u32,
+    ) -> f64 {
         let sum_fragment_areas: f64 = fragments
             .iter()
             .map(|img| f64::from(img.width()) * f64::from(img.height()))
             .sum();
         let stitched_area = f64::from(stitched_width) * f64::from(stitched_height);
-        let estimated_coverage_ratio = (stitched_area / sum_fragment_areas.max(1.0)).min(1.0);
-
-        Ok(ReconstructedDocument {
-            buffer,
-            stitched_width,
-            stitched_height,
-            alignments,
-            fragment_count: fragments.len(),
-            estimated_coverage_ratio,
-        })
+        (stitched_area / sum_fragment_areas.max(1.0)).min(1.0)
     }
 
     fn align_strip_sequence(
