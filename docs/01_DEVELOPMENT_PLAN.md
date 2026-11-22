@@ -2,7 +2,7 @@
 
 ## 1. Executive Roadmap & Workspace Blueprint
 
-This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **11-Milestone phased execution model** across a 14-crate Cargo Monorepo Workspace, standardizing on the **KitaSan (COOLJAPAN) open-source stack** (`oximedia`, `oxillama`, `oxibonsai`, `oxirag`, `oxirs`, `scirs2`, `oxiz`) and **`diesel-cte-ext`**.
+This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **11-Milestone phased execution model** across a 14-crate Cargo Monorepo Workspace, standardizing on pure-Rust open-source crates (`oximedia`, `candle`, `tract`, `embedag_rag::VerifiedRagEngine`, `oxirs`, `scirs2`, `oxiz`; `oxillama`, `oxibonsai`, and `oxirag` were removed due to the 2026-11 licence change) and **`diesel-cte-ext`**.
 
 Optical Code Detection (QR / 1D Barcodes) and Visual Region Cropping (Document Screenshots / ROI Crops) are scheduled for **Milestone 7 (Advanced Vision)** as the latest functional capabilities. However, all foundational abstractions (`BoundingBox` pixel projection, `ImageCrop` value objects, `RegionCropper` trait, and schema reflection tags) are engineered **from Day 0 in Milestone 1 and Milestone 2** to guarantee zero breaking changes or hard refactoring when Milestone 7 lands.
 
@@ -31,10 +31,10 @@ gantt
     section Milestone 4 Schema, DFA Masking & LLM
     "DOC-401 JSON Schema to DFA Compiler (docula-schema)"        :done, m4_1, after m3_4, 6d
     "DOC-402 Autoregressive Logits Masking (docula-schema)"      :done, m4_2, after m4_1, 6d
-    "DOC-403 Sovereign oxillama & oxibonsai (docula-llm)"        :done, m4_3, after m4_2, 7d
+    "DOC-403 Sovereign candle & tract (oxillama and oxibonsai removed) (docula-llm)" :done, m4_3, after m4_2, 7d
 
     section Milestone 5 Retrieval & Exemplars
-    "DOC-501 oxirag 4-Layer RAG & oxirs DocKGs (docula-rag)"     :done, m5_1, after m4_3, 6d
+    "DOC-501 Verified RAG Engine & oxirs DocKGs (oxirag removed) (docula-rag)" :done, m5_1, after m4_3, 6d
     "DOC-502 Dual-Stage Exemplar & diesel-cte-ext (docula-exemplar)" :done, m5_2, after m5_1, 6d
 
     section Milestone 6 Active Learning & Feedback
@@ -119,8 +119,8 @@ docula/
 │   ├── docula-ingest/          # lopdf hierarchy inspection, routing heuristics
 │   ├── docula-ocr/             # PP-OCRv6 DBNet detection, CRNN 50-language recognition, scirs2 clustering
 │   ├── docula-compliance/      # Spatial blackout, PII sanitization, action directives
-│   ├── docula-llm/             # KitaSan sovereign LLMs (oxillama GGUF, oxibonsai 1-bit), candle, tract
-│   ├── docula-rag/             # oxirag 4-layer engine (Echo, Speculator, Judge oxiz, Graph oxirs)
+│   ├── docula-llm/             # Sovereign LLMs (candle, tract; oxillama and oxibonsai were removed due to the 2026-11 licence change)
+│   ├── docula-rag/             # Verified RAG engine via embedag_rag (oxirag was removed due to the 2026-11 licence change)
 │   ├── docula-exemplar/        # Dual-stage retrieval, diesel-cte-ext template inheritance, few-shot builder
 │   ├── docula-hitl/            # Active learning flywheel, triage gates, diesel-cte-ext correction DAGs
 │   ├── docula/                 # High-level developer facade offering typed API
@@ -295,34 +295,33 @@ docula/
   * `test_masking_disallows_illegal_tokens`: Tokens not in the grammar bitset are masked to $-\infty$.
   * `test_complete_token_sequence_yields_valid_json`: Generate simulated token stream; assert `serde_json::from_str` succeeds.
 
-#### Ticket DOC-403: KitaSan Sovereign LLM Backend Trait and Dispatcher (`docula-llm`)
+#### Ticket DOC-403: Sovereign LLM Backend Trait and Dispatcher (`docula-llm`)
 * **Reference Spec:** [`06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)
-* **Single Responsibility:** Define `LlmBackend` trait and provide pure-Rust implementations: **`oxillama`** (general GGUF quantized models) and **`oxibonsai`** (1-bit and ternary sub-2-bit edge models), alongside `candle` and `tract`.
+* **Single Responsibility:** Define `LlmBackend` trait and provide pure-Rust implementations: `candle` and `tract` (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
 * **Design Pattern:** **Strategy Pattern**.
 * **Acceptance Criteria:**
-  1. Feature flags `local-gguf` (`oxillama`), `local-embedded` (`oxibonsai`), `local-candle`, `local-onnx` compile cleanly.
+  1. Feature flags `local-candle` and `local-onnx` compile cleanly (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
   2. Air-gapped execution with zero network socket allocation in local modes.
-  3. Logits interceptors bind natively into `oxillama-runtime` and `oxibonsai` token generation loops.
+  3. Logits interceptors bind natively into token generation loops.
 * **Test Scenarios:**
   * `test_mock_llm_backend`: Test prompt completion using deterministic mock backend.
-  * `test_oxillama_logits_interceptor`: Verify logits processor is invoked on every generated token in `oxillama`.
-  * `test_oxibonsai_sub2bit_inference`: Verify sub-2-bit model initialization and constrained generation.
+  * `test_candle_backend_generation_and_device_check`: Verify candle tensor inference and device verification.
 
 ---
 
 ### Milestone 5: Retrieval, Knowledge Graphs & Exemplars (`docula-rag`, `docula-exemplar`)
 
-#### Ticket DOC-501: `oxirag` 4-Layer RAG Engine & `oxirs` Document Knowledge Graphs (`docula-rag`)
+#### Ticket DOC-501: Verified RAG Engine & `oxirs` Document Knowledge Graphs (`docula-rag`)
 * **Reference Spec:** [`11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)
-* **Single Responsibility:** Implement 4-layer RAG architecture (**`oxirag`**) for 10–100+ page documents: Layer 1 (Echo prefix caching), Layer 2 (Speculator draft retrieval), Layer 3 (Judge SMT formal verification via **`oxiz`**), and Layer 4 (Graph GraphRAG via **`oxirs`**).
+* **Single Responsibility:** Implement verified RAG architecture using `embedag_rag::VerifiedRagEngine` (`oxirag` was removed due to the 2026-11 licence change) for 10–100+ page documents, and GraphRAG via **`oxirs`**.
 * **Design Pattern:** **Multi-Tiered Verification & Graph Pattern**.
 * **Acceptance Criteria:**
   1. Preserves table cells without splitting table rows across arbitrary token boundaries.
-  2. `oxirag` prefix caching bypasses redundant vector search on recurring boilerplate.
-  3. `oxiz` SMT solver formally proves arithmetic equations (subtotal + tax == total) before prompting.
+  2. Verified engine answers only from supporting chunks, citing them as `[n] text`.
+  3. Returns `RagError::VerificationFailure` when no chunk supports the query.
   4. `oxirs` constructs RDF Document Knowledge Graph (DocKG) for multi-hop semantic querying.
 * **Test Scenarios:**
-  * `test_oxirag_layout_chunking`: Verify table grid maintained intact across 50-page packet.
+  * `test_embedag_adapter_query_verified`: Verify table-aware chunks are queried and verified with citations.
   * `test_oxiz_smt_judge_verification`: Formally verify mathematical invariant and detect arithmetic conflict.
   * `test_oxirs_dockg_sparql_query`: Query extracted RDF graph with SPARQL 1.2 to find entity relationships.
 
@@ -404,7 +403,7 @@ docula/
 
 #### Ticket DOC-801: High-Level `DoculaPipeline` Facade & Self-Repair Loop (`docula`)
 * **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md)
-* **Single Responsibility:** Provide `DoculaPipeline` and `extract_structure::<T>()` coordinating ingestion, OCR, LLMs (`oxillama` / `oxibonsai`), optical codes, visual crops (`oximedia`), validation, and self-repair.
+* **Single Responsibility:** Provide `DoculaPipeline` and `extract_structure::<T>()` coordinating ingestion, OCR, LLMs (`candle` / `tract`; `oxillama` and `oxibonsai` were removed due to the 2026-11 licence change), optical codes, visual crops (`oximedia`), validation, and self-repair.
 * **Design Pattern:** **Facade Pattern**, **Typestate Pattern**, and **Template Method (Self-Repair)**.
 * **Acceptance Criteria:**
   1. Orchestrates end-to-end two-step pipeline.
@@ -429,8 +428,8 @@ docula/
 * **Acceptance Criteria:**
   1. `cargo-geiger` verifies 0 non-Rust dynamic links across all 13 crates.
   2. Single-page born-digital PDF completes in $< 15\,\text{ms}$.
-  3. Scanned receipt OCR + 1-bit LLM (`oxibonsai`) completes in $< 1.2\,\text{s}$ on standard CPU.
-  4. General GGUF extraction (`oxillama`) completes with zero memory leaks.
+  3. Scanned receipt OCR + local LLM completes in $< 1.2\,\text{s}$ on standard CPU (`oxibonsai` was removed due to the 2026-11 licence change).
+  4. Sovereign extraction via `candle`/`tract` completes with zero memory leaks (`oxillama` was removed due to the 2026-11 licence change).
 
 ---
 

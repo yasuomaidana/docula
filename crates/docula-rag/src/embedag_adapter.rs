@@ -5,19 +5,17 @@ use crate::chunk::DocumentChunk;
 #[cfg(feature = "embedag-integration")]
 use crate::error::RagError;
 #[cfg(feature = "embedag-integration")]
-use embedag_rag::{
-    DenseVectorIndex, OxiRagEngine as EmbedagOxiRagEngine, RrfRanker, SparseLexicalIndex,
-};
+use embedag_rag::{DenseVectorIndex, RrfRanker, SparseLexicalIndex, VerifiedRagEngine};
 #[cfg(feature = "embedag-integration")]
 use uuid::Uuid;
 
-/// Adapter leveraging `embedag-rag` for reciprocal rank fusion (RRF) and sovereign 4-layer OxiRAG retrieval.
+/// Adapter leveraging `embedag-rag` for reciprocal rank fusion (RRF) and verified retrieval.
 #[cfg(feature = "embedag-integration")]
 pub struct EmbedagGraphRetriever {
     chunks: Vec<(Uuid, DocumentChunk)>,
     dense_index: DenseVectorIndex,
     lexical_index: SparseLexicalIndex,
-    oxirag_engine: EmbedagOxiRagEngine,
+    verified_engine: VerifiedRagEngine,
 }
 
 #[cfg(feature = "embedag-integration")]
@@ -36,7 +34,7 @@ impl EmbedagGraphRetriever {
             chunks: Vec::new(),
             dense_index: DenseVectorIndex::with_dimensions(embedding_dim),
             lexical_index: SparseLexicalIndex::new(),
-            oxirag_engine: EmbedagOxiRagEngine::new(embedding_dim),
+            verified_engine: VerifiedRagEngine::new(embedding_dim),
         }
     }
 
@@ -91,13 +89,13 @@ impl EmbedagGraphRetriever {
             .collect()
     }
 
-    /// Executes verified retrieval over the indexed document chunks using `embedag-rag`'s 4-layer OxiRAG engine.
-    pub async fn query_oxirag_verified(&self, query_text: &str) -> Result<String, RagError> {
+    /// Executes verified retrieval over the indexed document chunks using `embedag-rag`'s verified retrieval engine.
+    pub async fn query_verified(&self, query_text: &str) -> Result<String, RagError> {
         let corpus: Vec<&str> = self.chunks.iter().map(|(_, c)| c.text.as_str()).collect();
-        self.oxirag_engine
+        self.verified_engine
             .query_verified(&corpus, query_text)
             .await
-            .map_err(|e| RagError::IndexError(e.to_string()))
+            .map_err(Into::into)
     }
 
     /// Assembles a focused context prompt window from retrieved RRF chunks.

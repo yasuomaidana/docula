@@ -137,13 +137,13 @@ The macro automatically synthesizes:
 ### Example A: Extracting from a PDF File (With Optional Validation)
 
 ```rust
-use Docula::{extract_structure, DocumentSource, OxiBonsaiBackend};
+use Docula::{extract_structure, DocumentSource, CandleBackend};
 use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Initialize local embedded LLM backend (zero-FFI, 1-bit quantized)
-    let backend = OxiBonsaiBackend::load_default().await?;
+    // 1. Initialize local LLM backend (pure-Rust; oxibonsai was removed due to 2026-11 licence change)
+    let backend = CandleBackend::new("models/llama.gguf");
 
     // 2. Specify the PDF document
     let pdf_source = DocumentSource::PdfPath(PathBuf::from("data/invoices/vendor_invoice_1042.pdf"));
@@ -170,12 +170,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ### Example B: Extracting from a Single Picture / Camera Capture
 
 ```rust
-use Docula::{extract_structure, DocumentSource, OxiBonsaiBackend};
+use Docula::{extract_structure, DocumentSource, CandleBackend};
 use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let backend = OxiBonsaiBackend::load_default().await?;
+    let backend = CandleBackend::new("models/llama.gguf");
 
     // Ingest a scanned JPEG or camera receipt photo
     let img_source = DocumentSource::ImagePath(PathBuf::from("data/receipts/gas_station_receipt.jpg"));
@@ -195,12 +195,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 In many operational scenarios, a user captures multiple consecutive photos of a long multi-page invoice or stapled document packet:
 
 ```rust
-use Docula::{extract_structure, DocumentSource, OxiBonsaiBackend};
+use Docula::{extract_structure, DocumentSource, CandleBackend};
 use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let backend = OxiBonsaiBackend::load_default().await?;
+    let backend = CandleBackend::new("models/llama.gguf");
 
     // Provide a set / vector of pictures
     let multi_image_batch = DocumentSource::ImageBatch(vec![
