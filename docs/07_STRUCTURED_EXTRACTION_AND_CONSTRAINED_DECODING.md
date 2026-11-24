@@ -4,7 +4,7 @@
 
 The **Structured Extraction & Constrained Decoding** module is the mathematical core of Step 2. Its mission is to transform spatial text into a concrete, strongly typed Rust data structure `T` supplied by the user (such as `InvoiceData`, `BankStatement`, or any custom domain model).
 
-Standard LLM prompting ("Return JSON matching this format") is inherently non-deterministic and prone to syntax errors (unclosed brackets, trailing commas, incorrect field names, string instead of float). `Docula` solves this through **Logits-Level Grammar Enforcement (Constrained Decoding)** executed natively within the **KitaSan sovereign LLM engines (`oxillama` & `oxibonsai`)** and **Automated Self-Repair Loops**.
+Standard LLM prompting ("Return JSON matching this format") is inherently non-deterministic and prone to syntax errors (unclosed brackets, trailing commas, incorrect field names, string instead of float). `Docula` solves this through **Logits-Level Grammar Enforcement (Constrained Decoding)** executed natively within pure-Rust LLM engines (`candle` & `tract`; note that `oxillama` & `oxibonsai` were removed due to the 2026-11 licence change) and **Automated Self-Repair Loops**.
 
 ```mermaid
 sequenceDiagram
@@ -12,7 +12,7 @@ sequenceDiagram
     participant UserApp as User Application (Rust Struct T)
     participant Engine as Docula Pipeline
     participant SchemaEngine as schemars
-    participant LLM as KitaSan LLM (oxillama / oxibonsai)
+    participant LLM as Sovereign LLM (candle / tract; oxillama & oxibonsai were removed)
     participant LogitsProc as typedlm DFA Logits Processor
 
     UserApp->>Engine: extract::<T>(DocumentSource)
@@ -41,9 +41,9 @@ sequenceDiagram
 |:---|:---|:---|:---|
 | **`schemars`** | `^1.0` | Compile-time and runtime JSON Schema reflection from arbitrary Rust structs. | **100% Pure Rust** |
 | **`serde` & `serde_json`** | `^1.0` | High-performance, zero-copy serialization/deserialization into Rust types. | **100% Pure Rust** |
-| **`oxillama`** | `^0.1` | **KitaSan general GGUF LLM engine.** Exposes native logits interceptor hooks in `oxillama-runtime`. | **100% Pure Rust (`fail0 + Clippy0`)** |
-| **`oxibonsai`** | `^0.1` | **KitaSan sub-2-bit LLM engine.** Native support for `generate_with_logits_processor`. | **100% Pure Rust (`fail0 + Clippy0`)** |
-| **`typedlm`** | `^0.1` | JSON-Schema-to-DFA compilation and step-by-step logits masking. | **100% Pure Rust** |
+| **`candle-core`** | `^0.11` | Pure-Rust tensor engine (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change). | **100% Pure Rust** |
+| **`tract-core`** | `^0.21` | Pure-Rust ONNX execution engine. | **100% Pure Rust** |
+| **`docula-schema`** | Workspace | JSON-Schema-to-DFA compilation and step-by-step logits masking. | **100% Pure Rust** |
 
 ---
 
@@ -80,16 +80,16 @@ where
 }
 ```
 
-### 3.2 Constrained Decoding via DFA Logits Masking in KitaSan Engines
+### 3.2 Constrained Decoding via DFA Logits Masking
 
-During autoregressive token generation in `oxillama` or `oxibonsai`, the model outputs raw unnormalized log-probabilities (logits) $L \in \mathbb{R}^{|V|}$ across the vocabulary $V$. In standard decoding, softmax generates the probability distribution:
+During autoregressive token generation in local backends (e.g. `candle` or `tract`), the model outputs raw unnormalized log-probabilities (logits) $L \in \mathbb{R}^{|V|}$ across the vocabulary $V$. In standard decoding, softmax generates the probability distribution:
 
 $$P(y = i \mid \mathbf{Z}) = \frac{e^{L_i}}{\sum_{j=1}^{|V|} e^{L_j}}$$
 
 To enforce the JSON Schema:
 1. `schemars::schema_for!(T)` creates a JSON Schema AST.
-2. `typedlm` converts this AST into a **Deterministic Finite Automaton (DFA)**.
-3. At generation step $t$, the logits processor intercepts the vocabulary logits before softmax within the `oxillama-runtime` loop or `oxibonsai` engine.
+2. `docula-schema` converts this AST into a **Deterministic Finite Automaton (DFA)**.
+3. At generation step $t$, the logits processor intercepts the vocabulary logits before softmax within the generation loop (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
 4. For every token $i \in V$ that would cause an invalid transition (e.g. emitting a letter when a number is required, or omitting quotes):
 
 $$L_i \leftarrow -\infty$$

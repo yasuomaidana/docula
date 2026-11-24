@@ -35,7 +35,7 @@ flowchart TD
         TopK --> PromptAssemble[FewShotPromptBuilder]
         ZeroShot --> PromptAssemble
         TargetOCR --> PromptAssemble
-        PromptAssemble --> LLM["LlmBackend Constrained Inference (oxillama / oxibonsai)"]
+        PromptAssemble --> LLM["LlmBackend Constrained Inference (candle / tract; oxillama & oxibonsai were removed)"]
     end
 ```
 

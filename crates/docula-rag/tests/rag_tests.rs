@@ -146,20 +146,40 @@ fn test_empty_chunks_handled_gracefully() {
     assert!(results.is_empty());
 }
 
+#[cfg(feature = "embedag-integration")]
 #[tokio::test]
-async fn test_oxirag_engine_query() {
-    use docula_rag::OxiRagEngine;
+async fn test_embedag_adapter_query_verified() {
+    use docula_rag::EmbedagGraphRetriever;
 
-    let engine = OxiRagEngine::new(384);
-    let corpus = [
-        "Invoice #10023 issued by Acme Corp on 2026-10-10.",
-        "Total amount payable is ,250.00 within 30 days.",
-    ];
-    let ans = engine
-        .query_verified(&corpus, "What is the invoice number?")
+    let mut retriever = EmbedagGraphRetriever::new(384);
+    let chunk1 = DocumentChunk {
+        id: 0,
+        page_index: 0,
+        text: "Invoice #10023 issued by Acme Corp on 2026-10-10.".to_string(),
+        bbox: BoundingBox::from_coords_clamped(0.0, 0.0, 1.0, 0.2),
+        is_table: false,
+        token_estimate: 10,
+    };
+    let chunk2 = DocumentChunk {
+        id: 1,
+        page_index: 0,
+        text: "Total amount payable is $1,250.00 within 30 days.".to_string(),
+        bbox: BoundingBox::from_coords_clamped(0.0, 0.2, 1.0, 0.4),
+        is_table: false,
+        token_estimate: 10,
+    };
+    retriever.add_chunk(chunk1, None);
+    retriever.add_chunk(chunk2, None);
+
+    let ans = retriever
+        .query_verified("What is the invoice number?")
         .await
-        .expect("oxirag success");
+        .expect("verified query succeeds");
     assert!(!ans.is_empty());
+    assert!(ans.contains("[1] Invoice #10023 issued by Acme Corp"));
+
+    let err = retriever.query_verified("zzzzqqqq").await.unwrap_err();
+    assert!(matches!(err, docula_rag::RagError::VerificationFailure(_)));
 }
 
 #[test]

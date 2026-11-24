@@ -19,4 +19,18 @@ pub enum RagError {
     /// Empty index or invalid query.
     #[error("Index error: {0}")]
     IndexError(String),
+
+    /// Verification failed because no chunk supports the query.
+    #[error("Verification failure: {0}")]
+    VerificationFailure(String),
+}
+
+#[cfg(feature = "embedag-integration")]
+impl From<embedag_rag::RagError> for RagError {
+    fn from(err: embedag_rag::RagError) -> Self {
+        match err {
+            embedag_rag::RagError::VerificationFailure(msg) => RagError::VerificationFailure(msg),
+            other => RagError::IndexError(other.to_string()),
+        }
+    }
 }
