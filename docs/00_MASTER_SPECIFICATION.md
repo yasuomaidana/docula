@@ -66,7 +66,7 @@ flowchart TD
 2. **Step 2: Schema-Driven Structured Extraction**
    - Ingests the spatial layout representation and the user-specified Rust struct.
    - For complex, multi-page document bundles (10–100+ pages), activates **`embedag_rag::VerifiedRagEngine`** via `EmbedagGraphRetriever` featuring cited and verified retrieval, and knowledge graph traversal with **`oxirs`** (GraphRAG).
-   - Ingests entities into a Document Knowledge Graph (DocKG) via **`oxirs`** (RDF/SPARQL 1.2 semantic web platform).
+   - Ingests entities into a Document Knowledge Graph (DocKG) as `oxrdf` RDF triples (SPARQL querying and persistence are planned).
    - Manages hierarchical document structures, reading order trees, and active learning audit DAGs through recursive Common Table Expressions powered by **`diesel-cte-ext`**.
    - Dynamically compiles a strict JSON schema via `schemars`.
    - Runs local sovereign LLM inference with grammar-based constrained decoding (DFA logits masking) powered by **`candle`** and **`tract`**.
@@ -85,7 +85,7 @@ flowchart TD
 | **`candle`** | [`huggingface/candle`](https://github.com/huggingface/candle) | Pure-Rust Hugging Face tensor and LLM inference engine. | 100% Pure Rust |
 | **`tract`** | [`sonos/tract`](https://github.com/sonos/tract) | Pure-Rust neural runtime engine. | 100% Pure Rust |
 | **`embedag_rag`** | [`embedag`](https://github.com/cool-japan/embedag) | Pure-Rust verified retrieval engine. | 100% Pure Rust |
-| **`oxirs`** | [`cool-japan/oxirs`](https://github.com/cool-japan/oxirs) | Rust-native Semantic Web and Knowledge Graph platform (Apache Jena replacement). Provides RDF triples/quads, SPARQL 1.2, GraphQL, and Document Knowledge Graphs (DocKGs). | 100% Pure Rust (`fail0 + Clippy0`) |
+| **`oxrdf`** | [`oxigraph/oxrdf`](https://github.com/oxigraph/oxigraph/tree/main/lib/oxrdf) | RDF data model used by the in-memory Document Knowledge Graph. | 100% Pure Rust |
 | **`scirs2`** | [`cool-japan/scirs`](https://github.com/cool-japan/scirs) | Pure-Rust NumPy/SciPy replacement. Provides matrix algebra, spatial clustering, and geometry routines for spatial reading order resolution. | 100% Pure Rust (`fail0 + Clippy0`) |
 | **`oxixml`** | [`cool-japan/oxixml`](https://github.com/cool-japan/oxixml) | Pure-Rust XML / XSD / Schematron / JSON-LD / SVG library for validating structured e-invoicing standards (Factur-X, ZUGFeRD, UBL 2.1). | 100% Pure Rust (`fail0 + Clippy0`) |
 | **`diesel-cte-ext`** | [`leynos/diesel-cte-ext`](https://github.com/leynos/diesel-cte-ext) | Recursive Common Table Expressions (CTEs) for Diesel (`RecursiveCTEExt`, `RecursiveParts`, `with_recursive`). Drives hierarchical document ASTs and HITL correction lineage DAGs. | 100% Pure Rust (`PostgreSQL`, `SQLite`, `diesel_async`) |
@@ -108,7 +108,7 @@ The technical specification is organized into the following single-responsibilit
 | **[08. End-to-End Invoice Example](08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)** | Complete Rust code walkthrough using InvoiceData, custom schemas, and multi-image processing | End-to-end integration and API consumption |
 | **[09. Benchmark & Crate Comparison](09_BENCHMARK_AND_COMPARISON.md)** | Deep-dive crate review, zero-FFI audit, latency profiles, and comparison vs. Python/C++ stacks | oximedia, candle, tract, embedag_rag, oxirs, diesel-cte-ext |
 | **[10. Image Stitching & Overlap Deduplication](10_IMAGE_STITCHING_AND_DEDUPLICATION.md)** | Pure-Rust visual keypoint stitching (FAST/RANSAC) and fuzzy spatial text overlap reconciliation | oximedia, imageproc, strsim, rayon |
-| **[11. RAG & Large Document Retrieval](11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)** | Verified RAG (`embedag_rag::VerifiedRagEngine`) and Document Knowledge Graphs | embedag-rag, oxirs, candle-core, hnsw_rs |
+| **[11. RAG & Large Document Retrieval](11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)** | Verified RAG (`embedag_rag::VerifiedRagEngine`) and Document Knowledge Graphs | embedag-rag, oxrdf, candle-core, hnsw_rs |
 | **[12. Few-Shot & Exemplar Management](12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)** | Dual-stage exemplar retrieval, recursive template lineage trees via diesel-cte-ext | docula-exemplar, diesel-cte-ext, oxirs, hnsw_rs |
 | **[13. Human-in-the-Loop & Active Learning](13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)** | Triage gates, immutable correction triad capture, recursive version DAGs via diesel-cte-ext | docula-hitl, diesel-cte-ext, testcontainers |
 | **[14. Edge Compliance & Non-Storing Directives](14_COMPLIANCE_AND_NON_STORING.md)** | Struct-level doc annotations (/// @censor, @ignore, @non-storing), PII regex redaction, NonStored smart pointer | docula-compliance, zeroize, regex |
@@ -142,7 +142,7 @@ vision-codes     = ["dep:docula-vision-codes"]        # Pure-Rust QR and 1D barc
 vision-crops     = ["dep:oximedia", "image/png"]      # Full-page screenshots & sub-image ROI cropping
 
 # Optional Retrieval, Knowledge Graphs & Active Learning
-rag              = ["dep:docula-rag", "dep:oxirs"]    # Verified RAG & Document Knowledge Graph
+rag              = ["dep:docula-rag", "dep:oxrdf"]    # Verified RAG & Document Knowledge Graph
 exemplars        = ["dep:docula-exemplar", "dep:diesel-cte-ext"] # Few-shot exemplar retrieval & template DAGs
 hitl             = ["dep:docula-hitl", "dep:diesel-cte-ext"]     # Active learning triage & recursive lineage trees
 

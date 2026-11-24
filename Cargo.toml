@@ -65,3 +65,9 @@ chrono = { version = "0.4", features = ["serde"] }
 [[bench]]
 name = "docula_benchmarks"
 harness = false
+
+# Temporary: diesel-cte-ext 0.3.0 pins diesel-async ^0.9 (so Diesel 2.3) through its sqlite and postgres
+# features. This branch drops those entries (leynos/diesel-cte-ext#227). Remove the patch and depend on the
+# released version once that lands in a release.
+[patch.crates-io]
+diesel-cte-ext = { git = "https://github.com/yasuomaidana/diesel-cte-ext", branch = "sync-features-without-diesel-async" }

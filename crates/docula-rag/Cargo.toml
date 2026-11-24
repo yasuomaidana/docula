@@ -18,7 +18,7 @@ embedag-rag = { path = "../../../embedag/crates/embedag-rag", optional = true }
 uuid = "1.10"
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0"
-oxirs-core = "0.4.1"
+oxrdf = "0.3"
 
 [dev-dependencies]
 rstest = "0.28.0"

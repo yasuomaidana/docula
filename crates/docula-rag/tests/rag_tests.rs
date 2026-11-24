@@ -183,7 +183,7 @@ async fn test_embedag_adapter_query_verified() {
 }
 
 #[test]
-fn test_oxirs_knowledge_graph() {
+fn test_rdf_knowledge_graph() {
     use docula_rag::DocumentKnowledgeGraph;
 
     let mut kg = DocumentKnowledgeGraph::new();

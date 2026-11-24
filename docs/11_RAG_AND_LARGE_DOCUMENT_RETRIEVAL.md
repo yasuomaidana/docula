@@ -80,7 +80,9 @@ In the execution pipeline, `docula-rag` sits squarely between **Step 1 (Spatial 
 
 ### 3.4 Graph Traversal & Document Knowledge Graphs via `oxirs`
 
-- Projects extracted document entities, corporate hierarchies, and line items into RDF triples / quads using **`oxirs`**.
+- Projects extracted document entities, corporate hierarchies, and line items into RDF triples using **`oxrdf`**.
+
+> **Status.** `docula-rag` implements the in-memory part today: `DocumentKnowledgeGraph` stores `oxrdf` triples and answers `find_by_subject`. SPARQL querying, quads and persistent storage (N-Quads/TDB2) described in this document are design targets. `oxirs-core` was the intended engine but 0.4.1 (the latest release) pins vulnerable `oxitls` and `oxrdfxml` versions, so it was dropped; revisit when a release lifts them.
 - Enables multi-hop semantic traversal across 100+ page contracts.
 
 ---
@@ -92,7 +94,7 @@ In `crates/docula-rag/Cargo.toml`:
 | Crate | Version Target | Purpose | Zero-FFI Guarantee |
 |:---|:---|:---|:---|
 | **`embedag-rag`** | Workspace | **Verified RAG engine** (`VerifiedRagEngine`). Lexical search, RRF ranker, grounded citation answers. | **100% Pure Rust** |
-| **`oxirs-core`** | `^0.4` | **Semantic Web & Knowledge Graph platform.** RDF triples/quads and persistent storage. | **100% Pure Rust (`fail0 + Clippy0`)** |
+| **`oxrdf`** | `^0.3` | **RDF data model.** `NamedNode`, `Literal` and `Triple` types behind `DocumentKnowledgeGraph`. | **100% Pure Rust** |
 | `uuid` | `^1.10` | Unique chunk identification. | 100% Pure Rust |
 
 ---

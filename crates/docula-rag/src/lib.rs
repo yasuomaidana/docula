@@ -4,7 +4,7 @@
 //! for large document packets in the `docula` document intelligence engine.
 //!
 //! - [`EmbedagGraphRetriever`]: Hybrid retrieval and verified querying via `embedag_rag::VerifiedRagEngine`.
-//! - [`DocumentKnowledgeGraph`]: RDF 1.2 semantic knowledge graph via `oxirs-core`.
+//! - [`DocumentKnowledgeGraph`]: in-memory RDF knowledge graph built on `oxrdf`.
 
 pub mod chunk;
 #[cfg(feature = "embedag-integration")]
