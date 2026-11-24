@@ -12,12 +12,30 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
+  code-hygiene:
+    name: 500-Line Limit & Zero Duplicated Code Policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run CI Hygiene Gate (500 Lines & 0 Duplication)
+        run: python3 scripts/ci_hygiene_check.py .
+
   format:
     name: Code Formatting (rustfmt)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Clone sibling repository (embedag)
+        uses: ./.github/actions/sibling-repos
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -33,6 +51,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Clone sibling repository (embedag)
+        uses: ./.github/actions/sibling-repos
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -61,11 +82,11 @@ jobs:
       - name: Analyze Cyclomatic & Cognitive Complexity
         run: |
           mkdir -p metrics-out
-          rust-code-analysis-cli --metrics -p src/ -O json -o metrics-out/metrics.json
+          rust-code-analysis-cli --metrics -p src/ -O json -o metrics-out
           echo "### Code Complexity Metrics Summary" >> $GITHUB_STEP_SUMMARY
           if command -v jq >/dev/null 2>&1; then
             echo '```json' >> $GITHUB_STEP_SUMMARY
-            jq '.' metrics-out/metrics.json | head -n 40 >> $GITHUB_STEP_SUMMARY
+            find metrics-out -name '*.json' | head -n 5 | xargs -r jq -c '{name, cyclomatic: .metrics.cyclomatic.sum, cognitive: .metrics.cognitive.sum}' | head -n 40 >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
@@ -73,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: complexity-metrics
-          path: metrics-out/metrics.json
+          path: metrics-out/
 
   test-matrix:
     name: Build & Test Matrix (${{ matrix.os }}, Rust ${{ matrix.rust }})
@@ -86,6 +107,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Clone sibling repository (embedag)
+        uses: ./.github/actions/sibling-repos
+
+      - name: Install native database libraries
+        uses: ./.github/actions/native-db-libs
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
@@ -101,12 +128,39 @@ jobs:
       - name: Run documentation tests
         run: cargo test --doc
 
+  persistence-integration:
+    name: Mandatory Persistent Layer Tests (Testcontainers)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone sibling repository (embedag)
+        uses: ./.github/actions/sibling-repos
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Verify Docker Daemon for Testcontainers
+        run: |
+          docker info
+          echo "Docker daemon verified and active for Testcontainers (https://rust.testcontainers.org)."
+
+      - name: Run Persistent Layer Integration Tests with Testcontainers
+        run: cargo test --workspace --all-features --verbose
+
   coverage:
     name: Code Coverage (cargo-llvm-cov)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Clone sibling repository (embedag)
+        uses: ./.github/actions/sibling-repos
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable

@@ -1,0 +1,111 @@
+# Dev Status: `docula`
+
+> **Reality check:** `docula-llm` backends and `docula-ocr` recognition are scaffolds today (canned output or heuristics); see [docs/22](docs/22_FINANCE_DOCUMENT_EXTRACTION_AND_REAL_INFERENCE.md) for the real-inference plan.
+
+**Current Status:** Milestones 1 through 10 fully specified, implemented, and verified with pure-Rust zero-FFI ofimatic suite support (Excel `.xlsx`, `.csv`, `.tsv`, `.ods`, PowerPoint `.pptx`, `.odp`, Word `.docx`, `.odt`, `.txt`, `.rtf`), designed, imported, and verified across all subcrates with the pure-Rust sovereign stack (`oximedia`, `oxrdf`, `candle`, `tract`, `embedag`) ([cool-japan](https://github.com/cool-japan/cool-japan)) and **`diesel-cte-ext`** ([diesel-cte-ext](https://github.com/leynos/diesel-cte-ext)). Real PDF and Real Image integration tests are fully implemented and passing. **Milestone 11 (zero-image extirpation) was superseded**: docula uses the real `image` crate and `rxing`, with `oxipix` providing optional acceleration and the mosaic/vectorize crates.
+
+---
+
+## 1. Subcrate Import & Usage Verification Matrix
+
+Every target technology crate is directly imported in its corresponding subcrate `Cargo.toml` and actively utilized in production logic and test suites:
+
+| Subcrate                | Imported Technologies                                              | Source Files & Production Usage                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Test Suites & Status                                                                                                                                                                                                                                                                                                                                                                                      |
+|:------------------------|:-------------------------------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **`docula-preprocess`** | `oximedia` (v0.2.1), `oximedia-core`, `oximedia-cv`                | [`src/filter/oximedia.rs`](crates/docula-preprocess/src/filter/oximedia/mod.rs): `OxiMediaFilter` (contrast expansion, mean luminance stabilization, format probing) and `OxiMediaStitcher` (vertical/horizontal seam alpha blending).                                                                                                                                                                                                                                                                         | [`tests/filter_tests.rs`](crates/docula-preprocess/tests/filter_tests.rs), [`tests/real_document_tests.rs`](tests/real_document_tests.rs) (Passing)                                                                                                                                               |
+| **`docula-llm`**        | `candle-core` (v0.11), `tract` | [`src/candle.rs`](crates/docula-llm/src/candle.rs): `CandleBackend` pure-Rust CPU tensor inference; [`src/tract.rs`](crates/docula-llm/src/tract.rs): `TractBackend` pure-Rust ONNX runtime; [`src/mock.rs`](crates/docula-llm/src/mock.rs): `MockLlmBackend`. `oxillama` and `oxibonsai` were removed in DOCULA-46 (BUSL-1.1). | [`tests/llm_tests.rs`](crates/docula-llm/tests/llm_tests.rs) (Passing) |
+| **`docula-rag`**        | `embedag-rag`, `oxrdf` (v0.3) | [`src/embedag_adapter.rs`](crates/docula-rag/src/embedag_adapter.rs): `EmbedagGraphRetriever` bridging `DocumentChunk` with `embedag_rag::VerifiedRagEngine`; [`src/knowledge_graph.rs`](crates/docula-rag/src/knowledge_graph.rs): `DocumentKnowledgeGraph`. `oxirag` was removed in DOCULA-46 (BUSL-1.1). | [`tests/rag_tests.rs`](crates/docula-rag/tests/rag_tests.rs), [`tests/pipeline_tests.rs`](tests/pipeline_tests.rs) (Passing) |
+| **`docula-hitl`**       | `diesel-cte-ext` (v0.3.0), `diesel` (v2.3.14, SQLite + PostgreSQL) | [`src/lineage.rs`](crates/docula-hitl/src/lineage.rs): `CorrectionLineageTracker` executing dynamic recursive CTE traversals across developer-defined tables via `lineage_table!` macro and `LineageTableConfig` (zero hardcoded DDL); [`src/promotion.rs`](crates/docula-hitl/src/promotion.rs): `PromotionPolicy` trait.                                                                                                                             | [`tests/lineage_tests.rs`](crates/docula-hitl/tests/lineage_tests.rs), [`tests/hitl_tests.rs`](crates/docula-hitl/tests/hitl_tests.rs), [`examples/custom_promotion_gate.rs`](crates/docula-hitl/examples/custom_promotion_gate.rs) (Passing) |
+| **`docula-domains`**    | `schemars` (v1.0), `serde` (v1.0), `docula-schema`, `docula-vision-codes` | [`src/invoice.rs`](crates/docula-domains/src/invoice.rs): `docula_invoice!` macro, standard `InvoiceData`, discount strategies, and SEPA/CFDI/Swiss QR adapters; [`src/bank.rs`](crates/docula-domains/src/bank.rs): `docula_bank_statement!`, `BankStatementData`, ledger continuity; [`src/receipt.rs`](crates/docula-domains/src/receipt.rs): `docula_receipt!`, `ReceiptData`, OCR jitter/tip/tax tolerance; [`src/logistics.rs`](crates/docula-domains/src/logistics.rs): `docula_bill_of_lading!`, `BillOfLadingData`, ISO 6346 container checksum. | [`tests/invoice_tests.rs`](crates/docula-domains/tests/invoice_tests.rs), [`tests/macro_invoice_tests.rs`](crates/docula-domains/tests/macro_invoice_tests.rs), [`tests/bank_tests.rs`](crates/docula-domains/tests/bank_tests.rs), [`tests/receipt_tests.rs`](crates/docula-domains/tests/receipt_tests.rs), [`tests/logistics_tests.rs`](crates/docula-domains/tests/logistics_tests.rs) (28 Passing) |
+
+---
+
+## 2. Real PDF and Image Test Suite
+
+Integration tests consuming **real PDF files** and **real raster images** (PNG, JPEG) are implemented in [`tests/real_document_tests.rs`](tests/real_document_tests.rs) with persistent assets generated and validated in [`tests/fixtures/`](tests/fixtures):
+
+| Fixture / Example              | Format           | Pipeline Components Tested                                                                                                                                                                            | Verification Result                                   |
+|:-------------------------------|:-----------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:------------------------------------------------------|
+| **`sample_invoice.pdf`**       | Valid PDF        | Multi-DPI rasterization (72 vs 150 DPI via `TinySkiaRasterizer`), aspect ratio preservation, RGBA byte buffer integrity, and full `DoculaPipeline` structured extraction into typed `RealPdfInvoice`. | Passed (100% pure Rust via `pdf_oxide` & `tiny-skia`) |
+| **`sample_multipage.pdf`**     | Valid 2-Page PDF | Multi-page PDF page counting, batch rasterization (`render_all_pages`), and independent page buffer validation.                                                                                       | Passed                                                |
+| **`sample_invoice.pdf` (ROI)** | Sub-Region Crop  | `PdfRegionCropper` capturing full page screenshot and sub-image ROI crop into Base64 PNG/JPEG value objects (`ImageCrop`).                                                                            | Passed                                                |
+| **`sample_receipt.png`**       | PNG Image        | Real 400x600 receipt with headers, line items, and barcodes. Tested with `OxiMediaFilter` (contrast expansion without clipping) and `OxiMediaStitcher` (vertical slice alpha seam blending).          | Passed                                                |
+| **`sample_document.jpg`**      | JPEG Image       | Real 350x450 JPEG document with text blocks and compression. Ingestion via `DocumentSource::from_image_path` and `DocumentSource::from_image_bytes`.                                                  | Passed                                                |
+| **`sample_qr_bill.png`**       | PNG Image        | Real 450x550 invoice image embedding a live EPC QR code. Tested with `OpticalCodeDetector`, validating extraction of `SepaEpcPayload` (IBAN, BIC, beneficiary name, transfer amount).                 | Passed                                                |
+
+---
+
+## 3. Sovereign Pure-Rust Stack & Diesel CTE Integration Matrix
+
+| Sub-System / Module                  | Primary Pure-Rust Technology                                 | Role & Integration                                                                                                                                                                | Zero-FFI Status                                                  |
+|:-------------------------------------|:-------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-----------------------------------------------------------------|
+| **Preprocessing & Computer Vision**  | [`oximedia`](https://github.com/cool-japan/oximedia)         | Pure-Rust OpenCV & FFmpeg replacement (108 crates). Hough deskew, adaptive binarization, FAST/ORB keypoints, RANSAC homography stitching, and ROI cropping.                       | Verified 100% Pure Rust (`fail0 + Clippy0`)                      |
+| **Document Knowledge Graph (DocKG)** | [`oxrdf`](https://github.com/oxigraph/oxigraph/tree/main/lib/oxrdf) | RDF data model (`NamedNode`, `Literal`, `Triple`). `docula-rag` keeps triples in memory; SPARQL and persistent storage are planned. `oxirs-core` was dropped because 0.4.1 pins vulnerable `oxitls`/`oxrdfxml` versions. | Pure Rust |
+| **Spatial Reading-Order Math**       | [`scirs2`](https://github.com/cool-japan/scirs)              | Pure-Rust NumPy/SciPy replacement. Spatial statistics, matrix algebra, and reading-order clustering algorithms.                                                                   | Verified 100% Pure Rust (`fail0 + Clippy0`)                      |
+| **Recursive Relational Persistence** | [`diesel-cte-ext`](https://github.com/leynos/diesel-cte-ext) | Recursive Common Table Expressions (`RecursiveCTEExt`, `with_recursive`, `RecursiveParts`). Document AST hierarchy and HITL correction DAGs.                                      | Verified 100% Pure Rust (`PostgreSQL`, `SQLite`, `diesel_async`) |
+
+---
+
+## 4. Milestone Execution Status
+
+### Milestone 1: Core Foundation & Config
+- [x] DOC-101 Spatial Geometry & DocumentSource (`docula-core`) — Normalized $[0.0, 1.0]$ coordinate space, `ImageCrop` value objects, and universal `DocumentSource`.
+- [x] DOC-102 DoculaConfig & Layered Loader (`docula-core`) — Safe in-memory defaults, fluent builder, and layered overrides (TOML file/string, env vars).
+- [x] DOC-103 Zero-Storage RAII NonStored<T> (`docula-core`) — Memory zeroing on drop (`ZeroizeOnDrop`) and serialization suppression for PII.
+
+### Milestone 2: Preprocess, Computer Vision & Ingestion
+- [x] DOC-201 Tiny-Skia Pure-Rust Rasterizer (`docula-preprocess`) — High-fidelity PDF rendering via `pdf_oxide` & `tiny-skia` with zero C dynamic linkage.
+- [x] DOC-202 `oximedia` Image Filter Chain: Deskew & Binarize (`docula-preprocess`) — Pure-Rust `OxiMediaFilter` and `OxiMediaStitcher`, OpenCV-free pure-Rust Hough deskew, local Otsu/Bradley-Roth adaptive thresholding, and SIMD resizing.
+- [x] DOC-203 PDF Inspector & Routing Heuristics (`docula-ingest`) — Low-level `lopdf` font stream inspection routing born-digital vector text vs scanned rasters.
+
+### Milestone 3: OCR, Spatial & Compliance
+- [x] DOC-301 PP-OCRv6 DBNet & CRNN Multi-Lingual (`docula-ocr`) — 50-language text detection and recognition with Rayon batch parallelism.
+- [x] DOC-302 `scirs2` Spatial Reading-Order Clustering (`docula-ocr`) — Spatial statistics and tabular alignment algorithms powered by `scirs2`.
+- [x] DOC-303 Compliance Action Tags & Redactor (`docula-compliance`) — `@censor` blackout, `@ignore`, and PII sanitization with strict cropping precedence.
+- [x] DOC-304 Multi-Lingual Mmap Asset Manager (`docula-ocr`) — Zero-copy `memmap2` weight caching with `ocr-latin` vs `ocr-multilingual` feature gates.
+
+### Milestone 4: Schema, DFA Masking & Sovereign LLMs
+- [x] DOC-401 JSON Schema to DFA Compiler (`docula-schema`) — Recursive compile-time schema visitor compiling `schemars` AST into DFA state machines.
+- [x] DOC-402 Autoregressive Logits Masking (`docula-schema`) — Step-by-step token logits masking setting invalid out-of-grammar transitions to $-\infty$.
+- [x] DOC-403 Sovereign `candle` & `tract` Backends (`docula-llm`) — Backend scaffolds behind the `LlmBackend` trait. The original `oxillama` and `oxibonsai` backends were removed in DOCULA-46 (BUSL-1.1 relicense).
+
+### Milestone 5: Retrieval, Knowledge Graphs & Exemplars
+- [x] DOC-501 Verified RAG & `oxirs` DocKGs (`docula-rag`) — `embedag_rag::VerifiedRagEngine` through `EmbedagGraphRetriever`, plus `oxrdf` Document Knowledge Graphs (in-memory; SPARQL and persistence planned). The original `oxirag` engine was removed in DOCULA-46 (BUSL-1.1 relicense).
+- [x] DOC-502 Dual-Stage Exemplar & `diesel-cte-ext` Lineage (`docula-exemplar`) — Fast Stage 1 geometric SimHash (<1ms), Stage 2 HNSW fallback, and recursive template inheritance trees via `diesel-cte-ext`.
+
+### Milestone 6: Active Learning & Feedback
+- [x] DOC-601 Triage Gates & CorrectionTriads (`docula-hitl`) — Automated schema, `DocuValidate` math checks, and token confidence triage interception.
+- [x] DOC-602 `diesel-cte-ext` Lineage DAG & Tiered Storage (`docula-hitl`) — Immutable cold archive (`/data/corrections/`), recursive review DAGs via `diesel-cte-ext` (`CorrectionLineageTracker`), promotion engine, and mandatory **Testcontainers** verification.
+
+### Milestone 7: Advanced Vision (Codes & Cropping)
+- [x] DOC-701 Pure-Rust Optical Code Mapper (`docula-vision-codes`) — Zero-FFI QR code and 1D barcode detection (`rxing`) with normalized coordinate projection.
+- [x] DOC-702 Document Screenshots & `oximedia` Region Cropper (`docula-preprocess`) — Full-page raster captures and sub-image ROI extraction (`ImageCrop`) via `oximedia`.
+
+### Milestone 8: Developer Surface, CLI & Benchmarks
+- [x] DOC-801 High-Level DoculaPipeline & Self-Repair (`docula`) — Unified facade API (`extract_structure::<T>()`), multi-modal visual crop extraction, and active repair loops.
+- [x] DOC-802 Terminal CLI Utility (`docula-cli`) — Autonomous command-line application supporting extraction, page screenshots, and ROI cropping.
+- [x] DOC-803 cargo-geiger Zero-FFI Safety & Criterion Benchmarks (`docula`) — Verified 0 foreign C/C++ dynamic links across all 13 crates, <15ms born-digital latency, and <1.2s edge OCR+LLM extraction.
+
+### Milestone 9: Macro-Driven Domain Verticals & Extensible Template Catalog (`docula-domains`)
+- [x] DOC-901 Macro-Driven Invoicing & AP Domain Template (`docula-domains`) — `docula_invoice!` extensible macro, composable `LineItem`, flexible discount strategies (`none`, `invoice`, `line_item`, `both`), custom user fields, arithmetic validation, and optical adapters (SEPA EPC, SAT CFDI, Swiss QR).
+- [x] DOC-902 Macro-Driven Bank Statement & Reconciliation Template (`docula-domains`) — `docula_bank_statement!` extensible macro, `BankStatementData` preset, ledger continuity math (`opening + credits - debits == closing`), running balance tracking, and custom audit tags.
+- [x] DOC-903 Macro-Driven Receipt & Expense Normalization Template (`docula-domains`) — `docula_receipt!` extensible macro, `ReceiptData` preset, OCR jitter & tip/tax math tolerance, and custom expense classification metadata.
+- [x] DOC-904 Macro-Driven Logistics & Shipping Manifest Template (`docula-domains`) — `docula_bill_of_lading!` extensible macro, `BillOfLadingData` preset, pure-Rust ISO 6346 container checksum verification, cargo weight validation, and custom freight fields.
+
+### Milestone 10: Pure-Rust Ofimatic & Office Suite Ingestion Engine (`docula-core`, `docula-ingest`, `docula-preprocess`, `docula`)
+- [x] DOC-1001 Universal Ofimatic Source Primitives & Format Detection (`docula-core`) — `OfficeFormat` domain enum, subtype classifications (Spreadsheet, Presentation, WordProcessing), extension/magic detection, and `DocumentSource` extension.
+- [x] DOC-1002 Pure-Rust OOXML & Delimited Spreadsheet Ingestion (`docula-ingest`) — SAX/StAX Excel `.xlsx`, `.ods`, `.csv`, `.tsv` cell parsing, 2D tabular spatial grid projection, and sheet-to-page mapping.
+- [x] DOC-1003 Pure-Rust Presentation & Word Document Ingestion (`docula-ingest`) — PowerPoint `.pptx` slide shapes, Word `.docx`, `.odt`, `.txt` paragraph flows, and `OfficeInspector` integration.
+- [x] DOC-1004 Ofimatic Visual Rasterization & Pipeline Facade Integration (`docula-preprocess`, `docula`) — `OfficeRasterizer` tiny-skia synthetic pixel buffer generation, screenshot/crop support, barcode scanning, and end-to-end `DoculaPipeline` execution.
+
+### Milestone 11: Sovereign Pixmap Architecture & Zero-Image Extirpation via `oxipix` — SUPERSEDED
+Direction changed (2026-10): docula keeps the real `image` crate and `rxing`. DOC-1101..1104 (replace `image` with `oxipix::FrameBuffer`, in-tree JPEG encoder, drop `image` workspace-wide) are cancelled because the in-tree replacements were partial (stub PNG/JPEG decoders, QR-only barcodes). Acceleration now comes from `oxipix` (optional wgpu warp/filter, `mosaic`, `vectorize`) and from forks of `image` / `rxing` carrying opt-in CPU features.
+- [x] DOC-1105 Use real `image` 0.25 everywhere; `rxing` unified at 0.9.3 with an explicit minimal feature set (no `image` feature, so rxing's `image = "=0.25.8"` pin no longer applies). Detection uses `Luma8LuminanceSource` because rxing 0.9.3's `RGBLuminanceSource::get_row` panics on cropped regions.
+- [x] DOC-1106 `cv-mosaic` and `cv-vectorize` moved into `oxipix` (`oxipix::mosaic`, `oxipix::vectorize`).
+
+### Milestone 13: 500-Line Limit, Zero Duplicated Code Policy, Specialized Crates & CI/CD Enforcement (`cv-mosaic`, `cv-vectorize` — since moved to `oxipix::mosaic` / `oxipix::vectorize`, `docula-preprocess`, `docula-composer`, `docula-domains`, `docula`)
+- [x] DOC-1301 Specialized Domain-Independent Crates (`cv-mosaic` & `cv-vectorize`) — Pure-Rust 2D image registration (ZMAD strip overlap, ECC drift estimation), perspective quad homography unwarping, feathered stitching, Otsu binarization, Moore-Neighbor contour tracing, RDP polyline simplification, and SVG `<path>` synthesis.
+- [x] DOC-1302 Refactor `docula-preprocess` & `docula-composer` ($\le 500$ Lines & 0 Duplication) — Single canonical `PageRasterBuffer::from_document_source` and `to_document_source`; split `filter/oximedia.rs` into `filter/oximedia/{mod,enhance,denoise,clahe,geometry}.rs`; slim `visual_region.rs`, `reconstruct.rs`, and `segment.rs`.
+- [x] DOC-1303 Refactor `docula-domains` & Root `src/pipeline.rs` ($\le 500$ Lines & Macro Deduplication) — Deduplicate `docula_invoice!` macro and extract `invoice_validators.rs`; split `src/pipeline.rs` into `src/pipeline/{mod,builder,stages,repair}.rs`.
+- [x] DOC-1304 CI/CD Enforcement of $\le 500$ Line Limit & Zero Duplicated Code Policy — Add `scripts/ci_hygiene_check.py`, `.jscpd.json`, and `code-hygiene` job in `.github/workflows/ci.yml`; verify 0 Clippy warnings, 100% test pass rate, and zero duplicate code blocks across all workspace crates.
+

@@ -1,0 +1,22 @@
+name: Sibling repositories
+description: >
+  Clones the repository that docula references through a relative path dependency
+  (`../../../embedag`) next to the checkout, at a pinned commit.
+  Bump the SHA here when embedag moves; the synapse lock in dendrite tracks the same commit.
+inputs:
+  embedag-sha:
+    description: embedag commit (branch main)
+    default: 31f3258082120085ab8a4d908427bae3aafeccf5
+runs:
+  using: composite
+  steps:
+    - name: Clone embedag beside the workspace
+      shell: bash
+      run: |
+        set -euo pipefail
+        parent="$(cd "$GITHUB_WORKSPACE/.." && pwd)"
+        rm -rf "$parent/embedag"
+        git init -q "$parent/embedag"
+        git -C "$parent/embedag" fetch -q --depth 1 "https://github.com/yasuomaidana/embedag.git" "${{ inputs.embedag-sha }}"
+        git -C "$parent/embedag" checkout -q FETCH_HEAD
+        echo "embedag at $(git -C "$parent/embedag" rev-parse --short HEAD)"

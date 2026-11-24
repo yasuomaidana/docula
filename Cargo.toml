@@ -1,6 +1,73 @@
+[workspace]
+resolver = "2"
+members = [
+    ".",
+    "crates/docula-core",
+    "crates/docula-preprocess",
+    "crates/docula-ingest",
+    "crates/docula-ocr",
+    "crates/docula-compliance",
+    "crates/docula-schema",
+    "crates/docula-llm",
+    "crates/docula-rag",
+    "crates/docula-exemplar",
+    "crates/docula-hitl",
+    "crates/docula-vision-codes",
+    "crates/docula-cli",
+    "crates/docula-domains",
+    "crates/docula-composer",
+]
+
+[workspace.dependencies]
+testcontainers = "0.28"
+testcontainers-modules = "0.15"
+
 [package]
 name = "docula"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
+docula-core = { path = "crates/docula-core" }
+docula-preprocess = { path = "crates/docula-preprocess" }
+docula-composer = { path = "crates/docula-composer" }
+docula-ingest = { path = "crates/docula-ingest" }
+docula-ocr = { path = "crates/docula-ocr" }
+docula-compliance = { path = "crates/docula-compliance" }
+docula-schema = { path = "crates/docula-schema" }
+docula-llm = { path = "crates/docula-llm" }
+docula-rag = { path = "crates/docula-rag" }
+docula-exemplar = { path = "crates/docula-exemplar" }
+docula-hitl = { path = "crates/docula-hitl" }
+docula-vision-codes = { path = "crates/docula-vision-codes" }
+docula-domains = { path = "crates/docula-domains" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+schemars = { version = "1.0", features = ["chrono04"] }
+chrono = { version = "0.4", features = ["serde"] }
+thiserror = "2.0"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+async-trait = "0.1"
+tokio = { version = "1.43", features = ["rt", "macros"] }
+uuid = { version = "1.10", features = ["v7", "serde"] }
+
+[dev-dependencies]
+rstest = "0.28.0"
+tempfile = "3.27.0"
+pdf_oxide = { version = "0.3", features = ["rendering"] }
+tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
+rxing = "0.9.3"
+criterion = { version = "0.8.2", features = ["html_reports"] }
+zip = { version = "9.1.2", default-features = false, features = ["deflate"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[[bench]]
+name = "docula_benchmarks"
+harness = false
+
+# Temporary: diesel-cte-ext 0.3.0 pins diesel-async ^0.9 (so Diesel 2.3) through its sqlite and postgres
+# features. This branch drops those entries (leynos/diesel-cte-ext#227). Remove the patch and depend on the
+# released version once that lands in a release.
+[patch.crates-io]
+diesel-cte-ext = { git = "https://github.com/yasuomaidana/diesel-cte-ext", branch = "sync-features-without-diesel-async" }
