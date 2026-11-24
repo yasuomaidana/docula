@@ -53,6 +53,7 @@ tokio = { version = "1.43", features = ["rt", "macros"] }
 uuid = { version = "1.10", features = ["v7", "serde"] }
 
 [dev-dependencies]
+rstest = "0.28.0"
 tempfile = "3.27.0"
 pdf_oxide = { version = "0.3", features = ["rendering"] }
 tokio = { version = "1.43", features = ["rt-multi-thread", "macros"] }
