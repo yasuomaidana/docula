@@ -88,7 +88,7 @@ OCR detection models (such as DBNet) operate best at normalized input dimensions
 
 ### 3.5 Sovereign Buffer Migration: Resolving the Dual Hard Boundaries with `oxipix`
 
-As detailed in [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md) and [`docs/oxipix/00_TECHNICAL_ASSESSMENT.md`](oxipix/00_TECHNICAL_ASSESSMENT.md):
+As detailed in [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md) and [`oxipix` crate documentation](https://docs.rs/oxipix):
 1. **Resolving Codec Boundary 1 (Patent-Free JPEG)**:
    KitaSan rejects JPEG encoding due to patent policy. `oxipix` integrates a clean-room, patent-unencumbered implementation of ISO/IEC 10918-1 baseline process, enabling direct `CropFormat::Jpeg { quality }` encoding with zero C dependencies.
 2. **Resolving Buffer Boundary 2 (Unified Pixmap)**:

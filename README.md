@@ -172,7 +172,7 @@ Start with the [Master Architecture Specification](docs/00_MASTER_SPECIFICATION.
 - [14. Edge Compliance & Non-Storing Directives](docs/14_COMPLIANCE_AND_NON_STORING.md)
 - [15. Consumer Configuration & TOML Strategy](docs/15_CONSUMER_CONFIGURATION_AND_TOML.md)
 
-**Related:** the [`oxipix` assessment and roadmap](docs/oxipix/00_TECHNICAL_ASSESSMENT.md), [AGENTS.md](AGENTS.md) for contributor agents, and [DEV_STATUS.md](DEV_STATUS.md) for milestone status.
+**Related:** the [`oxipix` documentation](docs/oxipix/README.md), [AGENTS.md](AGENTS.md) for contributor agents, and [DEV_STATUS.md](DEV_STATUS.md) for milestone status.
 
 ## Build and verify
 
