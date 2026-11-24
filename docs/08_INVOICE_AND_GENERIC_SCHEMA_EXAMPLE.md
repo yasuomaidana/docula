@@ -142,7 +142,7 @@ use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Initialize local LLM backend (pure-Rust; oxibonsai was removed due to 2026-11 licence change)
+    // 1. Initialize local LLM backend (pure-Rust)
     let backend = CandleBackend::new("models/llama.gguf");
 
     // 2. Specify the PDF document

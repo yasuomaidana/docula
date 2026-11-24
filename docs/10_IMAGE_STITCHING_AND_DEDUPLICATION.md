@@ -38,7 +38,7 @@ flowchart TD
 
     subgraph Step2Ready["Step 2: Clean Structured Extraction"]
         DeduplicatedDoc["Deduplicated Spatial Layout Document"]
-        LLMExtract["Step 2: Typed Struct Extraction (candle / tract; oxillama & oxibonsai were removed)"]
+        LLMExtract["Step 2: Typed Struct Extraction (candle / tract)"]
     end
 
     Img1 & Img2 & Img3 --> FAST

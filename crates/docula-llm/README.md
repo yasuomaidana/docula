@@ -1,6 +1,10 @@
 # docula-llm
 
-Local, embedded and remote LLM backends behind one `LlmBackend` trait. Pure-Rust inference runs on `candle` and `tract`; `MockLlmBackend` returns canned JSON for tests. (`oxillama` and `oxibonsai` were removed in DOCULA-46.)
+Local, embedded and remote LLM backends behind one `LlmBackend` trait, with `candle` and `tract` as the pure-Rust targets; `MockLlmBackend` returns canned JSON for tests. (`oxillama` and `oxibonsai` were removed in DOCULA-46.)
+
+## Status
+
+`CandleBackend` and `TractBackend` compile the schema DFA and check model paths, but do not run inference yet: they return a canned response (when set) or `{}`. Real backends are specified as DOC-1201 in docs/22.
 
 ## Key types
 

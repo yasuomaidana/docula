@@ -12,7 +12,7 @@ sequenceDiagram
     participant UserApp as User Application (Rust Struct T)
     participant Engine as Docula Pipeline
     participant SchemaEngine as schemars
-    participant LLM as Sovereign LLM (candle / tract; oxillama & oxibonsai were removed)
+    participant LLM as Sovereign LLM (candle / tract)
     participant LogitsProc as typedlm DFA Logits Processor
 
     UserApp->>Engine: extract::<T>(DocumentSource)
@@ -41,7 +41,7 @@ sequenceDiagram
 |:---|:---|:---|:---|
 | **`schemars`** | `^1.0` | Compile-time and runtime JSON Schema reflection from arbitrary Rust structs. | **100% Pure Rust** |
 | **`serde` & `serde_json`** | `^1.0` | High-performance, zero-copy serialization/deserialization into Rust types. | **100% Pure Rust** |
-| **`candle-core`** | `^0.11` | Pure-Rust tensor engine (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change). | **100% Pure Rust** |
+| **`candle-core`** | `^0.11` | Pure-Rust tensor engine. | **100% Pure Rust** |
 | **`tract-core`** | `^0.21` | Pure-Rust ONNX execution engine. | **100% Pure Rust** |
 | **`docula-schema`** | Workspace | JSON-Schema-to-DFA compilation and step-by-step logits masking. | **100% Pure Rust** |
 
@@ -89,7 +89,7 @@ $$P(y = i \mid \mathbf{Z}) = \frac{e^{L_i}}{\sum_{j=1}^{|V|} e^{L_j}}$$
 To enforce the JSON Schema:
 1. `schemars::schema_for!(T)` creates a JSON Schema AST.
 2. `docula-schema` converts this AST into a **Deterministic Finite Automaton (DFA)**.
-3. At generation step $t$, the logits processor intercepts the vocabulary logits before softmax within the generation loop (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
+3. At generation step $t$, the logits processor intercepts the vocabulary logits before softmax within the generation loop.
 4. For every token $i \in V$ that would cause an invalid transition (e.g. emitting a letter when a number is required, or omitting quotes):
 
 $$L_i \leftarrow -\infty$$

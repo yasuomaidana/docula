@@ -2,7 +2,7 @@
 
 ## 1. Executive Roadmap & Workspace Blueprint
 
-This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **11-Milestone phased execution model** across a 14-crate Cargo Monorepo Workspace, standardizing on pure-Rust open-source crates (`oximedia`, `candle`, `tract`, `embedag_rag::VerifiedRagEngine`, `oxirs`, `scirs2`, `oxiz`; `oxillama`, `oxibonsai`, and `oxirag` were removed due to the 2026-11 licence change) and **`diesel-cte-ext`**.
+This document specifies the end-to-end development roadmap for `docula`. The implementation is organized into an **11-Milestone phased execution model** across a 14-crate Cargo Monorepo Workspace, standardizing on pure-Rust open-source crates (`oximedia`, `candle`, `tract`, `embedag_rag::VerifiedRagEngine`, `oxirs`, `scirs2`; `oxillama`, `oxibonsai`, and `oxirag` were removed due to the 2026-11 licence change) and **`diesel-cte-ext`**.
 
 Optical Code Detection (QR / 1D Barcodes) and Visual Region Cropping (Document Screenshots / ROI Crops) are scheduled for **Milestone 7 (Advanced Vision)** as the latest functional capabilities. However, all foundational abstractions (`BoundingBox` pixel projection, `ImageCrop` value objects, `RegionCropper` trait, and schema reflection tags) are engineered **from Day 0 in Milestone 1 and Milestone 2** to guarantee zero breaking changes or hard refactoring when Milestone 7 lands.
 
@@ -119,8 +119,8 @@ docula/
 │   ├── docula-ingest/          # lopdf hierarchy inspection, routing heuristics
 │   ├── docula-ocr/             # PP-OCRv6 DBNet detection, CRNN 50-language recognition, scirs2 clustering
 │   ├── docula-compliance/      # Spatial blackout, PII sanitization, action directives
-│   ├── docula-llm/             # Sovereign LLMs (candle, tract; oxillama and oxibonsai were removed due to the 2026-11 licence change)
-│   ├── docula-rag/             # Verified RAG engine via embedag_rag (oxirag was removed due to the 2026-11 licence change)
+│   ├── docula-llm/             # Sovereign LLMs (candle, tract)
+│   ├── docula-rag/             # Verified RAG engine via embedag_rag
 │   ├── docula-exemplar/        # Dual-stage retrieval, diesel-cte-ext template inheritance, few-shot builder
 │   ├── docula-hitl/            # Active learning flywheel, triage gates, diesel-cte-ext correction DAGs
 │   ├── docula/                 # High-level developer facade offering typed API
@@ -297,10 +297,10 @@ docula/
 
 #### Ticket DOC-403: Sovereign LLM Backend Trait and Dispatcher (`docula-llm`)
 * **Reference Spec:** [`06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md`](06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)
-* **Single Responsibility:** Define `LlmBackend` trait and provide pure-Rust implementations: `candle` and `tract` (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
+* **Single Responsibility:** Define `LlmBackend` trait and provide pure-Rust implementations: `candle` and `tract`.
 * **Design Pattern:** **Strategy Pattern**.
 * **Acceptance Criteria:**
-  1. Feature flags `local-candle` and `local-onnx` compile cleanly (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
+  1. Feature flags `local-candle` and `local-onnx` compile cleanly.
   2. Air-gapped execution with zero network socket allocation in local modes.
   3. Logits interceptors bind natively into token generation loops.
 * **Test Scenarios:**
@@ -313,7 +313,7 @@ docula/
 
 #### Ticket DOC-501: Verified RAG Engine & `oxirs` Document Knowledge Graphs (`docula-rag`)
 * **Reference Spec:** [`11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md`](11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)
-* **Single Responsibility:** Implement verified RAG architecture using `embedag_rag::VerifiedRagEngine` (`oxirag` was removed due to the 2026-11 licence change) for 10–100+ page documents, and GraphRAG via **`oxirs`**.
+* **Single Responsibility:** Implement verified RAG architecture using `embedag_rag::VerifiedRagEngine` for 10–100+ page documents, and GraphRAG via **`oxirs`**.
 * **Design Pattern:** **Multi-Tiered Verification & Graph Pattern**.
 * **Acceptance Criteria:**
   1. Preserves table cells without splitting table rows across arbitrary token boundaries.
@@ -322,7 +322,6 @@ docula/
   4. `oxirs` constructs RDF Document Knowledge Graph (DocKG) for multi-hop semantic querying.
 * **Test Scenarios:**
   * `test_embedag_adapter_query_verified`: Verify table-aware chunks are queried and verified with citations.
-  * `test_oxiz_smt_judge_verification`: Formally verify mathematical invariant and detect arithmetic conflict.
   * `test_oxirs_dockg_sparql_query`: Query extracted RDF graph with SPARQL 1.2 to find entity relationships.
 
 #### Ticket DOC-502: Dual-Stage Exemplar Retrieval & `diesel-cte-ext` Lineage (`docula-exemplar`)
@@ -403,7 +402,7 @@ docula/
 
 #### Ticket DOC-801: High-Level `DoculaPipeline` Facade & Self-Repair Loop (`docula`)
 * **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](00_MASTER_SPECIFICATION.md)
-* **Single Responsibility:** Provide `DoculaPipeline` and `extract_structure::<T>()` coordinating ingestion, OCR, LLMs (`candle` / `tract`; `oxillama` and `oxibonsai` were removed due to the 2026-11 licence change), optical codes, visual crops (`oximedia`), validation, and self-repair.
+* **Single Responsibility:** Provide `DoculaPipeline` and `extract_structure::<T>()` coordinating ingestion, OCR, LLMs (`candle` / `tract`), optical codes, visual crops (`oximedia`), validation, and self-repair.
 * **Design Pattern:** **Facade Pattern**, **Typestate Pattern**, and **Template Method (Self-Repair)**.
 * **Acceptance Criteria:**
   1. Orchestrates end-to-end two-step pipeline.
@@ -428,8 +427,8 @@ docula/
 * **Acceptance Criteria:**
   1. `cargo-geiger` verifies 0 non-Rust dynamic links across all 13 crates.
   2. Single-page born-digital PDF completes in $< 15\,\text{ms}$.
-  3. Scanned receipt OCR + local LLM completes in $< 1.2\,\text{s}$ on standard CPU (`oxibonsai` was removed due to the 2026-11 licence change).
-  4. Sovereign extraction via `candle`/`tract` completes with zero memory leaks (`oxillama` was removed due to the 2026-11 licence change).
+  3. Scanned receipt OCR + local LLM completes in $< 1.2\,\text{s}$ on standard CPU.
+  4. Sovereign extraction via `candle`/`tract` completes with zero memory leaks.
 
 ---
 

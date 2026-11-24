@@ -34,8 +34,8 @@ flowchart TD
         TargetSchema["Target Rust Type #[derive(JsonSchema, Deserialize)]"]
         SchemaCompiler["JSON Schema to DFA Compiler (schemars / typedlm)"]
         LogitsMask["Autoregressive Logits Masking Processor"]
-        LocalLLM["Sovereign LLM Engine: candle / tract (oxillama and oxibonsai were removed due to 2026-11 licence change)"]
-        RAG4Layer["Verified RAG Engine: embedag_rag::VerifiedRagEngine (oxirag was removed due to 2026-11 licence change)"]
+        LocalLLM["Sovereign LLM Engine: candle / tract"]
+        RAG4Layer["Verified RAG Engine: embedag_rag::VerifiedRagEngine"]
         DieselCTE["Recursive Document AST & Lineage Trees (diesel-cte-ext)"]
         Deser["Serde Deserialization into Strong Rust Type"]
         SelfRepair["Self-Repair Feedback Loop (DocuValidate Trait)"]
@@ -65,11 +65,11 @@ flowchart TD
 
 2. **Step 2: Schema-Driven Structured Extraction**
    - Ingests the spatial layout representation and the user-specified Rust struct.
-   - For complex, multi-page document bundles (10–100+ pages), activates **`embedag_rag::VerifiedRagEngine`** via `EmbedagGraphRetriever` (`oxirag` was removed due to the 2026-11 licence change) featuring cited and verified retrieval, and knowledge graph traversal with **`oxirs`** (GraphRAG).
+   - For complex, multi-page document bundles (10–100+ pages), activates **`embedag_rag::VerifiedRagEngine`** via `EmbedagGraphRetriever` featuring cited and verified retrieval, and knowledge graph traversal with **`oxirs`** (GraphRAG).
    - Ingests entities into a Document Knowledge Graph (DocKG) via **`oxirs`** (RDF/SPARQL 1.2 semantic web platform).
    - Manages hierarchical document structures, reading order trees, and active learning audit DAGs through recursive Common Table Expressions powered by **`diesel-cte-ext`**.
    - Dynamically compiles a strict JSON schema via `schemars`.
-   - Runs local sovereign LLM inference with grammar-based constrained decoding (DFA logits masking) powered by **`candle`** and **`tract`** (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
+   - Runs local sovereign LLM inference with grammar-based constrained decoding (DFA logits masking) powered by **`candle`** and **`tract`**.
    - Deserializes into the user's Rust type via `serde`.
    - Executes validation and optional self-repair loops for domain constraints.
 
@@ -82,12 +82,11 @@ flowchart TD
 | Component / Crate | Upstream Repository | Architectural Role in `docula` | Zero-FFI Guarantee |
 |:---|:---|:---|:---|
 | **`oximedia`** | [`cool-japan/oximedia`](https://github.com/cool-japan/oximedia) | Pure-Rust OpenCV and FFmpeg replacement (108 crates). Powers image preprocessing, deskewing, adaptive binarization, camera calibration, visual stitching, and sub-image region cropping. | 100% Pure Rust (`fail0 + Clippy0`) |
-| **`candle`** | [`huggingface/candle`](https://github.com/huggingface/candle) | Pure-Rust Hugging Face tensor and LLM inference engine (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change). | 100% Pure Rust |
-| **`tract`** | [`sonos/tract`](https://github.com/sonos/tract) | Pure-Rust neural runtime engine (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change). | 100% Pure Rust |
-| **`embedag_rag`** | [`embedag`](https://github.com/cool-japan/embedag) | Pure-Rust verified retrieval engine (`oxirag` was removed due to the 2026-11 licence change). | 100% Pure Rust |
+| **`candle`** | [`huggingface/candle`](https://github.com/huggingface/candle) | Pure-Rust Hugging Face tensor and LLM inference engine. | 100% Pure Rust |
+| **`tract`** | [`sonos/tract`](https://github.com/sonos/tract) | Pure-Rust neural runtime engine. | 100% Pure Rust |
+| **`embedag_rag`** | [`embedag`](https://github.com/cool-japan/embedag) | Pure-Rust verified retrieval engine. | 100% Pure Rust |
 | **`oxirs`** | [`cool-japan/oxirs`](https://github.com/cool-japan/oxirs) | Rust-native Semantic Web and Knowledge Graph platform (Apache Jena replacement). Provides RDF triples/quads, SPARQL 1.2, GraphQL, and Document Knowledge Graphs (DocKGs). | 100% Pure Rust (`fail0 + Clippy0`) |
 | **`scirs2`** | [`cool-japan/scirs`](https://github.com/cool-japan/scirs) | Pure-Rust NumPy/SciPy replacement. Provides matrix algebra, spatial clustering, and geometry routines for spatial reading order resolution. | 100% Pure Rust (`fail0 + Clippy0`) |
-| **`oxiz`** | [`cool-japan/oxiz`](https://github.com/cool-japan/oxiz) | Pure-Rust SMT solver (Z3 replacement). Formally verifies numerical equations and financial constraints. | 100% Pure Rust (`fail0 + Clippy0`) |
 | **`oxixml`** | [`cool-japan/oxixml`](https://github.com/cool-japan/oxixml) | Pure-Rust XML / XSD / Schematron / JSON-LD / SVG library for validating structured e-invoicing standards (Factur-X, ZUGFeRD, UBL 2.1). | 100% Pure Rust (`fail0 + Clippy0`) |
 | **`diesel-cte-ext`** | [`leynos/diesel-cte-ext`](https://github.com/leynos/diesel-cte-ext) | Recursive Common Table Expressions (CTEs) for Diesel (`RecursiveCTEExt`, `RecursiveParts`, `with_recursive`). Drives hierarchical document ASTs and HITL correction lineage DAGs. | 100% Pure Rust (`PostgreSQL`, `SQLite`, `diesel_async`) |
 
@@ -104,12 +103,12 @@ The technical specification is organized into the following single-responsibilit
 | **[03. Ingestion and Intelligent Routing](03_INGESTION_AND_ROUTING.md)** | PDF parsing, text-vs-image routing, multi-file and multi-page batch handling | pdf_oxide, lopdf, image, rayon |
 | **[04. Rasterization and Preprocessing](04_RASTERIZATION_AND_PREPROCESSING.md)** | Pure-Rust PDF rendering (tiny-skia), image normalization, deskew, binarization, SIMD resizing | oximedia, pdf_oxide, fast_image_resize, tiny-skia |
 | **[05. OCR and Spatial Text Extraction](05_OCR_AND_SPATIAL_EXTRACTION.md)** | Multi-lingual text detection (DBNet) & recognition (CRNN), 50 languages, spatial mapping | rusto-rs (PP-OCRv6), ocrs, scirs2, rayon |
-| **[06. LLM and Local/Embedded Backends](06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)** | Modular LLM backend design, Cargo feature flags, local-first inference (`candle`, `tract`; `oxillama` and `oxibonsai` were removed due to the 2026-11 licence change) | candle, tract, scirs2, rig-core |
+| **[06. LLM and Local/Embedded Backends](06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)** | Modular LLM backend design, Cargo feature flags, local-first inference (`candle`, `tract`) | candle, tract, scirs2, rig-core |
 | **[07. Structured Extraction and Constrained Decoding](07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)** | Compile-time schema extraction, logits processors, DFA token masking, self-repair loops | schemars, typedlm, serde, serde_json |
 | **[08. End-to-End Invoice Example](08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)** | Complete Rust code walkthrough using InvoiceData, custom schemas, and multi-image processing | End-to-end integration and API consumption |
-| **[09. Benchmark & Crate Comparison](09_BENCHMARK_AND_COMPARISON.md)** | Deep-dive crate review, zero-FFI audit, latency profiles, and comparison vs. Python/C++ stacks (`oxillama`, `oxibonsai`, and `oxirag` were removed due to the 2026-11 licence change) | oximedia, candle, tract, embedag_rag, oxirs, diesel-cte-ext |
+| **[09. Benchmark & Crate Comparison](09_BENCHMARK_AND_COMPARISON.md)** | Deep-dive crate review, zero-FFI audit, latency profiles, and comparison vs. Python/C++ stacks | oximedia, candle, tract, embedag_rag, oxirs, diesel-cte-ext |
 | **[10. Image Stitching & Overlap Deduplication](10_IMAGE_STITCHING_AND_DEDUPLICATION.md)** | Pure-Rust visual keypoint stitching (FAST/RANSAC) and fuzzy spatial text overlap reconciliation | oximedia, imageproc, strsim, rayon |
-| **[11. RAG & Large Document Retrieval](11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)** | Verified RAG (`embedag_rag::VerifiedRagEngine`; `oxirag` was removed due to the 2026-11 licence change) and Document Knowledge Graphs | embedag-rag, oxirs, oxiz, candle-core, hnsw_rs |
+| **[11. RAG & Large Document Retrieval](11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)** | Verified RAG (`embedag_rag::VerifiedRagEngine`) and Document Knowledge Graphs | embedag-rag, oxirs, candle-core, hnsw_rs |
 | **[12. Few-Shot & Exemplar Management](12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)** | Dual-stage exemplar retrieval, recursive template lineage trees via diesel-cte-ext | docula-exemplar, diesel-cte-ext, oxirs, hnsw_rs |
 | **[13. Human-in-the-Loop & Active Learning](13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)** | Triage gates, immutable correction triad capture, recursive version DAGs via diesel-cte-ext | docula-hitl, diesel-cte-ext, testcontainers |
 | **[14. Edge Compliance & Non-Storing Directives](14_COMPLIANCE_AND_NON_STORING.md)** | Struct-level doc annotations (/// @censor, @ignore, @non-storing), PII regex redaction, NonStored smart pointer | docula-compliance, zeroize, regex |
@@ -130,7 +129,7 @@ The crate architecture is fully configurable via Cargo feature flags.
 [features]
 default = ["local-embedded", "ocr-multilingual"]
 
-# Sovereign LLM Engines (oxillama and oxibonsai were removed due to 2026-11 licence change)
+# Sovereign LLM Engines
 local-embedded   = []                                 # Local inference
 local-candle     = ["dep:candle-core", "dep:candle-transformers"] # Hugging Face pure-Rust engine
 local-onnx       = ["dep:tract-core", "dep:tract-onnx"] # Pure-Rust ONNX execution
@@ -143,7 +142,7 @@ vision-codes     = ["dep:docula-vision-codes"]        # Pure-Rust QR and 1D barc
 vision-crops     = ["dep:oximedia", "image/png"]      # Full-page screenshots & sub-image ROI cropping
 
 # Optional Retrieval, Knowledge Graphs & Active Learning
-rag              = ["dep:docula-rag", "dep:oxirs"]    # Verified RAG & Document Knowledge Graph (oxirag was removed due to 2026-11 licence change; embedag_rag::VerifiedRagEngine used instead)
+rag              = ["dep:docula-rag", "dep:oxirs"]    # Verified RAG & Document Knowledge Graph
 exemplars        = ["dep:docula-exemplar", "dep:diesel-cte-ext"] # Few-shot exemplar retrieval & template DAGs
 hitl             = ["dep:docula-hitl", "dep:diesel-cte-ext"]     # Active learning triage & recursive lineage trees
 

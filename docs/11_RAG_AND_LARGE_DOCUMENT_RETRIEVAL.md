@@ -7,7 +7,7 @@
 * **For Standard Documents (1–5 Pages: Invoices, Receipts, Short Statements):**
     * **No RAG Needed:** The entire spatial text fits comfortably within modern context windows (typically 1,000–3,000 tokens). Feeding the full spatial layout directly to Step 2 yields lower latency, higher accuracy, and eliminates retrieval recall errors.
 * **For Large Documents & Document Packets (10–100+ Pages: Mortgage Bundles, Financial Audits, Annual Reports, Multi-Contract Portfolios):**
-    * **RAG is Essential:** Local embedded models operate best with context windows under 4,000 tokens to maintain <2 GB RAM usage and sub-second latency (`oxibonsai` and `oxillama` were removed due to the 2026-11 licence change; `candle` and `tract` are used instead). Feeding 50 pages directly causes context window truncation and massive memory spikes.
+    * **RAG is Essential:** Local embedded models operate best with context windows under 4,000 tokens to maintain <2 GB RAM usage and sub-second latency. Feeding 50 pages directly causes context window truncation and massive memory spikes.
 
 ### Architectural Solution: `embedag_rag::VerifiedRagEngine` & `oxirs` Knowledge Graphs
 
@@ -22,7 +22,7 @@ Note: `oxirag` was removed following its 2026-11 licence change to BUSL-1.1. `do
 flowchart TD
     SpatialDoc["Spatial Document from Step 1 (e.g. 50-Page Packet)"] --> ContextCheck{"Document Size > Context Budget? OR Feature 'rag' enabled?"}
     ContextCheck -- " No (1-5 Pages) " --> DirectStep2["Direct Step 2: Full Spatial Layout to LLM"]
-    ContextCheck -- " Yes (>5 Pages / Large Packet) " --> VerifiedRagEngine["embedag_rag::VerifiedRagEngine (oxirag was removed)"]
+    ContextCheck -- " Yes (>5 Pages / Large Packet) " --> VerifiedRagEngine["embedag_rag::VerifiedRagEngine"]
 
     subgraph VerifiedRagEngine["Verified Retrieval Architecture"]
         direction TB
@@ -34,7 +34,7 @@ flowchart TD
     end
 
     VerifiedRagEngine --> AssembledContext["Assembled & Verified Context Window"]
-    AssembledContext --> Step2LLM["Step 2: Constrained Decoding (candle / tract; oxillama & oxibonsai removed)"]
+    AssembledContext --> Step2LLM["Step 2: Constrained Decoding (candle / tract)"]
     DirectStep2 --> Step2LLM
     Step2LLM --> FinalStruct["Target Struct T"]
 ```
@@ -91,7 +91,7 @@ In `crates/docula-rag/Cargo.toml`:
 
 | Crate | Version Target | Purpose | Zero-FFI Guarantee |
 |:---|:---|:---|:---|
-| **`embedag-rag`** | Workspace | **Verified RAG engine** (`VerifiedRagEngine`). Lexical search, RRF ranker, grounded citation answers (`oxirag` was removed due to 2026-11 licence change). | **100% Pure Rust** |
+| **`embedag-rag`** | Workspace | **Verified RAG engine** (`VerifiedRagEngine`). Lexical search, RRF ranker, grounded citation answers. | **100% Pure Rust** |
 | **`oxirs-core`** | `^0.4` | **Semantic Web & Knowledge Graph platform.** RDF triples/quads and persistent storage. | **100% Pure Rust (`fail0 + Clippy0`)** |
 | `uuid` | `^1.10` | Unique chunk identification. | 100% Pure Rust |
 
@@ -133,7 +133,7 @@ let answer = retriever.query_verified("What is the total amount?").await?;
 
 ## 7. Cross-Workspace Graph-RAG Architecture: Integration with `embedag-rag`
 
-`docula-rag` integrates directly with sibling crate **`embedag-rag`** via the [`EmbedagGraphRetriever`](../crates/docula-rag/src/embedag_adapter.rs) adapter (`oxirag` was removed due to the 2026-11 licence change; `VerifiedRagEngine` is used instead).
+`docula-rag` integrates directly with sibling crate **`embedag-rag`** via the [`EmbedagGraphRetriever`](../crates/docula-rag/src/embedag_adapter.rs) adapter.
 
 ```mermaid
 flowchart TD
@@ -151,7 +151,7 @@ flowchart TD
         Sparse["SparseLexicalIndex (Token Weights)"]
         Dense["DenseVectorIndex (Cosine Similarity)"]
         RRF["RrfRanker (Reciprocal Rank Fusion)"]
-        VerifiedEngine["VerifiedRagEngine (Grounded Citations; oxirag removed)"]
+        VerifiedEngine["VerifiedRagEngine (Grounded Citations)"]
         Retriever --> Sparse
         Retriever --> Dense
         Sparse --> RRF
@@ -159,5 +159,5 @@ flowchart TD
         RRF --> VerifiedEngine
     end
 
-    Pipeline -->|" Context Enrichment (rag_applied = true) "| LLM["Step 2: Constrained LLM Extraction (candle / tract; oxillama & oxibonsai removed)"]
+    Pipeline -->|" Context Enrichment (rag_applied = true) "| LLM["Step 2: Constrained LLM Extraction (candle / tract)"]
 ```

@@ -6,7 +6,7 @@
 embeddable Rust library crate (`docula`) and as an autonomous CLI utility (`docula-cli`).
 
 To guarantee zero circular dependencies, high maintainability, fast incremental compilation, and strict encapsulation,
-the codebase is partitioned into 13 crates organized across 6 hierarchical layers, standardizing on pure-Rust open-source crates (`oximedia`, `candle`, `tract`, `embedag_rag::VerifiedRagEngine`, `oxirs`, `scirs2`, `oxiz`; `oxillama`, `oxibonsai`, and `oxirag` were removed due to the 2026-11 licence change) and **`diesel-cte-ext`**.
+the codebase is partitioned into 13 crates organized across 6 hierarchical layers, standardizing on pure-Rust open-source crates (`oximedia`, `candle`, `tract`, `embedag_rag::VerifiedRagEngine`, `oxirs`, `scirs2`; `oxillama`, `oxibonsai`, and `oxirag` were removed due to the 2026-11 licence change) and **`diesel-cte-ext`**.
 
 ### Monorepo Crate Topology (Directed Acyclic Graph)
 
@@ -26,12 +26,12 @@ flowchart TD
         INGEST["docula-ingest<br/>(lopdf Inspector, Routing Heuristics)"]
         OCR["docula-ocr<br/>(PP-OCRv6 DBNet + CRNN, scirs2 Spatial Clusterer)"]
         COMP["docula-compliance<br/>(PII Redactor, Action Directives, TTL)"]
-        LLM["docula-llm<br/>(candle, tract; oxillama and oxibonsai removed)"]
+        LLM["docula-llm<br/>(candle, tract)"]
     end
 
     subgraph Layer3["Layer 3: Optional 4-Layer RAG, Knowledge Graphs & Exemplars"]
         EXEMPLAR["docula-exemplar<br/>(Dual-Stage Matcher, diesel-cte-ext Lineage, Prompt Builder)"]
-        RAG["docula-rag<br/>(embedag_rag VerifiedRagEngine, oxirs; oxirag removed)"]
+        RAG["docula-rag<br/>(embedag_rag VerifiedRagEngine, oxirs)"]
     end
 
     subgraph Layer4["Layer 4: Active Learning, Recursive Audit & Feedback"]
@@ -84,8 +84,8 @@ The crates must be created in strict topological order to guarantee zero circula
 5. **`docula-ingest`**: PDF object inspection via `lopdf`, digital vs. raster routing heuristics, born-digital extraction.
 6. **`docula-ocr`**: PP-OCRv6 neural text detection (DBNet) and 50-language character recognition (CRNN), spatial reading-order line clustering via **`scirs2`**.
 7. **`docula-compliance`**: Spatial pixel blackout, PII sanitization regex, `@censor`/`@ignore`/`@non-storing` schema directives.
-8. **`docula-llm`**: Sovereign LLM engines: `candle` and `tract` (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
-9. **`docula-rag`** *(optional)*: Verified RAG engine via `embedag_rag::VerifiedRagEngine` (`oxirag` was removed due to the 2026-11 licence change) and GraphRAG via **`oxirs`** for large document packets (10–100+ pages).
+8. **`docula-llm`**: Sovereign LLM engines: `candle` and `tract`.
+9. **`docula-rag`** *(optional)*: Verified RAG engine via `embedag_rag::VerifiedRagEngine` and GraphRAG via **`oxirs`** for large document packets (10–100+ pages).
 10. **`docula-exemplar`** *(optional)*: Dual-stage few-shot exemplar retrieval (Stage 1 geometric fingerprint, Stage 2 HNSW vector fallback) and recursive template lineage inheritance trees via **`diesel-cte-ext`**.
 11. **`docula-hitl`** *(optional)*: Active learning flywheel, triage gates, immutable `CorrectionTriad` capture, recursive review version DAGs via **`diesel-cte-ext`**, tiered storage verified with **Testcontainers**.
 12. **`docula`** *(facade)*: Unified developer API surface, `DoculaPipeline`, `extract_structure::<T>()`, self-repair loop.
@@ -101,14 +101,14 @@ zero-cost abstractions, traits, and strict memory safety.
 | Context & Component | Target Design Pattern | Why This Pattern Aligns Best for the Context | Key Rust Idioms & Structures |
 |:---|:---|:---|:---|
 | **Two-Step Processing Pipeline** | **Typestate Pattern** | Guarantees at compile time that documents cannot be processed out-of-order (e.g. attempting OCR on un-rasterized PDF buffers, or LLM inference on unmapped spatial text). Zero runtime overhead. | Phantom types: `Pipeline<Unprocessed>`, `Pipeline<Preprocessed>`, `Pipeline<SpatialReady>`, consuming `self` by value. |
-| **Inference Engines** | **Strategy Pattern** | Allows swapping between pure-Rust Hugging Face (`candle`), ONNX (`tract`), or mock backends without touching pipeline logic (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change). Supports both static monomorphization and dynamic dispatch. | `pub trait LlmBackend: Send + Sync { async fn complete(...) }`, `CandleBackend`, `TractBackend`. |
+| **Inference Engines** | **Strategy Pattern** | Allows swapping between pure-Rust Hugging Face (`candle`), ONNX (`tract`), or mock backends without touching pipeline logic. Supports both static monomorphization and dynamic dispatch. | `pub trait LlmBackend: Send + Sync { async fn complete(...) }`, `CandleBackend`, `TractBackend`. |
 | **Pipeline Configuration** | **Builder Pattern** | Prevents parameter explosion and allows fluent, validated pipeline setup with sensible defaults (DPI, thresholds, feature toggles). | `DoculaPipelineBuilder::new().with_dpi(300).with_deskew(true).build()?` with terminal validation. |
 | **Developer API Surface** | **Facade Pattern** | Hides the complexity of 11 underlying sub-crates behind a single ergonomic one-liner (`docula::extract_structure::<T>()`). | `docula::extract_structure::<T>(&source, &backend)` coordinating ingestion, OCR, schema, and LLM steps. |
 | **Image Preprocessing Filters** | **Chain of Responsibility / Pipeline Pattern** | Decouples distinct image transformations (deskew, binarization, SIMD resize, pixel blackout) into modular, independently testable filters that process pixels sequentially via **`oximedia`**. | `pub trait ImageFilter { fn apply(&self, img: &mut RgbaImage) -> Result<()>; }`, `FilterChain`. |
 | **Visual Region Cropping & Screenshots** | **Flyweight / Sub-Image Memory View Pattern** | Allows taking full-page screenshots and cropping arbitrary spatial ROIs (signatures, seals, logos) without cloning entire page pixmaps in memory until export using **`oximedia`** pixel buffers. | `image::GenericImageView::view`, `PageRasterBuffer::crop_region`, `pub struct ImageCrop`. |
 | **JSON Schema to DFA Logits Masking** | **Visitor & Interpreter Pattern** | Traverses complex recursive JSON Schema ASTs (`schemars::schema_for!`) to construct a deterministic finite automaton state machine that interprets schema rules into logits masks during token sampling. | `SchemaVisitor` traversing JSON schema nodes to generate `DfaStateMachine` transitions. |
 | **Domain Validation & Self-Repair** | **Template Method / Active Repair Loop Pattern** | The framework defines the fixed algorithmic skeleton (Deserialize -> Check Invariants -> If Err, build targeted repair prompt -> Re-infer -> Validate up to $N$ retries), while the user struct supplies the hook. | `pub trait DocuValidate { fn validate(&self) -> Result<(), ValidationError>; }`, repair loop runner. |
-| **Large Document RAG & Verification** | **Multi-Tiered Verification & Graph Pattern** | Splits retrieval into verified cited chunks via `embedag_rag::VerifiedRagEngine` (`oxirag` was removed due to the 2026-11 licence change), SMT formal verification via **`oxiz`**, and GraphRAG via **`oxirs`** Knowledge Graphs. | `embedag_rag::VerifiedRagEngine`, `oxiz::Solver`, `oxirs::store::Dataset`. |
+| **Large Document RAG & Verification** | **Multi-Tiered Verification & Graph Pattern** | Splits retrieval into verified cited chunks via `embedag_rag::VerifiedRagEngine`, and GraphRAG via **`oxirs`** Knowledge Graphs. | `embedag_rag::VerifiedRagEngine`, `oxiz::Solver`, `oxirs::store::Dataset`. |
 | **Document Knowledge Graph (DocKG)** | **Semantic Graph Adapter Pattern** | Projects extracted document entities, vendor relationships, and line items into standard RDF triples / quads via **`oxirs`**, enabling SPARQL 1.2 cross-document relational queries. | `oxirs_core::model::Quad`, `oxirs::query::QueryEngine`. |
 | **Exemplar Retrieval Hierarchy** | **Dual-Stage Hierarchical Cache Pattern** | Guarantees sub-millisecond latency on CPU for repetitive document layouts. Stage 1 executes exact Vendor ID and 64-bit layout geometric fingerprint matching (<1ms); Stage 2 falls back to HNSW vector search only on miss. | `Stage1Matcher` (Hamming distance on spatial bitsets) + `Stage2Matcher` (HNSW cosine similarity). |
 | **Hierarchical Lineage & Document AST Trees** | **Recursive Common Table Expression (CTE) Pattern** | Resolves recursive parent-child trees (Document -> Page -> Block -> Line -> Token) and HITL correction version DAGs directly in SQL using **`diesel-cte-ext`** without client-side iterative round-trips. | `diesel_cte_ext::RecursiveCTEExt`, `conn.with_recursive(...)`, `RecursiveParts::new(...)`. |

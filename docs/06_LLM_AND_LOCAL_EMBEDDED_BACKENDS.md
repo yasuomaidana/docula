@@ -43,13 +43,13 @@ flowchart TD
 [features]
 default = ["local-embedded", "local-candle"]
 
-# Local embedded inference (oxibonsai was removed due to 2026-11 licence change)
+# Local embedded inference
 local-embedded = []
 
 # Hugging Face Pure-Rust Framework (GGUF, Safetensors)
 local-candle   = ["dep:candle-core"]
 
-# Pure-Rust ONNX Neural Runtime (oxillama was removed due to 2026-11 licence change)
+# Pure-Rust ONNX Neural Runtime
 local-onnx     = []
 
 # External / Local-Daemon Fallbacks

@@ -4,7 +4,7 @@ Sovereign, pure-Rust (zero-FFI) document intelligence: turn PDFs, scans, photos 
 
 You describe the data you want as a Rust type (`#[derive(JsonSchema, Deserialize)]`). `docula` reads the document, reconstructs its layout, and has a local LLM fill in only what that schema allows. Nothing links against `tesseract`, `poppler`, `opencv`, `zbar` or `mupdf`, so it builds wherever Rust builds.
 
-Version 0.1.0. See [DEV_STATUS.md](DEV_STATUS.md) and [CHANGELOG.md](CHANGELOG.md) for exactly what is and is not implemented.
+Version 0.1.0, pre-release. The pipeline, schema DFA, validation, routing, rasterization and domain schemas are real; the OCR and LLM inference stages are still scaffolds (see [Implemented vs planned](#implemented-vs-planned)). See [DEV_STATUS.md](DEV_STATUS.md) and [CHANGELOG.md](CHANGELOG.md) for exactly what is and is not implemented.
 
 ## How it works
 
@@ -43,11 +43,11 @@ The full design is in [docs/00_MASTER_SPECIFICATION.md](docs/00_MASTER_SPECIFICA
 | [`docula-ingest`](crates/docula-ingest/README.md) | Step 1 | PDF object-tree inspection, font `ToUnicode` checks, born-digital vs scanned routing |
 | [`docula-preprocess`](crates/docula-preprocess/README.md) | Step 1 | `tiny-skia` PDF rasterization, office-suite rasterization, deskew/binarize filters, stitching |
 | [`docula-composer`](crates/docula-composer/README.md) | Step 1 | Multi-shot document reconstruction and single-shot multi-document segmentation |
-| [`docula-ocr`](crates/docula-ocr/README.md) | Step 1 | PP-OCRv6 DBNet detection, CRNN recognition, language assets, reading-order clustering |
+| [`docula-ocr`](crates/docula-ocr/README.md) | Step 1 | `OcrEngine` trait, DBNet-style detection and CRNN-style recognition (heuristic today), language assets, reading-order clustering |
 | [`docula-vision-codes`](crates/docula-vision-codes/README.md) | Step 1 | QR / 1D barcode detection (`rxing`) and SEPA, Swiss QR and CFDI payload parsing |
 | [`docula-compliance`](crates/docula-compliance/README.md) | Cross-cutting | Action tags, spatial pixel blackout, deterministic PII sanitization |
 | [`docula-schema`](crates/docula-schema/README.md) | Step 2 | JSON Schema to DFA compiler, logits masking, the `DocuValidate` trait |
-| [`docula-llm`](crates/docula-llm/README.md) | Step 2 | `LlmBackend` trait with `CandleBackend`, `TractBackend` and `MockLlmBackend` |
+| [`docula-llm`](crates/docula-llm/README.md) | Step 2 | `LlmBackend` trait with `CandleBackend`, `TractBackend` (scaffolds) and `MockLlmBackend` |
 | [`docula-rag`](crates/docula-rag/README.md) | Step 2 | Table-aware chunking, hybrid BM25 + dense retrieval, `EmbedagGraphRetriever` |
 | [`docula-exemplar`](crates/docula-exemplar/README.md) | Step 2 | Few-shot exemplar pool and layout-fingerprint retrieval |
 | [`docula-hitl`](crates/docula-hitl/README.md) | Feedback | Human-in-the-loop triage, correction triads, promotion policies, lineage tracking |
@@ -87,8 +87,8 @@ impl DocuValidate for Receipt {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Plug a real backend in with `.with_llm_backend(..)`; the default builder
-    // is enough to see the flow end to end.
+    // Inference is still scaffolded: `with_llm_backend(..)` takes any `LlmBackend`;
+    // tests use `MockLlmBackend` with a canned JSON response.
     let pipeline = DoculaPipeline::builder().build();
     let source = DocumentSource::from_image_path("receipt.png");
 
@@ -123,10 +123,10 @@ Every setting has an in-memory default. Override them with a TOML file, a string
 | Core geometry, config loader, `NonStored<T>` | **Implemented** | `docula-core` |
 | PDF routing, `tiny-skia` rasterization, filters, stitching | **Implemented** | Pure Rust; acceleration optional via `oxipix` |
 | Office suite ingestion (`.xlsx`, `.csv`, `.docx`, `.pptx`, `.odt`, `.ods`, `.odp`, `.rtf`, `.txt`) | **Implemented** | [docs/19](docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md) |
-| PP-OCRv6 detection and recognition, multi-lingual assets | **Implemented** | [docs/16](docs/16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md) |
+| OCR detection, recognition and language assets | **Partial** | Detection is heuristic (Otsu + connected components) and recognition uses pre-registered text; neural PP-OCRv6 is specified in [docs/05](docs/05_OCR_AND_SPATIAL_EXTRACTION.md) and [docs/16](docs/16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md) |
 | Optical codes (QR, 1D, SEPA, Swiss QR, CFDI) | **Implemented** | `rxing` |
 | Schema DFA, logits masking, `DocuValidate` | **Implemented** | `docula-schema` |
-| LLM backends | **Implemented** | `candle`, `tract`, mock; `oxillama`, `oxibonsai` removed |
+| LLM backends | **Scaffolded** | `CandleBackend` and `TractBackend` validate the schema DFA but return canned output or `{}`; real inference is DOC-1201 in [docs/22](docs/22_FINANCE_DOCUMENT_EXTRACTION_AND_REAL_INFERENCE.md). `oxillama`, `oxibonsai` removed |
 | Hybrid RAG and knowledge graph | **Implemented** | `embedag_rag::VerifiedRagEngine` replaces the removed `oxirag` |
 | Few-shot exemplars, HITL, lineage | **Implemented** | `docula-exemplar`, `docula-hitl` |
 | Domain verticals (invoice, receipt, bank, logistics) | **Implemented** | `docula-domains` |

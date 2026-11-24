@@ -92,7 +92,7 @@ flowchart TD
 
 ### 7. Knowledge Graph & Architecture Mapping Specialist (`graphify`)
 - **Role**: Converts repository content, source files, and supporting artifacts into a persistent knowledge graph to explain relationships, dependencies, architecture, and impact paths across the codebase.
-- **Governing Skill**: [graphify](.agents/skills/graphify/SKILL.md)
+- **Governing Skill**: `graphify` (skill not yet added to `.agents/skills/`)
 - **Primary Tools**: graph query tools, repository traversal, relationship analysis, evidence mapping.
 
 ### 8. Autonomous Ticket Lifecycle Developer (`ticket-lifecycle-developer`)

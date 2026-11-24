@@ -9,7 +9,7 @@ Requested by: Kakebo (Plane `KAKEBODM`; specs in `kakebo-specs`, `data_modeling/
 ## 2. Assessment of the Current Implementation
 
 1. **The spec and the code have drifted.** `05_OCR_AND_SPATIAL_EXTRACTION.md` specifies `rusto-rs` (PP-OCRv6) and `ocrs`. The code instead uses Otsu thresholding plus connected components (`DbNetDetector`) and a recognizer that returns pre-registered strings (`crnn.rs:76-110`). DEV_STATUS marks milestones 1–10 as verified.
-2. **The LLM backends are stubs.** `OxiLlamaBackend::generate_constrained` ignores its prompts and returns canned output or `"{}"`. The `remote-ollama`, `remote-openai` and `local-onnx` features are empty.
+2. **The LLM backends are stubs.** `CandleBackend::generate_constrained` and `TractBackend::generate_constrained` ignore their prompts and return canned output or `"{}"` (the former `OxiLlamaBackend` was removed in DOCULA-46). The `remote-ollama`, `remote-openai` and `local-onnx` features are empty.
 3. **Money is `f64`** in `ReceiptData`, `InvoiceData` and `BankStatementData`, and the validators compare with an epsilon.
 4. **CFDI support covers the QR URL only** (`MexicanSatCfdiPayload`). The `cfdi:Comprobante` XML is not parsed, even though `quick-xml` is already a dependency.
 5. **Portability:** `docula-rag` depends on `../../../embedag` through a relative path, and there is no mobile or wasm profile.
@@ -35,7 +35,7 @@ Requested by: Kakebo (Plane `KAKEBODM`; specs in `kakebo-specs`, `data_modeling/
 
 ### DOC-1201: Real HTTP vision LlmBackend (Anthropic / OpenAI / Ollama-compatible)
 
-Every current `LlmBackend` returns canned output or `"{}"` (`docula-llm/src/oxillama.rs`), and the `remote-ollama`, `remote-openai` and `local-onnx` features are empty.
+Every current `LlmBackend` returns canned output or `"{}"` (`docula-llm/src/candle.rs`, `docula-llm/src/tract.rs`), and the `remote-ollama`, `remote-openai` and `local-onnx` features are empty.
 
 **Request:** a real HTTP backend, behind a `remote-http` feature, that sends page images plus the schema-constrained prompt to a multimodal model and returns `generate_constrained` JSON. It should be validated against the `schemars` schema and retry once if the output doesn't validate.
 
@@ -138,7 +138,7 @@ Many receipts (OXXO, Walmart, Soriana, Costco MX, Starbucks) follow regular layo
 
 Kakebo ships on iOS, Android, desktop and web.
 
-**Request:** a `lite` profile containing domains, vision-codes, ingest and the HTTP LLM, with no `tokio/full`, oximedia, candle, oxirag or memmap2.
+**Request:** a `lite` profile containing domains, vision-codes, ingest and the HTTP LLM, with no `tokio/full`, oximedia, candle or memmap2.
 
 **Acceptance criteria:**
 - CI builds `aarch64-apple-ios`, `aarch64-linux-android` and `wasm32-unknown-unknown` (domains + ingest).
@@ -150,7 +150,7 @@ Kakebo ships on iOS, Android, desktop and web.
 
 DEV_STATUS marks milestones 1–10 as verified, but several parts are still stubs:
 - `DbNetDetector` and `CrnnRecognizer` are heuristic or canned (spec 05 names `rusto-rs` / `ocrs`).
-- `OxiLlamaBackend::generate_constrained` ignores its prompts.
+- `CandleBackend` and `TractBackend` `generate_constrained` ignore their prompts.
 - The features `remote-ollama`, `remote-openai` and `local-onnx` are empty.
 
 The Plane board also lists Milestones 9, 10 and 11 twice, with and without the crate suffix.

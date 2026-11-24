@@ -2,6 +2,10 @@
 
 Multi-lingual PP-OCRv6 text detection (DBNet), character recognition (CRNN), language asset management and spatial reading-order clustering.
 
+## Status
+
+Detection is heuristic (Otsu threshold plus connected components) and recognition returns pre-registered text per region. Neural PP-OCRv6 inference is specified but not implemented yet.
+
 ## Key types
 
 `OcrEngine`, `NeuralOcrEngine`, `MockOcrEngine`, `DbNetDetector`, `CrnnRecognizer`, `LanguageAssetManager`, `TextLine`
