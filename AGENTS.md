@@ -67,37 +67,37 @@ flowchart TD
 
 ### 2. Dependency Compatibility Engineer (`crate-compatibility`)
 - **Role**: Audits external crates in `Cargo.toml`, analyzes dependency graph conflicts, ensures compatibility across the Rust ecosystem, and executes non-breaking version upgrades.
-- **Governing Skill**: [crate-compatibility](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/crate-compatibility/SKILL.md)
+- **Governing Skill**: [crate-compatibility](.agents/skills/crate-compatibility/SKILL.md)
 - **Primary Tools**: `cargo tree`, `cargo upgrade`, `cargo check`, `cargo update`.
 
 ### 3. Release & SemVer Evaluator (`semver-version-evaluator`)
 - **Role**: Assesses public API modifications, breaking changes, and release readiness according to Semantic Versioning (SemVer 2.0.0). Determines if version increments must be PATCH, MINOR, or MAJOR.
-- **Governing Skill**: [semver-version-evaluator](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/semver-version-evaluator/SKILL.md)
+- **Governing Skill**: [semver-version-evaluator](.agents/skills/semver-version-evaluator/SKILL.md)
 - **Primary Tools**: `cargo semver-checks`, `git diff`, API AST inspections.
 
 ### 4. Architecture & Complexity Auditor (`pattern-complexity-auditor`)
 - **Role**: Evaluates software design patterns (e.g. Typestate, RAII, Builder, Visitor, Strategy in Rust), enforces idiomatic patterns, inspects cyclomatic/cognitive complexity, and guards against anti-patterns.
-- **Governing Skill**: [pattern-complexity-auditor](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/pattern-complexity-auditor/SKILL.md)
+- **Governing Skill**: [pattern-complexity-auditor](.agents/skills/pattern-complexity-auditor/SKILL.md)
 - **Primary Tools**: `rust-code-analysis-cli`, `cargo clippy`, structural inspection.
 
 ### 5. AI Practices & Meta-Skill Auditor (`ai-practices-auditor`)
 - **Role**: Validates that all AI agents, skills, and prompt instructions adhere to state-of-the-art AI development practices: structured YAML frontmatter, deterministic constraints, token optimization, no hallucinations, and guardrail enforcement.
-- **Governing Skill**: [ai-practices-auditor](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/ai-practices-auditor/SKILL.md)
+- **Governing Skill**: [ai-practices-auditor](.agents/skills/ai-practices-auditor/SKILL.md)
 - **Primary Tools**: Skill schema validator, markdown static analysis.
 
 ### 6. Agile Scrum Master & Goal Alignment Specialist (`scrum-master-alignment`)
 - **Role**: Acts as the automated Scrum Master. Ensures that every test suite (unit, integration, doc-test, property-test) directly traces back to project milestones, user stories, acceptance criteria, and technical specifications in `docs/`. Strictly enforces mandatory [Testcontainers](https://rust.testcontainers.org) verification for persistent layers.
-- **Governing Skill**: [scrum-master-alignment](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/scrum-master-alignment/SKILL.md)
+- **Governing Skill**: [scrum-master-alignment](.agents/skills/scrum-master-alignment/SKILL.md)
 - **Primary Tools**: Test mapping tracers, specification parsers, coverage alignment metrics.
 
 ### 7. Knowledge Graph & Architecture Mapping Specialist (`graphify`)
 - **Role**: Converts repository content, source files, and supporting artifacts into a persistent knowledge graph to explain relationships, dependencies, architecture, and impact paths across the codebase.
-- **Governing Skill**: [graphify](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/graphify/SKILL.md)
+- **Governing Skill**: [graphify](.agents/skills/graphify/SKILL.md)
 - **Primary Tools**: graph query tools, repository traversal, relationship analysis, evidence mapping.
 
 ### 8. Autonomous Ticket Lifecycle Developer (`ticket-lifecycle-developer`)
 - **Role**: Guides and executes the complete 8-step ticket development lifecycle for the next undone project ticket: requirement clarity check, ticket decomposition, TDD test definition, design pattern audit, feature implementation, test passing validation, complexity refactoring, and dev status updating.
-- **Governing Skill**: [ticket-lifecycle-developer](file:///Users/yasuomaidana/RustRoverProjects/docula/.agents/skills/ticket-lifecycle-developer/SKILL.md)
+- **Governing Skill**: [ticket-lifecycle-developer](.agents/skills/ticket-lifecycle-developer/SKILL.md)
 - **Primary Tools**: `cargo test`, `cargo clippy`, `cargo fmt`, `testcontainers` (https://rust.testcontainers.org), `DEV_STATUS.md` tracker.
 
 ### 9. BDD, Property & Persistence Test Engineer (`Tester`)

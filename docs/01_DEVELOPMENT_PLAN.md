@@ -138,7 +138,7 @@ docula/
 ### Milestone 1: Core Foundation & Consumer Configuration (`docula-core`)
 
 #### Ticket DOC-101: Spatial Coordinate Primitives & Universal Input Abstraction (Day 0 Vision Ready)
-* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md), [`18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)
+* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](00_MASTER_SPECIFICATION.md), [`18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md`](18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)
 * **Single Responsibility:** Provide foundational geometric and input abstractions, with normalized coordinates and `ImageCrop` structures built in from Day 0.
 * **Design Pattern:** **Value Object Pattern** & **Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -152,7 +152,7 @@ docula/
   * `test_document_source_from_bytes`: Memory slice initializes valid document source.
 
 #### Ticket DOC-102: Consumer-Driven `DoculaConfig` & Layered Loader
-* **Reference Spec:** [`15_CONSUMER_CONFIGURATION_AND_TOML.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/15_CONSUMER_CONFIGURATION_AND_TOML.md)
+* **Reference Spec:** [`15_CONSUMER_CONFIGURATION_AND_TOML.md`](15_CONSUMER_CONFIGURATION_AND_TOML.md)
 * **Single Responsibility:** Implement consumer-friendly configuration handling without static file assumptions.
 * **Design Pattern:** **Builder Pattern** & **Hierarchical Fallback Pattern**.
 * **Acceptance Criteria:**
@@ -164,7 +164,7 @@ docula/
   * `test_builder_overrides`: Custom DPI and triage thresholds take precedence.
 
 #### Ticket DOC-103: Zero-Storage RAII Smart Pointer `NonStored<T>`
-* **Reference Spec:** [`14_COMPLIANCE_AND_NON_STORING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_AND_NON_STORING.md)
+* **Reference Spec:** [`14_COMPLIANCE_AND_NON_STORING.md`](14_COMPLIANCE_AND_NON_STORING.md)
 * **Single Responsibility:** Provide an in-memory wrapper for sensitive fields that zeroes memory on drop and skips serialization.
 * **Design Pattern:** **RAII Pattern** & **Smart Pointer Wrapper**.
 * **Acceptance Criteria:**
@@ -180,7 +180,7 @@ docula/
 ### Milestone 2: Preprocessing & Ingestion (`docula-preprocess`, `docula-ingest`)
 
 #### Ticket DOC-201: Pure-Rust PDF Rasterization Bridge & Page Pixmap Buffer
-* **Reference Spec:** [`04_RASTERIZATION_AND_PREPROCESSING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/04_RASTERIZATION_AND_PREPROCESSING.md)
+* **Reference Spec:** [`04_RASTERIZATION_AND_PREPROCESSING.md`](04_RASTERIZATION_AND_PREPROCESSING.md)
 * **Single Responsibility:** Render PDF pages into memory-backed RGBA pixmaps using `pdf_oxide` (`tiny-skia` renderer) with zero-copy sub-image view capability.
 * **Design Pattern:** **Strategy Pattern** (concrete rasterization strategy).
 * **Acceptance Criteria:**
@@ -192,7 +192,7 @@ docula/
   * `test_render_invalid_pdf_bytes`: Pass random bytes; assert graceful error return.
 
 #### Ticket DOC-202: Image Filter Chain powered by `oximedia` (Deskew, Binarize, SIMD Resize)
-* **Reference Spec:** [`04_RASTERIZATION_AND_PREPROCESSING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/04_RASTERIZATION_AND_PREPROCESSING.md), [`10_IMAGE_STITCHING_AND_DEDUPLICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/10_IMAGE_STITCHING_AND_DEDUPLICATION.md)
+* **Reference Spec:** [`04_RASTERIZATION_AND_PREPROCESSING.md`](04_RASTERIZATION_AND_PREPROCESSING.md), [`10_IMAGE_STITCHING_AND_DEDUPLICATION.md`](10_IMAGE_STITCHING_AND_DEDUPLICATION.md)
 * **Single Responsibility:** Implement modular image filter passes using **`oximedia`** (KitaSan OpenCV/FFmpeg pure-Rust replacement) and `fast_image_resize`.
 * **Design Pattern:** **Chain of Responsibility Pattern**.
 * **Acceptance Criteria:**
@@ -206,7 +206,7 @@ docula/
   * `test_oximedia_adaptive_binarize`: Verify high-contrast binary output on shadow-degraded receipt.
 
 #### Ticket DOC-203: PDF Object Tree Inspector & Routing Classifier (`docula-ingest`)
-* **Reference Spec:** [`03_INGESTION_AND_ROUTING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/03_INGESTION_AND_ROUTING.md)
+* **Reference Spec:** [`03_INGESTION_AND_ROUTING.md`](03_INGESTION_AND_ROUTING.md)
 * **Single Responsibility:** Inspect PDF object trees with `lopdf` to classify pages as born-digital or rasterized.
 * **Design Pattern:** **Routing Heuristic / Decision Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -222,7 +222,7 @@ docula/
 ### Milestone 3: Multi-Lingual OCR, Reading-Order Clustering & Compliance (`docula-ocr`, `docula-compliance`)
 
 #### Ticket DOC-301: PP-OCRv6 Neural Text Detection & Recognition (`docula-ocr`)
-* **Reference Spec:** [`05_OCR_AND_SPATIAL_EXTRACTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/05_OCR_AND_SPATIAL_EXTRACTION.md)
+* **Reference Spec:** [`05_OCR_AND_SPATIAL_EXTRACTION.md`](05_OCR_AND_SPATIAL_EXTRACTION.md)
 * **Single Responsibility:** Execute DBNet text detection and CRNN character recognition across 50 languages using `rusto-rs` and `rayon`.
 * **Design Pattern:** **Strategy Pattern** (concrete `OcrEngine` implementation).
 * **Acceptance Criteria:**
@@ -234,7 +234,7 @@ docula/
   * `test_ocr_cjk_text`: Recognize Chinese/Japanese receipt sample.
 
 #### Ticket DOC-302: Spatial Reading-Order Clustering via `scirs2`
-* **Reference Spec:** [`05_OCR_AND_SPATIAL_EXTRACTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/05_OCR_AND_SPATIAL_EXTRACTION.md)
+* **Reference Spec:** [`05_OCR_AND_SPATIAL_EXTRACTION.md`](05_OCR_AND_SPATIAL_EXTRACTION.md)
 * **Single Responsibility:** Group raw detected text spans into lines, cluster into columns using `scirs2` spatial statistics, and generate layout-preserving text.
 * **Design Pattern:** **Composite Pattern** (Spans $\to$ Lines $\to$ Blocks $\to$ `SpatialLayoutMap`).
 * **Acceptance Criteria:**
@@ -246,7 +246,7 @@ docula/
   * `test_multiline_invoice_header`: Verify invoice header lines are properly ordered from top to bottom.
 
 #### Ticket DOC-303: Compliance Action Tag Processor & Pixel Blackout (`docula-compliance`)
-* **Reference Spec:** [`14_COMPLIANCE_AND_NON_STORING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/14_COMPLIANCE_AND_NON_STORING.md)
+* **Reference Spec:** [`14_COMPLIANCE_AND_NON_STORING.md`](14_COMPLIANCE_AND_NON_STORING.md)
 * **Single Responsibility:** Execute schema directives (`@censor`, `@ignore`, `@non-storing`) and sanitize PII before storage.
 * **Design Pattern:** **Command / Action Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -258,7 +258,7 @@ docula/
   * `test_purge_text_span_overlap`: Assert spans falling inside censored bbox are removed from layout.
 
 #### Ticket DOC-304: Multi-Lingual Mmap Asset Manager & Feature Gating (`docula-ocr`)
-* **Reference Spec:** [`16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md)
+* **Reference Spec:** [`16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md`](16_MULTI_LINGUAL_OCR_AND_ASSET_MANAGEMENT.md)
 * **Single Responsibility:** Manage OCR weights and dictionaries via zero-copy memory mapping (`memmap2`) and feature gating (`ocr-latin` vs `ocr-multilingual`).
 * **Design Pattern:** **Flyweight / Memory-Mapped Asset Manager Pattern**.
 * **Acceptance Criteria:**
@@ -274,7 +274,7 @@ docula/
 ### Milestone 4: Schema Reflection, DFA Logits Masking & Sovereign LLMs (`docula-schema`, `docula-llm`)
 
 #### Ticket DOC-401: Dynamic JSON Schema to DFA State Machine Compiler (`docula-schema`)
-* **Reference Spec:** [`07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)
+* **Reference Spec:** [`07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md`](07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)
 * **Single Responsibility:** Compile `schemars` JSON Schema AST into a Deterministic Finite Automaton (DFA) state machine.
 * **Design Pattern:** **Visitor Pattern** (traversing schema AST) & **State Machine Pattern** (DFA tracking).
 * **Acceptance Criteria:**
@@ -285,7 +285,7 @@ docula/
   * `test_dfa_invalid_transition`: Attempt to advance with an invalid token; assert transition failure.
 
 #### Ticket DOC-402: Token Logits Masking Processor (`docula-schema`)
-* **Reference Spec:** [`07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)
+* **Reference Spec:** [`07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md`](07_STRUCTURED_EXTRACTION_AND_CONSTRAINED_DECODING.md)
 * **Single Responsibility:** Intercept autoregressive LLM token logits and set invalid out-of-grammar token logits to $-\infty$.
 * **Design Pattern:** **Decorator / Interceptor Pattern**.
 * **Acceptance Criteria:**
@@ -296,7 +296,7 @@ docula/
   * `test_complete_token_sequence_yields_valid_json`: Generate simulated token stream; assert `serde_json::from_str` succeeds.
 
 #### Ticket DOC-403: Sovereign LLM Backend Trait and Dispatcher (`docula-llm`)
-* **Reference Spec:** [`06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)
+* **Reference Spec:** [`06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md`](06_LLM_AND_LOCAL_EMBEDDED_BACKENDS.md)
 * **Single Responsibility:** Define `LlmBackend` trait and provide pure-Rust implementations: `candle` and `tract` (`oxillama` and `oxibonsai` were removed due to the 2026-11 licence change).
 * **Design Pattern:** **Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -312,7 +312,7 @@ docula/
 ### Milestone 5: Retrieval, Knowledge Graphs & Exemplars (`docula-rag`, `docula-exemplar`)
 
 #### Ticket DOC-501: Verified RAG Engine & `oxirs` Document Knowledge Graphs (`docula-rag`)
-* **Reference Spec:** [`11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)
+* **Reference Spec:** [`11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md`](11_RAG_AND_LARGE_DOCUMENT_RETRIEVAL.md)
 * **Single Responsibility:** Implement verified RAG architecture using `embedag_rag::VerifiedRagEngine` (`oxirag` was removed due to the 2026-11 licence change) for 10–100+ page documents, and GraphRAG via **`oxirs`**.
 * **Design Pattern:** **Multi-Tiered Verification & Graph Pattern**.
 * **Acceptance Criteria:**
@@ -326,7 +326,7 @@ docula/
   * `test_oxirs_dockg_sparql_query`: Query extracted RDF graph with SPARQL 1.2 to find entity relationships.
 
 #### Ticket DOC-502: Dual-Stage Exemplar Retrieval & `diesel-cte-ext` Lineage (`docula-exemplar`)
-* **Reference Spec:** [`12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)
+* **Reference Spec:** [`12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md`](12_FEW_SHOT_AND_EXEMPLAR_MANAGEMENT.md)
 * **Single Responsibility:** Implement Stage 1 fast geometric fingerprint matching (<1ms), Stage 2 HNSW vector fallback, and recursive template inheritance hierarchy via **`diesel-cte-ext`**.
 * **Design Pattern:** **Dual-Stage Hierarchical Cache Pattern** & **Recursive CTE Pattern**.
 * **Acceptance Criteria:**
@@ -342,7 +342,7 @@ docula/
 ### Milestone 6: Active Learning & Feedback (`docula-hitl`)
 
 #### Ticket DOC-601: Automated Triage Gates & Validation Failure Interceptor (`docula-hitl`)
-* **Reference Spec:** [`13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)
+* **Reference Spec:** [`13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md`](13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)
 * **Single Responsibility:** Intercept extractions failing confidence thresholds or domain validation, and flag for review.
 * **Design Pattern:** **Gatekeeper / Interceptor Pattern**.
 * **Acceptance Criteria:**
@@ -352,7 +352,7 @@ docula/
   * `test_confidence_gate_intercepts_low_score`: Low confidence token triggers routing to review queue.
 
 #### Ticket DOC-602: Immutable `CorrectionTriad` Capture & `diesel-cte-ext` Version DAG (`docula-hitl`)
-* **Reference Spec:** [`13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)
+* **Reference Spec:** [`13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md`](13_HUMAN_IN_THE_LOOP_AND_ACTIVE_LEARNING.md)
 * **Single Responsibility:** Record immutable review triads in cold archive, track recursive review audit DAGs via **`diesel-cte-ext`**, and enforce promotion thresholds before updating curated few-shot pool.
 * **Design Pattern:** **Event Sourcing Pattern** & **Recursive Lineage Pattern**.
 * **Acceptance Criteria:**
@@ -371,7 +371,7 @@ docula/
 ### Milestone 7: Advanced Vision: Optical Codes & Visual Region Cropping (`docula-vision-codes`, `docula-preprocess`)
 
 #### Ticket DOC-701: Pure-Rust Optical Code Spatial Detector (`docula-vision-codes`)
-* **Reference Spec:** [`17_OPTICAL_CODE_EXTRACTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/17_OPTICAL_CODE_EXTRACTION.md)
+* **Reference Spec:** [`17_OPTICAL_CODE_EXTRACTION.md`](17_OPTICAL_CODE_EXTRACTION.md)
 * **Single Responsibility:** Detect and decode QR codes, 1D barcodes, and financial optical symbols on rendered images using `rxing` and extract bounding boxes and payloads.
 * **Design Pattern:** **Strategy Pattern** & **Adapter Pattern** (adapting `rxing` results to `docula-core` geometry).
 * **Acceptance Criteria:**
@@ -384,7 +384,7 @@ docula/
   * `test_detect_no_barcode`: Pass plain text image; assert empty result vector without error.
 
 #### Ticket DOC-702: Document Screenshot & `oximedia` Visual Region Cropping Engine (`docula-preprocess`)
-* **Reference Spec:** [`18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)
+* **Reference Spec:** [`18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md`](18_DOCUMENT_SCREENSHOTS_AND_REGION_CROPPING.md)
 * **Single Responsibility:** Implement full-page raster screenshot captures and sub-image ROI cropping (`ImageCrop`) implementing the `RegionCropper` trait using **`oximedia`**.
 * **Design Pattern:** **Strategy Pattern** & **Sub-Image Memory Slicing**.
 * **Acceptance Criteria:**
@@ -402,7 +402,7 @@ docula/
 ### Milestone 8: Developer Surface, Autonomous CLI & Benchmarks (`docula`, `docula-cli`)
 
 #### Ticket DOC-801: High-Level `DoculaPipeline` Facade & Self-Repair Loop (`docula`)
-* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md)
+* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](00_MASTER_SPECIFICATION.md)
 * **Single Responsibility:** Provide `DoculaPipeline` and `extract_structure::<T>()` coordinating ingestion, OCR, LLMs (`candle` / `tract`; `oxillama` and `oxibonsai` were removed due to the 2026-11 licence change), optical codes, visual crops (`oximedia`), validation, and self-repair.
 * **Design Pattern:** **Facade Pattern**, **Typestate Pattern**, and **Template Method (Self-Repair)**.
 * **Acceptance Criteria:**
@@ -414,7 +414,7 @@ docula/
   * `test_end_to_end_contract_with_signature_crop`: Extract metadata and signature `ImageCrop`.
 
 #### Ticket DOC-802: Autonomous Terminal CLI Utility (`docula-cli`)
-* **Reference Spec:** [`01_DEVELOPMENT_PLAN.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/01_DEVELOPMENT_PLAN.md)
+* **Reference Spec:** [`01_DEVELOPMENT_PLAN.md`](01_DEVELOPMENT_PLAN.md)
 * **Single Responsibility:** Implement command-line tool for CLI document extraction, page screenshot generation, and triage queue inspection.
 * **Design Pattern:** **Command Pattern**.
 * **Acceptance Criteria:**
@@ -423,7 +423,7 @@ docula/
   3. Supports `docula crop --input contract.pdf --page 0 --bbox 0.1,0.7,0.4,0.9 --output sig.png`.
 
 #### Ticket DOC-803: `cargo-geiger` Zero-FFI Safety Audit & Criterion Benchmarks
-* **Reference Spec:** [`09_BENCHMARK_AND_COMPARISON.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/09_BENCHMARK_AND_COMPARISON.md)
+* **Reference Spec:** [`09_BENCHMARK_AND_COMPARISON.md`](09_BENCHMARK_AND_COMPARISON.md)
 * **Single Responsibility:** Audit all crates in the workspace to guarantee 0 foreign C libraries linked dynamically and benchmark throughput across KitaSan stack and `diesel-cte-ext`.
 * **Acceptance Criteria:**
   1. `cargo-geiger` verifies 0 non-Rust dynamic links across all 13 crates.
@@ -456,7 +456,7 @@ docula_invoice! {
 ```
 
 #### Ticket DOC-901: Macro-Driven Invoicing & AP Domain Template (`docula-domains`)
-* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md), [`17_OPTICAL_CODE_EXTRACTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/17_OPTICAL_CODE_EXTRACTION.md)
+* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md), [`17_OPTICAL_CODE_EXTRACTION.md`](17_OPTICAL_CODE_EXTRACTION.md)
 * **Single Responsibility:** Provide the `docula_invoice!` macro and standard `InvoiceData` preset, generating composable invoice schemas supporting custom user fields, flexible discount strategies, dynamic arithmetic `DocuValidate` validation, ISO-4217 currency checks, and optical code adapters (SEPA EPC, SAT CFDI, Swiss QR).
 * **Design Pattern:** **Macro Generation Pattern**, **Strategy Pattern** (discount/tax policies), **Policy / Specification Pattern** (`DocuValidate`), and **Adapter Pattern**.
 * **Flexible Domain Configurations:**
@@ -480,7 +480,7 @@ docula_invoice! {
   * `test_invoice_macro_optical_code_adapters`: Validates SEPA EPC, SAT CFDI, and Swiss QR barcode ingestion into generated invoice structs.
 
 #### Ticket DOC-902: Macro-Driven Bank Statement & Reconciliation Template (`docula-domains`)
-* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
+* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
 * **Single Responsibility:** Provide `docula_bank_statement!` macro and `BankStatementData` preset, generating ledger schemas with customizable transaction types, user account metadata, and running balance continuity validation.
 * **Design Pattern:** **Macro Generation Pattern** & **Invariant Verification Pattern**.
 * **Acceptance Criteria:**
@@ -493,7 +493,7 @@ docula_invoice! {
   * `test_bank_statement_custom_metadata`: User-injected tracking fields are parsed and validated.
 
 #### Ticket DOC-903: Macro-Driven Receipt & Expense Normalization Template (`docula-domains`)
-* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
+* **Reference Spec:** [`08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md`](08_INVOICE_AND_GENERIC_SCHEMA_EXAMPLE.md)
 * **Single Responsibility:** Provide `docula_receipt!` macro and `ReceiptData` preset with configurable tip/tax structures, OCR jitter tolerance, and corporate expense tracking fields.
 * **Design Pattern:** **Value Object Pattern**, **Fuzzy Math Tolerance**, and **Macro Generation**.
 * **Acceptance Criteria:**
@@ -505,7 +505,7 @@ docula_invoice! {
   * `test_receipt_custom_expense_fields`: Custom reimbursement metadata compiles and validates.
 
 #### Ticket DOC-904: Macro-Driven Logistics & Shipping Manifest Template (`docula-domains`)
-* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/00_MASTER_SPECIFICATION.md)
+* **Reference Spec:** [`00_MASTER_SPECIFICATION.md`](00_MASTER_SPECIFICATION.md)
 * **Single Responsibility:** Provide `docula_bill_of_lading!` macro and `BillOfLadingData` preset with ISO 6346 shipping container checksum validation and customizable cargo/voyage attributes.
 * **Design Pattern:** **Specification Pattern**, **Checksum Verification**, and **Macro Generation**.
 * **Acceptance Criteria:**
@@ -526,7 +526,7 @@ docula_invoice! {
 Extends `docula` to natively ingest, inspect, and extract structured data from popular office and productivity documents (Excel `.xlsx`, `.csv`, `.tsv`, `.ods`, PowerPoint `.pptx`, `.odp`, Word `.docx`, `.odt`, `.txt`, `.rtf`) using 100% pure Rust, zero-FFI parsing pipelines. Tabular sheets and presentation slides are directly mapped to native 2D spatial layouts (`SpatialSpan`, `PageRoute::BornDigital`) and rendered into synthetic visual raster buffers for region cropping and optical barcode scanning.
 
 #### Ticket DOC-1001: Universal Ofimatic Source Primitives & Format Detection (`docula-core`)
-* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
 * **Single Responsibility:** Provide the `OfficeFormat` domain enum, subtype classifications (Spreadsheet, Presentation, WordProcessing), MIME/extension sniffing, and extend `DocumentSource` to support office bytes and paths.
 * **Design Pattern:** **Value Object Pattern** & **Type Discriminator Pattern**.
 * **Acceptance Criteria:**
@@ -536,7 +536,7 @@ Extends `docula` to natively ingest, inspect, and extract structured data from p
   4. `From<PathBuf>` automatically detects office file formats.
 
 #### Ticket DOC-1002: Pure-Rust OOXML & Delimited Spreadsheet Ingestion (`docula-ingest`)
-* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
 * **Single Responsibility:** Ingest `.xlsx` (OpenXML), `.ods` (OpenDocument), and `.csv`/`.tsv` files, extract workbook sheets and cells, and project them into normalized $[0.0, 1.0]$ spatial spans.
 * **Design Pattern:** **Strategy Pattern** & **Streaming SAX/StAX Parser**.
 * **Acceptance Criteria:**
@@ -547,7 +547,7 @@ Extends `docula` to natively ingest, inspect, and extract structured data from p
   5. Emits `PageRoute::BornDigital` for each spreadsheet sheet.
 
 #### Ticket DOC-1003: Pure-Rust Presentation & Word Document Ingestion (`docula-ingest`)
-* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
 * **Single Responsibility:** Ingest `.pptx` (OpenXML) and `.odp` presentations, and `.docx` (OpenXML), `.odt`, and text documents, mapping slides and paragraphs into spatial spans.
 * **Design Pattern:** **Visitor Pattern** & **Composite Pattern**.
 * **Acceptance Criteria:**
@@ -557,7 +557,7 @@ Extends `docula` to natively ingest, inspect, and extract structured data from p
   4. `OfficeInspector` and `DocumentRouter` dispatch office sources into multi-page routing reports.
 
 #### Ticket DOC-1004: Ofimatic Visual Rasterization & Pipeline Facade Integration (`docula-preprocess`, `docula`)
-* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
+* **Reference Spec:** [`19_OFIMATIC_OFFICE_SUITE_INGESTION.md`](19_OFIMATIC_OFFICE_SUITE_INGESTION.md)
 * **Single Responsibility:** Implement `OfficeRasterizer` using `tiny-skia` to render office sheets and slides into `PageRasterBuffer`, and integrate office ingestion into `DoculaPipeline`.
 * **Design Pattern:** **Facade Pattern** & **Adapter Pattern**.
 * **Acceptance Criteria:**
@@ -571,10 +571,10 @@ Extends `docula` to natively ingest, inspect, and extract structured data from p
 ### Milestone 11: Sovereign Pixmap Architecture & Zero-Image Extirpation via `oxipix` (`docula-core`, `docula-preprocess`, `docula-ocr`, `docula-compliance`, `docula-vision-codes`, `docula-cli`, `docula`)
 
 #### Overview
-Completely extirpates the legacy `image` crate from all workspace crates by integrating the sovereign, zero-copy, hardware-accelerated **`oxipix`** crate ([`docs/oxipix/`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix)). Resolves the two hard architectural boundaries: (1) providing a clean-room, patent-unencumbered ISO/IEC 10918-1 baseline JPEG encoder for `CropFormat::Jpeg`, and (2) migrating `PageRasterBuffer` to a 64-byte aligned, Arc-refcounted `FrameBuffer<Rgba8, Shared>`, unlocking zero-allocation strided ROI sub-views ($0.2\mu\text{s}$) and 100% accelerator saturation (ARM NEON, AVX2/AVX-512, Metal/Vulkan GPU compute) with zero dynamic C linkage.
+Completely extirpates the legacy `image` crate from all workspace crates by integrating the sovereign, zero-copy, hardware-accelerated **`oxipix`** crate ([`docs/oxipix/`](oxipix)). Resolves the two hard architectural boundaries: (1) providing a clean-room, patent-unencumbered ISO/IEC 10918-1 baseline JPEG encoder for `CropFormat::Jpeg`, and (2) migrating `PageRasterBuffer` to a 64-byte aligned, Arc-refcounted `FrameBuffer<Rgba8, Shared>`, unlocking zero-allocation strided ROI sub-views ($0.2\mu\text{s}$) and 100% accelerator saturation (ARM NEON, AVX2/AVX-512, Metal/Vulkan GPU compute) with zero dynamic C linkage.
 
 #### Ticket DOC-1101: Migration of `PageRasterBuffer` to `oxipix::FrameBuffer` & Zero-Copy Sub-View Cropping (`docula-core`, `docula-preprocess`)
-* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
 * **Single Responsibility:** Refactor `PageRasterBuffer` to encapsulate `oxipix::FrameBuffer<Rgba8, Shared>` with 64-byte memory alignment, and implement `crop_view` returning zero-allocation strided `SubPixView`.
 * **Design Pattern:** **Flyweight Pattern**, **Typestate Pattern**, and **Zero-Copy View Pattern**.
 * **Acceptance Criteria:**
@@ -587,7 +587,7 @@ Completely extirpates the legacy `image` crate from all workspace crates by inte
   * `test_crop_view_zero_allocations`: Confirms zero heap allocations when slicing arbitrary bounding boxes.
 
 #### Ticket DOC-1102: Sovereign Patent-Clean JPEG Crop Export via `oxipix` (`docula-preprocess`)
-* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Replace `image::codecs::jpeg` in `crop_to_image_crop` with `oxipix::codecs::jpeg::JpegEncoder`, resolving the KitaSan patent policy boundary without C FFI.
 * **Design Pattern:** **Adapter Pattern** & **Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -600,7 +600,7 @@ Completely extirpates the legacy `image` crate from all workspace crates by inte
   * `test_zero_image_dependency_in_preprocess`: Cargo tree verifies 0 references to `image` in `docula-preprocess`.
 
 #### Ticket DOC-1103: Workspace-Wide Drop of `image` Crate Across `docula-ocr`, `docula-compliance`, `docula-vision-codes`, `docula-cli`
-* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md)
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md)
 * **Single Responsibility:** Remove `image` dependency from `docula-ocr`, `docula-compliance`, `docula-vision-codes`, and `docula-cli`, replacing it with `oxipix` contiguous slices and SIMD views.
 * **Design Pattern:** **Refactoring to Boundary Interfaces** & **In-Place Mutation**.
 * **Acceptance Criteria:**
@@ -613,7 +613,7 @@ Completely extirpates the legacy `image` crate from all workspace crates by inte
   * `test_ocr_direct_slice_consumption`: OCR pipeline executes text recognition directly on `FrameBuffer` slice.
 
 #### Ticket DOC-1104: End-to-End Accelerator Verification & Zero-FFI Geiger Audit (`docula`)
-* **Reference Spec:** [`04_BENCHMARKS_AND_TESTING_SUITE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/04_BENCHMARKS_AND_TESTING_SUITE.md), [`09_BENCHMARK_AND_COMPARISON.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/09_BENCHMARK_AND_COMPARISON.md)
+* **Reference Spec:** [`04_BENCHMARKS_AND_TESTING_SUITE.md`](oxipix/04_BENCHMARKS_AND_TESTING_SUITE.md), [`09_BENCHMARK_AND_COMPARISON.md`](09_BENCHMARK_AND_COMPARISON.md)
 * **Single Responsibility:** Validate hardware accelerator saturation (NEON/AVX-512 vector paths, Metal/Vulkan compute pipelines), verify $\ge 3\times$ speedup, and certify 0 foreign C/C++ dynamic links.
 * **Design Pattern:** **Verification Gate** & **Automated Benchmarking**.
 * **Acceptance Criteria:**

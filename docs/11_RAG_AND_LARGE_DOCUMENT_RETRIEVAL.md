@@ -133,7 +133,7 @@ let answer = retriever.query_verified("What is the total amount?").await?;
 
 ## 7. Cross-Workspace Graph-RAG Architecture: Integration with `embedag-rag`
 
-`docula-rag` integrates directly with sibling crate **`embedag-rag`** via the [`EmbedagGraphRetriever`](file:///Users/yasuomaidana/RustRoverProjects/docula/crates/docula-rag/src/embedag_adapter.rs) adapter (`oxirag` was removed due to the 2026-11 licence change; `VerifiedRagEngine` is used instead).
+`docula-rag` integrates directly with sibling crate **`embedag-rag`** via the [`EmbedagGraphRetriever`](../crates/docula-rag/src/embedag_adapter.rs) adapter (`oxirag` was removed due to the 2026-11 licence change; `VerifiedRagEngine` is used instead).
 
 ```mermaid
 flowchart TD

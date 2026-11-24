@@ -33,7 +33,7 @@ However, enterprise document consumers require JPEG crop exports in `CropFormat:
 `PageRasterBuffer.image: image::RgbaImage` is public API across `docula-preprocess`, `docula-ocr`, `docula-compliance`, `docula-vision-codes`, and `docula-cli`. This leaked the legacy `image` crate throughout the entire workspace, forced unaligned memory buffers (`align_of::<u8>() == 1`), and caused memory re-allocations on every crop via `imageops::crop_imm(...).to_image()`.
 
 ### 1.3 The Resolution: Adopting `oxipix`
-By consuming the newly designed standalone crate **`oxipix`** ([`docs/oxipix/`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix)), `docula` completely extirpates the `image` crate, unlocks 64-byte SIMD cache-line alignment, enables $0.2 \mu\text{s}$ zero-allocation ROI slicing, and provides patent-clean pure-Rust JPEG export.
+By consuming the newly designed standalone crate **`oxipix`** ([`docs/oxipix/`](oxipix)), `docula` completely extirpates the `image` crate, unlocks 64-byte SIMD cache-line alignment, enables $0.2 \mu\text{s}$ zero-allocation ROI slicing, and provides patent-clean pure-Rust JPEG export.
 
 ---
 

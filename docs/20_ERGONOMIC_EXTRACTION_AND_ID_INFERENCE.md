@@ -7,7 +7,7 @@ In sovereign document intelligence pipelines, consumers interact with the extrac
 1. **Engine-Orchestrated Workflow (External ID Available)**:
    - The document is ingested from an asynchronous message bus (Kafka, AWS SQS, RabbitMQ), a relational database, or a workflow orchestrator (Airflow, Temporal).
    - An authoritative tracking identifier (e.g. `order-98721`, `msg-uuid-v7`, `blob-key-4401`) already exists before the pipeline starts.
-   - The consumer requires that this upstream identifier be preserved end-to-end and returned in the resulting [`ExtractionResult`](file:///Users/yasuomaidana/RustRoverProjects/docula/src/pipeline.rs#L113) for auditing and queue routing.
+   - The consumer requires that this upstream identifier be preserved end-to-end and returned in the resulting [`ExtractionResult`](../src/pipeline.rs#L113) for auditing and queue routing.
 
 2. **Developer-Centric / Pure Schema Parsing (Zero Prior Knowledge)**:
    - A developer has a file on disk or an in-memory byte buffer, defines a strongly typed Rust domain struct (e.g. `Invoice<SignaturePayload>`, `Receipt`, `MedicalClaim`), and only wants to parse the document into that structure.
@@ -20,7 +20,7 @@ To support both personas without compromising API cleanliness or type safety, `D
 ## 2. Dual Ingestion Patterns
 
 ### Pattern 1: Explicit Tracking Identifier (`process_document`)
-Use [`DoculaPipeline::process_document`](file:///Users/yasuomaidana/RustRoverProjects/docula/src/pipeline.rs#L236) when the identifier is supplied by an external system:
+Use [`DoculaPipeline::process_document`](../src/pipeline.rs#L236) when the identifier is supplied by an external system:
 
 ```rust
 use docula::{DoculaPipeline, DocumentSource};
@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 ```
 
 ### Pattern 2: Ergonomic Schema Parsing (`process`)
-Use [`DoculaPipeline::process`](file:///Users/yasuomaidana/RustRoverProjects/docula/src/pipeline.rs#L201) when you only have the document source and target struct:
+Use [`DoculaPipeline::process`](../src/pipeline.rs#L201) when you only have the document source and target struct:
 
 ```rust
 use docula::{DoculaPipeline, DocumentSource};
@@ -70,9 +70,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ---
 
-## 3. Deterministic Inference Strategy ([`DocumentSource::infer_document_id`](file:///Users/yasuomaidana/RustRoverProjects/docula/crates/docula-core/src/source.rs#L190))
+## 3. Deterministic Inference Strategy ([`DocumentSource::infer_document_id`](../crates/docula-core/src/source.rs#L190))
 
-The inference strategy is encapsulated within [`docula_core::DocumentSource`](file:///Users/yasuomaidana/RustRoverProjects/docula/crates/docula-core/src/source.rs#L6) and guarantees stability, idempotency, and zero panics:
+The inference strategy is encapsulated within [`docula_core::DocumentSource`](../crates/docula-core/src/source.rs#L6) and guarantees stability, idempotency, and zero panics:
 
 | Source Variant | Inference Rule | Example Input | Resulting `document_id` |
 | :--- | :--- | :--- | :--- |
@@ -101,6 +101,6 @@ The inference strategy is encapsulated within [`docula_core::DocumentSource`](fi
 
 ### Scrum Master Alignment (`/scrum-master-alignment`)
 - **Definition of Done (DoD)**:
-  - Both use cases are verified by automated integration tests ([`tests/ergonomic_pipeline_tests.rs`](file:///Users/yasuomaidana/RustRoverProjects/docula/tests/ergonomic_pipeline_tests.rs)).
-  - Unit tests verify deterministic hash consistency, path stem isolation, and batch handling in [`crates/docula-core/src/source.rs`](file:///Users/yasuomaidana/RustRoverProjects/docula/crates/docula-core/src/source.rs#L270).
-  - CLI consumer in [`crates/docula-cli/src/main.rs`](file:///Users/yasuomaidana/RustRoverProjects/docula/crates/docula-cli/src/main.rs#L113) now leverages `pipeline.process::<GenericDocumentOutput>`, eliminating hardcoded `"cli-doc"` placeholders.
+  - Both use cases are verified by automated integration tests ([`tests/ergonomic_pipeline_tests.rs`](../tests/ergonomic_pipeline_tests.rs)).
+  - Unit tests verify deterministic hash consistency, path stem isolation, and batch handling in [`crates/docula-core/src/source.rs`](../crates/docula-core/src/source.rs#L270).
+  - CLI consumer in [`crates/docula-cli/src/main.rs`](../crates/docula-cli/src/main.rs#L113) now leverages `pipeline.process::<GenericDocumentOutput>`, eliminating hardcoded `"cli-doc"` placeholders.

@@ -54,7 +54,7 @@ gantt
 ### Milestone 1: Unified Memory & Core Primitives
 
 #### Ticket OXI-101: 64-Byte Aligned Storage & `AlignedBuffer`
-* **Reference Spec:** [`00_TECHNICAL_ASSESSMENT.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/00_TECHNICAL_ASSESSMENT.md)
+* **Reference Spec:** [`00_TECHNICAL_ASSESSMENT.md`](00_TECHNICAL_ASSESSMENT.md)
 * **Single Responsibility:** Implement `AlignedBuffer<const ALIGN: usize = 64>` guaranteeing cache-line and vector alignment without unaligned heap penalties.
 * **Design Pattern:** **RAII Pattern** & **Custom Allocator Bridge**.
 * **Acceptance Criteria:**
@@ -67,7 +67,7 @@ gantt
   * `test_aligned_buffer_reallocation_growth`: Verifies memory safety during resizing.
 
 #### Ticket OXI-102: Typestate `FrameBuffer` Primitives
-* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
 * **Single Responsibility:** Implement `FrameBuffer<Format, State>` with typestates `Uninitialized`, `Initialized`, `Shared`.
 * **Design Pattern:** **Typestate Pattern** & **Zero-Sized Types (ZST)**.
 * **Acceptance Criteria:**
@@ -79,7 +79,7 @@ gantt
   * `test_shared_frame_cow_semantics`: Mutating shared frame with ref count > 1 safely clones backing store.
 
 #### Ticket OXI-103: `PixelFormat` Trait & Color Domain Types
-* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
 * **Single Responsibility:** Define zero-cost `PixelFormat` trait and implementations: `Rgba8`, `Rgb8`, `Luma8`, `Bgra8`.
 * **Design Pattern:** **Strategy Pattern** & **Newtype Pattern**.
 * **Acceptance Criteria:**
@@ -90,7 +90,7 @@ gantt
   * `test_bytemuck_cast_safety`: Verify zero-copy transmutation between raw bytes and pixel tuples.
 
 #### Ticket OXI-104: `ZeroizeOnDropFrame` RAII Privacy Wrapper
-* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
 * **Single Responsibility:** Provide safe memory-clearing wrapper that wipes sensitive pixel buffers upon drop.
 * **Design Pattern:** **RAII Pattern** & **Decorator Pattern**.
 * **Acceptance Criteria:**
@@ -104,7 +104,7 @@ gantt
 ### Milestone 2: Sovereign Patent-Clean JPEG Engine
 
 #### Ticket OXI-201: Clean-Room ISO/IEC 10918-1 JFIF Parser & Bitstream Writer
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Implement markers `SOI`, `SOF0`, `DQT`, `DHT`, `SOS`, `EOI` and bitstream packer with zero FFI.
 * **Design Pattern:** **Builder Pattern** & **Streaming BitWriter**.
 * **Acceptance Criteria:**
@@ -116,7 +116,7 @@ gantt
   * `test_byte_stuffing_safety`: Ensures `0xFF` byte emission is correctly stuffed with `0x00`.
 
 #### Ticket OXI-202: Fast Integer AAN Forward DCT & Quantizer
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Implement 8x8 2D Forward DCT using the Arai, Agneche, and Bellas integer algorithm with scaled quantization tables.
 * **Design Pattern:** **Mathematical Factorization** & **Pipeline Pattern**.
 * **Acceptance Criteria:**
@@ -128,7 +128,7 @@ gantt
   * `test_zigzag_reordering`: Validates natural 8x8 order correctly maps to 1D zig-zag array.
 
 #### Ticket OXI-203: Huffman Bitstream Packer & Complete JPEG Encoder
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Implement luminance and chrominance DC/AC Huffman coding and expose `JpegEncoder::encode`.
 * **Design Pattern:** **Facade Pattern** & **Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -144,7 +144,7 @@ gantt
 ### Milestone 3: Multi-Tier Hardware SIMD Dispatch
 
 #### Ticket OXI-301: Dynamic Runtime CPU Feature Detector & Dispatch Trait
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Detect AVX-512, AVX2, and ARM NEON capabilities at runtime, selecting the optimal vector kernel.
 * **Design Pattern:** **Abstract Factory** & **Dynamic Dispatch Table**.
 * **Acceptance Criteria:**
@@ -155,7 +155,7 @@ gantt
   * `test_scalar_fallback_equivalence`: Assert identical pixel results between scalar and vector paths.
 
 #### Ticket OXI-302: ARM NEON 128-bit Vectorized Kernels
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Implement NEON vector instructions for color space conversion and DCT butterflies on Apple Silicon / AArch64.
 * **Design Pattern:** **Vector SIMD Pipeline**.
 * **Acceptance Criteria:**
@@ -165,7 +165,7 @@ gantt
   * `test_neon_color_conversion_accuracy`: Compares NEON RGB->YCbCr output with scalar reference.
 
 #### Ticket OXI-303: x86_64 AVX2 & AVX-512 Vectorized Kernels
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Implement AVX2 (256-bit) and AVX-512 (512-bit) vector kernels using `oximedia-simd`.
 * **Design Pattern:** **Vector SIMD Pipeline**.
 * **Acceptance Criteria:**
@@ -179,7 +179,7 @@ gantt
 ### Milestone 4: Zero-Copy Sub-Views & Spatial Filters
 
 #### Ticket OXI-401: `SubPixView` Strided Zero-Allocation Slicer
-* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
 * **Single Responsibility:** Implement `SubPixView<'a, Format>` providing zero-allocation borrows for arbitrary bounding rectangles.
 * **Design Pattern:** **Flyweight Pattern** & **View Pattern**.
 * **Acceptance Criteria:**
@@ -191,7 +191,7 @@ gantt
   * `test_sub_pix_view_out_of_bounds`: Rectangles exceeding source dimensions return `PixError::OutOfBounds`.
 
 #### Ticket OXI-402: SIMD Color Space Converter (RGBA $\leftrightarrow$ RGB $\leftrightarrow$ YCbCr)
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** High-speed vectorized color conversion between standard formats.
 * **Design Pattern:** **Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -201,7 +201,7 @@ gantt
   * `test_rgba_to_rgb_simd_parity`: Verifies stripped alpha channel matches expected byte pattern.
 
 #### Ticket OXI-403: In-Place Spatial Filter Chain (Adaptive Threshold & Deskew)
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** Implement Otsu, Bradley-Roth adaptive binarization, and bilinear warp deskew directly on `FrameBuffer`.
 * **Design Pattern:** **Pipeline Pattern**.
 * **Acceptance Criteria:**
@@ -215,7 +215,7 @@ gantt
 ### Milestone 5: GPU Unified Memory & Ecosystem Bridges
 
 #### Ticket OXI-501: WGPU / Metal Compute Pipeline Integration
-* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](02_CODEC_AND_ACCELERATOR_ENGINE.md)
 * **Single Responsibility:** GPU hardware acceleration module featuring unified memory zero-copy mapping and compute shaders.
 * **Design Pattern:** **Adapter Pattern** & **Hardware Acceleration Bridge**.
 * **Acceptance Criteria:**
@@ -226,7 +226,7 @@ gantt
   * `test_gpu_compute_fallback`: When GPU is disabled or mock headless, smoothly falls back to Tier 2.
 
 #### Ticket OXI-502: KitaSan `SharedFrame` & `tiny-skia` Interop Bridges
-* **Reference Spec:** [`00_TECHNICAL_ASSESSMENT.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/00_TECHNICAL_ASSESSMENT.md)
+* **Reference Spec:** [`00_TECHNICAL_ASSESSMENT.md`](00_TECHNICAL_ASSESSMENT.md)
 * **Single Responsibility:** Provide zero-cost conversion traits `From` and `Into` for `oximedia_core::frame_sharing::SharedFrame` and `tiny_skia::PixmapMut`.
 * **Design Pattern:** **Adapter Pattern**.
 * **Acceptance Criteria:**
@@ -236,7 +236,7 @@ gantt
   * `test_kitasan_shared_frame_zero_copy`: Pointer address of `SharedFrameBuffer` remains identical in `FrameBuffer`.
 
 #### Ticket OXI-503: Public Facade, Criterion Benchmarks & DoD Audit
-* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](file:///Users/yasuomaidana/RustRoverProjects/docula/docs/oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Reference Spec:** [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
 * **Single Responsibility:** Unify public API, author Criterion benchmark suite, and execute complete Definition of Done verification.
 * **Design Pattern:** **Facade Pattern**.
 * **Acceptance Criteria:**
