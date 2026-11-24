@@ -1,0 +1,36 @@
+name: Native database libraries
+description: >
+  Makes libpq and sqlite3 linkable for Diesel (docula-hitl enables both backends). Linux runners already
+  have them; macOS gets libpq from Homebrew and Windows gets libpq and sqlite3 from vcpkg.
+runs:
+  using: composite
+  steps:
+    - name: Install libpq (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        set -euo pipefail
+        brew install libpq
+        prefix="$(brew --prefix libpq)"
+        # libpq is keg-only: point pq-sys at it explicitly.
+        echo "PQ_LIB_DIR=$prefix/lib" >> "$GITHUB_ENV"
+        echo "PKG_CONFIG_PATH=$prefix/lib/pkgconfig" >> "$GITHUB_ENV"
+
+    - name: Cache vcpkg packages (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/cache@v4
+      with:
+        path: C:\vcpkg\installed
+        key: vcpkg-libpq-sqlite3-x64-windows-v1
+
+    - name: Install libpq and sqlite3 (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        set -euo pipefail
+        vcpkg install libpq:x64-windows sqlite3:x64-windows
+        # The vcpkg crate (used by pq-sys and libsqlite3-sys) finds them through these.
+        echo "VCPKG_ROOT=C:\\vcpkg" >> "$GITHUB_ENV"
+        echo "VCPKGRS_DYNAMIC=1" >> "$GITHUB_ENV"
+        # The DLLs must be on PATH when the test binaries start.
+        echo "C:\\vcpkg\\installed\\x64-windows\\bin" >> "$GITHUB_PATH"

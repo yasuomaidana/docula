@@ -172,7 +172,7 @@ Start with the [Master Architecture Specification](docs/00_MASTER_SPECIFICATION.
 - [14. Edge Compliance & Non-Storing Directives](docs/14_COMPLIANCE_AND_NON_STORING.md)
 - [15. Consumer Configuration & TOML Strategy](docs/15_CONSUMER_CONFIGURATION_AND_TOML.md)
 
-**Related:** the [`oxipix` assessment and roadmap](docs/oxipix/00_TECHNICAL_ASSESSMENT.md), [AGENTS.md](AGENTS.md) for contributor agents, and [DEV_STATUS.md](DEV_STATUS.md) for milestone status.
+**Related:** the [`oxipix` documentation](docs/oxipix/README.md), [AGENTS.md](AGENTS.md) for contributor agents, and [DEV_STATUS.md](DEV_STATUS.md) for milestone status.
 
 ## Build and verify
 
@@ -183,7 +183,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-CI (`.github/workflows/ci.yml`) runs formatting, clippy, complexity metrics, the 500-line and zero-duplication hygiene gate, and a build and test matrix. The `quality gates` workflow (`.github/workflows/quality.yml`) runs `loom-gate` against the limits in [`.github/dendrite/directives.toml`](.github/dendrite/directives.toml): line count, clones, complexity, structure, `rstest` usage and coverage.
+CI (`.github/workflows/ci.yml`) runs formatting, clippy, complexity metrics, the 500-line and zero-duplication hygiene gate, a security audit with no ignored advisories, and the full test suite on Linux, macOS and Windows (stable and beta). The `quality gates` workflow (`.github/workflows/quality.yml`) runs `loom-gate` against the limits in [`.github/dendrite/directives.toml`](.github/dendrite/directives.toml): line count, clones, complexity, structure, `rstest` usage and coverage.
 
 ## License
 

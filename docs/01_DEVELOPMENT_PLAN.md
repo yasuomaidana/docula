@@ -102,12 +102,8 @@ docula/
 │   ├── 19_OFIMATIC_OFFICE_SUITE_INGESTION.md
 │   ├── 20_ERGONOMIC_EXTRACTION_AND_ID_INFERENCE.md
 │   ├── 21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md
-│   └── oxipix/                  # Sovereign Standalone Crate Specification Suite
-│       ├── 00_TECHNICAL_ASSESSMENT.md
-│       ├── 01_ARCHITECTURE_AND_DESIGN_PATTERNS.md
-│       ├── 02_CODEC_AND_ACCELERATOR_ENGINE.md
-│       ├── 03_ROADMAP_AND_MILESTONES.md
-│       └── 04_BENCHMARKS_AND_TESTING_SUITE.md
+│   └── oxipix/                  # Pointer to the published oxipix crate and its documentation
+│       └── README.md
 ├── data/
 │   ├── corrections/            # Tier 1: Cold Storage (Append-only immutable JSONL & DB)
 │   └── examples/               # Tier 2: Curated Few-Shot Pool
@@ -573,7 +569,7 @@ Extends `docula` to natively ingest, inspect, and extract structured data from p
 Completely extirpates the legacy `image` crate from all workspace crates by integrating the sovereign, zero-copy, hardware-accelerated **`oxipix`** crate ([`docs/oxipix/`](oxipix)). Resolves the two hard architectural boundaries: (1) providing a clean-room, patent-unencumbered ISO/IEC 10918-1 baseline JPEG encoder for `CropFormat::Jpeg`, and (2) migrating `PageRasterBuffer` to a 64-byte aligned, Arc-refcounted `FrameBuffer<Rgba8, Shared>`, unlocking zero-allocation strided ROI sub-views ($0.2\mu\text{s}$) and 100% accelerator saturation (ARM NEON, AVX2/AVX-512, Metal/Vulkan GPU compute) with zero dynamic C linkage.
 
 #### Ticket DOC-1101: Migration of `PageRasterBuffer` to `oxipix::FrameBuffer` & Zero-Copy Sub-View Cropping (`docula-core`, `docula-preprocess`)
-* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`01_ARCHITECTURE_AND_DESIGN_PATTERNS.md`](oxipix/01_ARCHITECTURE_AND_DESIGN_PATTERNS.md)
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`oxipix` crate documentation](https://docs.rs/oxipix)
 * **Single Responsibility:** Refactor `PageRasterBuffer` to encapsulate `oxipix::FrameBuffer<Rgba8, Shared>` with 64-byte memory alignment, and implement `crop_view` returning zero-allocation strided `SubPixView`.
 * **Design Pattern:** **Flyweight Pattern**, **Typestate Pattern**, and **Zero-Copy View Pattern**.
 * **Acceptance Criteria:**
@@ -586,7 +582,7 @@ Completely extirpates the legacy `image` crate from all workspace crates by inte
   * `test_crop_view_zero_allocations`: Confirms zero heap allocations when slicing arbitrary bounding boxes.
 
 #### Ticket DOC-1102: Sovereign Patent-Clean JPEG Crop Export via `oxipix` (`docula-preprocess`)
-* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`02_CODEC_AND_ACCELERATOR_ENGINE.md`](oxipix/02_CODEC_AND_ACCELERATOR_ENGINE.md)
+* **Reference Spec:** [`21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md`](21_SOVEREIGN_PIXMAP_AND_ACCELERATOR_EXTIRPATION.md), [`oxipix` crate documentation](https://docs.rs/oxipix)
 * **Single Responsibility:** Replace `image::codecs::jpeg` in `crop_to_image_crop` with `oxipix::codecs::jpeg::JpegEncoder`, resolving the KitaSan patent policy boundary without C FFI.
 * **Design Pattern:** **Adapter Pattern** & **Strategy Pattern**.
 * **Acceptance Criteria:**
@@ -612,7 +608,7 @@ Completely extirpates the legacy `image` crate from all workspace crates by inte
   * `test_ocr_direct_slice_consumption`: OCR pipeline executes text recognition directly on `FrameBuffer` slice.
 
 #### Ticket DOC-1104: End-to-End Accelerator Verification & Zero-FFI Geiger Audit (`docula`)
-* **Reference Spec:** [`04_BENCHMARKS_AND_TESTING_SUITE.md`](oxipix/04_BENCHMARKS_AND_TESTING_SUITE.md), [`09_BENCHMARK_AND_COMPARISON.md`](09_BENCHMARK_AND_COMPARISON.md)
+* **Reference Spec:** [`oxipix` crate documentation](https://docs.rs/oxipix), [`09_BENCHMARK_AND_COMPARISON.md`](09_BENCHMARK_AND_COMPARISON.md)
 * **Single Responsibility:** Validate hardware accelerator saturation (NEON/AVX-512 vector paths, Metal/Vulkan compute pipelines), verify $\ge 3\times$ speedup, and certify 0 foreign C/C++ dynamic links.
 * **Design Pattern:** **Verification Gate** & **Automated Benchmarking**.
 * **Acceptance Criteria:**

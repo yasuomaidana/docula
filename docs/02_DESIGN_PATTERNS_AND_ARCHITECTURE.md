@@ -31,7 +31,7 @@ flowchart TD
 
     subgraph Layer3["Layer 3: Optional 4-Layer RAG, Knowledge Graphs & Exemplars"]
         EXEMPLAR["docula-exemplar<br/>(Dual-Stage Matcher, diesel-cte-ext Lineage, Prompt Builder)"]
-        RAG["docula-rag<br/>(embedag_rag VerifiedRagEngine, oxirs)"]
+        RAG["docula-rag<br/>(embedag_rag VerifiedRagEngine, oxrdf)"]
     end
 
     subgraph Layer4["Layer 4: Active Learning, Recursive Audit & Feedback"]
