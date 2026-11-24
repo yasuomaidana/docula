@@ -183,7 +183,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-CI (`.github/workflows/ci.yml`) runs formatting, clippy, complexity metrics, the 500-line and zero-duplication hygiene gate, and a build and test matrix. The `quality gates` workflow (`.github/workflows/quality.yml`) runs `loom-gate` against the limits in [`.github/dendrite/directives.toml`](.github/dendrite/directives.toml): line count, clones, complexity, structure, `rstest` usage and coverage.
+CI (`.github/workflows/ci.yml`) runs formatting, clippy, complexity metrics, the 500-line and zero-duplication hygiene gate, a security audit with no ignored advisories, and the full test suite on Linux, macOS and Windows (stable and beta). The `quality gates` workflow (`.github/workflows/quality.yml`) runs `loom-gate` against the limits in [`.github/dendrite/directives.toml`](.github/dendrite/directives.toml): line count, clones, complexity, structure, `rstest` usage and coverage.
 
 ## License
 
