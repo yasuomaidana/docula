@@ -136,46 +136,25 @@ enum ContainerState {
     ArrCommaOrClose,
 }
 
-fn handle_open_brace(stack: &mut Vec<ContainerState>) -> bool {
+/// Opens a container whose first state is `child`, if a value is allowed at the current position.
+fn open_container(stack: &mut Vec<ContainerState>, child: ContainerState) -> bool {
     if let Some(top) = stack.last_mut() {
         match top {
-            ContainerState::Value => {
-                *top = ContainerState::CommaOrClose;
-                stack.push(ContainerState::KeyOrClose);
-                true
-            }
-            ContainerState::ArrValueOrClose => {
-                *top = ContainerState::ArrCommaOrClose;
-                stack.push(ContainerState::KeyOrClose);
-                true
-            }
-            _ => false,
+            ContainerState::Value => *top = ContainerState::CommaOrClose,
+            ContainerState::ArrValueOrClose => *top = ContainerState::ArrCommaOrClose,
+            _ => return false,
         }
-    } else {
-        stack.push(ContainerState::KeyOrClose);
-        true
     }
+    stack.push(child);
+    true
+}
+
+fn handle_open_brace(stack: &mut Vec<ContainerState>) -> bool {
+    open_container(stack, ContainerState::KeyOrClose)
 }
 
 fn handle_open_bracket(stack: &mut Vec<ContainerState>) -> bool {
-    if let Some(top) = stack.last_mut() {
-        match top {
-            ContainerState::Value => {
-                *top = ContainerState::CommaOrClose;
-                stack.push(ContainerState::ArrValueOrClose);
-                true
-            }
-            ContainerState::ArrValueOrClose => {
-                *top = ContainerState::ArrCommaOrClose;
-                stack.push(ContainerState::ArrValueOrClose);
-                true
-            }
-            _ => false,
-        }
-    } else {
-        stack.push(ContainerState::ArrValueOrClose);
-        true
-    }
+    open_container(stack, ContainerState::ArrValueOrClose)
 }
 
 fn handle_close(stack: &mut Vec<ContainerState>, is_brace: bool) -> bool {

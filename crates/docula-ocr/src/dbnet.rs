@@ -1,6 +1,7 @@
 use crate::error::OcrError;
 use docula_core::{BoundingBox, Point, Polygon};
-use image::{GrayImage, Luma, RgbaImage};
+use docula_preprocess::{compute_otsu_level, rgba_to_grayscale};
+use image::{GrayImage, RgbaImage};
 
 /// Detected text polygon and bounding box from the DBNet stage.
 #[derive(Clone, Debug, PartialEq)]
@@ -53,8 +54,8 @@ impl DbNetDetector {
             return Err(OcrError::EmptyImage { width, height });
         }
 
-        let gray = Self::rgba_to_grayscale(image);
-        let otsu = Self::compute_otsu_level(&gray);
+        let gray = rgba_to_grayscale(image);
+        let otsu = compute_otsu_level(&gray);
         let threshold = otsu.max(128);
 
         let dark_count = gray.pixels().filter(|p| p[0] <= threshold).count();
@@ -68,63 +69,6 @@ impl DbNetDetector {
         Self::sort_detections(&mut detections);
 
         Ok(detections)
-    }
-
-    /// Computes the Otsu clustering threshold for an 8bpp grayscale buffer.
-    fn compute_otsu_level(gray: &GrayImage) -> u8 {
-        let mut histogram = [0u32; 256];
-        for pixel in gray.pixels() {
-            histogram[pixel[0] as usize] += 1;
-        }
-
-        let total = (gray.width() * gray.height()) as f64;
-        let mut sum = 0.0;
-        for (i, &count) in histogram.iter().enumerate() {
-            sum += (i as f64) * (count as f64);
-        }
-
-        let mut sum_b = 0.0;
-        let mut w_b = 0.0;
-        let mut max_variance = 0.0;
-        let mut threshold = 128u8;
-
-        for (t, &count) in histogram.iter().enumerate() {
-            w_b += count as f64;
-            if w_b == 0.0 {
-                continue;
-            }
-            let w_f = total - w_b;
-            if w_f == 0.0 {
-                break;
-            }
-
-            sum_b += (t as f64) * (count as f64);
-            let m_b = sum_b / w_b;
-            let m_f = (sum - sum_b) / w_f;
-
-            let var_between = w_b * w_f * (m_b - m_f) * (m_b - m_f);
-            if var_between > max_variance {
-                max_variance = var_between;
-                threshold = t as u8;
-            }
-        }
-
-        threshold
-    }
-
-    /// Converts RGBA image into an 8bpp grayscale buffer using standard luminance.
-    fn rgba_to_grayscale(image: &RgbaImage) -> GrayImage {
-        let (width, height) = image.dimensions();
-        let mut gray = GrayImage::new(width, height);
-        for y in 0..height {
-            for x in 0..width {
-                let p = image.get_pixel(x, y);
-                let luma =
-                    (u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000;
-                gray.put_pixel(x, y, Luma([luma as u8]));
-            }
-        }
-        gray
     }
 
     /// Extracts connected components exceeding minimum area threshold.

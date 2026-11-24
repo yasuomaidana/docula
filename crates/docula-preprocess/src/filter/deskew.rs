@@ -1,7 +1,7 @@
 use super::ImageFilter;
-use super::binarize::compute_otsu_level;
+use super::binarize::{compute_otsu_level, rgba_to_grayscale};
 use crate::error::PreprocessError;
-use image::{GrayImage, Luma, RgbaImage};
+use image::RgbaImage;
 use oximedia_cv::hough_transform::{HoughLineConfig, hough_lines};
 use oximedia_cv::transform::{AffineTransform, warp_affine_image};
 use std::collections::HashMap;
@@ -86,16 +86,7 @@ impl HoughDeskewFilter {
             });
         }
 
-        // Convert to grayscale
-        let mut gray = GrayImage::new(width, height);
-        for y in 0..height {
-            for x in 0..width {
-                let p = img.get_pixel(x, y);
-                let luma =
-                    (u32::from(p[0]) * 299 + u32::from(p[1]) * 587 + u32::from(p[2]) * 114) / 1000;
-                gray.put_pixel(x, y, Luma([luma as u8]));
-            }
-        }
+        let gray = rgba_to_grayscale(img);
 
         // Extract foreground text/ruling pixels via Otsu thresholding
         let level = compute_otsu_level(&gray);

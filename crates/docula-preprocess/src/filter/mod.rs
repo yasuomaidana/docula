@@ -18,7 +18,7 @@ pub mod oximedia;
 pub mod preprocessed;
 pub mod resize;
 
-pub use binarize::AdaptiveBinarizeFilter;
+pub use binarize::{AdaptiveBinarizeFilter, compute_otsu_level, rgba_to_grayscale};
 pub use chain::PreprocessingFilterChain;
 pub use deskew::HoughDeskewFilter;
 pub use oximedia::{

@@ -31,7 +31,7 @@ pub use filter::{
     MorphologyOp, MorphologyShape, OxiMediaClaheFilter, OxiMediaDenoiseFilter, OxiMediaFilter,
     OxiMediaLensUndistortFilter, OxiMediaMotionDeblurFilter, OxiMediaPerspectiveDewarpFilter,
     OxiMediaStitcher, PreprocessedImage, PreprocessingFilterChain, ResizeMode, SimdResizeFilter,
-    UnsharpMaskConfig,
+    UnsharpMaskConfig, compute_otsu_level, rgba_to_grayscale,
 };
 pub use office_raster::OfficeRasterizer;
 pub use raster::{DocumentVisualExtractor, PdfRegionCropper, Rasterizer, TinySkiaRasterizer};

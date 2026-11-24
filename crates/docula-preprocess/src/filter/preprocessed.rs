@@ -1,4 +1,4 @@
-use image::{GrayImage, Luma, RgbaImage};
+use image::{GrayImage, RgbaImage};
 
 /// Normalized preprocessing artifact containing processed pixel buffers and OCR tensors.
 ///
@@ -41,19 +41,7 @@ impl PreprocessedImage {
         let scale_factor_x = width as f32 / orig_w_safe;
         let scale_factor_y = height as f32 / orig_h_safe;
 
-        // Convert to grayscale 8bpp buffer
-        let mut gray_buffer = GrayImage::new(width, height);
-        for y in 0..height {
-            for x in 0..width {
-                let pixel = processed.get_pixel(x, y);
-                // Standard Rec. 601 luminance
-                let luma = (u32::from(pixel[0]) * 299
-                    + u32::from(pixel[1]) * 587
-                    + u32::from(pixel[2]) * 114)
-                    / 1000;
-                gray_buffer.put_pixel(x, y, Luma([luma as u8]));
-            }
-        }
+        let gray_buffer = super::binarize::rgba_to_grayscale(&processed);
 
         // Build planar [1, 3, H, W] normalized float tensor in [0.0, 1.0]
         let num_pixels = (width as usize) * (height as usize);

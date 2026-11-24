@@ -19,11 +19,30 @@ pub trait PromotionPolicy: Send + Sync {
     ) -> bool;
 
     /// Transforms a validated `CorrectionTriad` into a curated `TemplatePair`.
+    ///
+    /// The default copies the triad's metadata, OCR layout and corrected ground truth; override it
+    /// to enrich or redact the exemplar before it enters the pool.
     fn promote(
         &self,
         triad: &CorrectionTriad,
         document_type: &str,
-    ) -> Result<TemplatePair, HitlError>;
+    ) -> Result<TemplatePair, HitlError> {
+        let metadata = ExemplarMetadata {
+            exemplar_id: format!("promoted_{}", triad.triad_id),
+            vendor_name: triad.metadata.vendor_id.clone(),
+            vendor_tax_id: triad.metadata.vendor_id.clone(),
+            document_type: document_type.to_string(),
+            layout_fingerprint: triad.metadata.layout_fingerprint,
+            created_at_unix: triad.metadata.captured_at.timestamp().max(0) as u64,
+        };
+
+        Ok(TemplatePair {
+            metadata,
+            source_artifact_path: None,
+            spatial_layout: triad.intermediate_ocr_layout.clone(),
+            ground_truth_json: triad.ground_truth_corrected.clone(),
+        })
+    }
 }
 
 /// Generic threshold-based promotion policy allowing developers to configure
@@ -68,27 +87,5 @@ impl PromotionPolicy for ThresholdPromotionPolicy {
             .any(|t| t.metadata.layout_fingerprint == triad.metadata.layout_fingerprint);
 
         !is_duplicate
-    }
-
-    fn promote(
-        &self,
-        triad: &CorrectionTriad,
-        document_type: &str,
-    ) -> Result<TemplatePair, HitlError> {
-        let metadata = ExemplarMetadata {
-            exemplar_id: format!("promoted_{}", triad.triad_id),
-            vendor_name: triad.metadata.vendor_id.clone(),
-            vendor_tax_id: triad.metadata.vendor_id.clone(),
-            document_type: document_type.to_string(),
-            layout_fingerprint: triad.metadata.layout_fingerprint,
-            created_at_unix: triad.metadata.captured_at.timestamp().max(0) as u64,
-        };
-
-        Ok(TemplatePair {
-            metadata,
-            source_artifact_path: None,
-            spatial_layout: triad.intermediate_ocr_layout.clone(),
-            ground_truth_json: triad.ground_truth_corrected.clone(),
-        })
     }
 }

@@ -11,53 +11,39 @@ use docula_preprocess::filter::PreprocessingFilterChain;
 use docula_schema::DocuValidate;
 use serde::{Serialize, de::DeserializeOwned};
 
+/// Generates the composer-backed stage wrappers: each builds its composer from an optional
+/// config (defaulting when absent) and runs one method on the input.
+macro_rules! composer_stage {
+    ($(
+        $(#[$doc:meta])*
+        $name:ident($input:ident: $input_ty:ty, $config_ty:ty)
+            => $composer:ident::$method:ident -> $output:ty;
+    )+) => {$(
+        $(#[$doc])*
+        pub fn $name(
+            &self,
+            $input: $input_ty,
+            config: Option<$config_ty>,
+        ) -> Result<$output, DoculaPipelineError> {
+            Ok($composer::new(config.unwrap_or_default()).$method($input)?)
+        }
+    )+};
+}
+
 impl DoculaPipeline {
-    /// **Stage 1 (Image Merging)**: Merges multiple overlapping page raster buffers into a unified reconstructed canvas.
-    pub fn merge_document_fragments(
-        &self,
-        fragments: &[PageRasterBuffer],
-        config: Option<ReconstructionConfig>,
-    ) -> Result<ReconstructedDocument, DoculaPipelineError> {
-        let reconstructor = DocumentReconstructor::new(config.unwrap_or_default());
-        reconstructor
-            .reconstruct_from_buffers(fragments)
-            .map_err(DoculaPipelineError::Composer)
-    }
-
-    /// **Stage 1 (Image Merging)**: Merges multiple overlapping document sources into a unified reconstructed canvas.
-    pub fn merge_document_source(
-        &self,
-        sources: &[DocumentSource],
-        config: Option<ReconstructionConfig>,
-    ) -> Result<ReconstructedDocument, DoculaPipelineError> {
-        let reconstructor = DocumentReconstructor::new(config.unwrap_or_default());
-        reconstructor
-            .reconstruct_from_sources(sources)
-            .map_err(DoculaPipelineError::Composer)
-    }
-
-    /// **Stage 2 (Instance Segmentation)**: Detects, segments, perspective-rectifies, and fingerprints multiple sub-documents.
-    pub fn segment_multi_documents(
-        &self,
-        parent: &PageRasterBuffer,
-        config: Option<SegmentationConfig>,
-    ) -> Result<Vec<SegmentedSubDocument>, DoculaPipelineError> {
-        let segmenter = MultiDocumentSegmenter::new(config.unwrap_or_default());
-        segmenter
-            .segment_from_buffer(parent)
-            .map_err(DoculaPipelineError::Composer)
-    }
-
-    /// **Stage 2 (Instance Segmentation)**: Detects, segments, perspective-rectifies, and fingerprints multiple sub-documents from source.
-    pub fn segment_multi_document_source(
-        &self,
-        source: &DocumentSource,
-        config: Option<SegmentationConfig>,
-    ) -> Result<Vec<SegmentedSubDocument>, DoculaPipelineError> {
-        let segmenter = MultiDocumentSegmenter::new(config.unwrap_or_default());
-        segmenter
-            .segment_from_source(source)
-            .map_err(DoculaPipelineError::Composer)
+    composer_stage! {
+        /// **Stage 1 (Image Merging)**: Merges multiple overlapping page raster buffers into a unified reconstructed canvas.
+        merge_document_fragments(fragments: &[PageRasterBuffer], ReconstructionConfig)
+            => DocumentReconstructor::reconstruct_from_buffers -> ReconstructedDocument;
+        /// **Stage 1 (Image Merging)**: Merges multiple overlapping document sources into a unified reconstructed canvas.
+        merge_document_source(sources: &[DocumentSource], ReconstructionConfig)
+            => DocumentReconstructor::reconstruct_from_sources -> ReconstructedDocument;
+        /// **Stage 2 (Instance Segmentation)**: Detects, segments, perspective-rectifies, and fingerprints multiple sub-documents.
+        segment_multi_documents(parent: &PageRasterBuffer, SegmentationConfig)
+            => MultiDocumentSegmenter::segment_from_buffer -> Vec<SegmentedSubDocument>;
+        /// **Stage 2 (Instance Segmentation)**: Detects, segments, perspective-rectifies, and fingerprints multiple sub-documents from source.
+        segment_multi_document_source(source: &DocumentSource, SegmentationConfig)
+            => MultiDocumentSegmenter::segment_from_source -> Vec<SegmentedSubDocument>;
     }
 
     /// **Stage 3 (Preprocessing)**: Applies a physical restoration filter chain to an in-memory page buffer.

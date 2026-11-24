@@ -225,6 +225,9 @@ impl PageRasterBuffer {
 
 /// Helper function to encode an [`RgbaImage`] into byte representation for the target format.
 pub fn encode_rgba_image(img: &RgbaImage, format: CropFormat) -> Result<Vec<u8>, PreprocessError> {
+    let encoding_error = |e: image::ImageError| PreprocessError::ImageEncodingError {
+        reason: e.to_string(),
+    };
     let mut bytes = Vec::new();
     match format {
         CropFormat::RawRgba => {
@@ -239,9 +242,7 @@ pub fn encode_rgba_image(img: &RgbaImage, format: CropFormat) -> Result<Vec<u8>,
                     img.height(),
                     image::ExtendedColorType::Rgba8,
                 )
-                .map_err(|e| PreprocessError::ImageEncodingError {
-                    reason: e.to_string(),
-                })?;
+                .map_err(encoding_error)?;
         }
         CropFormat::Jpeg { quality } => {
             let rgb = DynamicImage::ImageRgba8(img.clone()).to_rgb8();
@@ -254,9 +255,7 @@ pub fn encode_rgba_image(img: &RgbaImage, format: CropFormat) -> Result<Vec<u8>,
                     rgb.height(),
                     image::ExtendedColorType::Rgb8,
                 )
-                .map_err(|e| PreprocessError::ImageEncodingError {
-                    reason: e.to_string(),
-                })?;
+                .map_err(encoding_error)?;
         }
         CropFormat::WebP => {
             return Err(PreprocessError::ImageEncodingError {

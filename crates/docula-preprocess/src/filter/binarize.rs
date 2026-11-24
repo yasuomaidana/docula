@@ -56,6 +56,20 @@ impl AdaptiveBinarizeFilter {
     }
 }
 
+/// Converts an RGBA image into an 8bpp grayscale buffer using Rec. 601 luminance.
+#[must_use]
+pub fn rgba_to_grayscale(img: &RgbaImage) -> GrayImage {
+    let (width, height) = img.dimensions();
+    let mut gray = GrayImage::new(width, height);
+    for (x, y, pixel) in img.enumerate_pixels() {
+        let luma =
+            (u32::from(pixel[0]) * 299 + u32::from(pixel[1]) * 587 + u32::from(pixel[2]) * 114)
+                / 1000;
+        gray.put_pixel(x, y, Luma([luma as u8]));
+    }
+    gray
+}
+
 /// Computes the Otsu optimal bimodal threshold level for a grayscale buffer.
 #[must_use]
 pub fn compute_otsu_level(gray: &GrayImage) -> u8 {
@@ -164,18 +178,7 @@ impl ImageFilter for AdaptiveBinarizeFilter {
             });
         }
 
-        // Convert RGBA to 8bpp grayscale
-        let mut gray = GrayImage::new(width, height);
-        for y in 0..height {
-            for x in 0..width {
-                let pixel = img.get_pixel(x, y);
-                let luma = (u32::from(pixel[0]) * 299
-                    + u32::from(pixel[1]) * 587
-                    + u32::from(pixel[2]) * 114)
-                    / 1000;
-                gray.put_pixel(x, y, Luma([luma as u8]));
-            }
-        }
+        let gray = rgba_to_grayscale(img);
 
         let binary_gray = match self.method {
             BinarizeMethod::Adaptive { block_radius } => {

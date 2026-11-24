@@ -18,6 +18,14 @@ use crate::error::PreprocessError;
 use image::RgbaImage;
 use oxipix::mosaic::{stitch_frames_feathered, stitch_pair_horizontal, stitch_pair_vertical};
 
+/// Wraps a stitching failure as a filter execution error.
+fn stitch_error(error: impl ToString) -> PreprocessError {
+    PreprocessError::FilterExecution {
+        filter: "OxiMediaStitcher",
+        reason: error.to_string(),
+    }
+}
+
 /// Pure-Rust image stitcher utilizing CV mosaic primitives.
 pub struct OxiMediaStitcher;
 
@@ -28,12 +36,7 @@ impl OxiMediaStitcher {
         bottom: &RgbaImage,
         overlap_height: u32,
     ) -> Result<RgbaImage, PreprocessError> {
-        stitch_pair_vertical(top, bottom, overlap_height).map_err(|e| {
-            PreprocessError::FilterExecution {
-                filter: "OxiMediaStitcher",
-                reason: e.to_string(),
-            }
-        })
+        stitch_pair_vertical(top, bottom, overlap_height).map_err(stitch_error)
     }
 
     /// Merges two horizontally overlapping document image sections into a unified canvas.
@@ -42,12 +45,7 @@ impl OxiMediaStitcher {
         right: &RgbaImage,
         overlap_width: u32,
     ) -> Result<RgbaImage, PreprocessError> {
-        stitch_pair_horizontal(left, right, overlap_width).map_err(|e| {
-            PreprocessError::FilterExecution {
-                filter: "OxiMediaStitcher",
-                reason: e.to_string(),
-            }
-        })
+        stitch_pair_horizontal(left, right, overlap_width).map_err(stitch_error)
     }
 
     /// Automatically detects vertical overlap between two consecutive document slices.

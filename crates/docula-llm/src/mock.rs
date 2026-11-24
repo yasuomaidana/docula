@@ -26,9 +26,7 @@ impl MockLlmBackend {
     pub fn with_canned_response(response: impl Into<String>) -> Self {
         Self {
             canned_response: Some(response.into()),
-            bypass_grammar: false,
-            tokens_generated_count: Arc::new(AtomicUsize::new(0)),
-            logits_mask_evaluations: Arc::new(AtomicUsize::new(0)),
+            ..Self::default()
         }
     }
 
@@ -38,8 +36,7 @@ impl MockLlmBackend {
         Self {
             canned_response: Some(response.into()),
             bypass_grammar: true,
-            tokens_generated_count: Arc::new(AtomicUsize::new(0)),
-            logits_mask_evaluations: Arc::new(AtomicUsize::new(0)),
+            ..Self::default()
         }
     }
 
