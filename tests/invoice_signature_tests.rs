@@ -2,7 +2,7 @@ use docula::llm::MockLlmBackend;
 use docula::preprocess::{PageRasterBuffer, VectorizedRegion, VisualRegion};
 use docula::schema::{DocuValidate, ValidationError};
 use docula::{BoundingBox, CropFormat, DoculaPipeline, DocumentSource, ImageCrop};
-use image::GenericImageView;
+use image::{GenericImageView, RgbaImage};
 use rstest::{fixture, rstest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -164,6 +164,27 @@ fn signature_bounding_box() -> BoundingBox {
 }
 
 /// Helper building the common invoice data for tests.
+/// Encodes `image` cropped to `bbox` as a base64 PNG payload.
+fn png_base64(image: &RgbaImage, bbox: BoundingBox) -> String {
+    VisualRegion::new(image.clone(), bbox)
+        .to_image_crop(CropFormat::Png)
+        .unwrap()
+        .encoded_data
+}
+
+/// Asserts a PNG signature payload is non-empty and records `image`'s dimensions.
+fn assert_png_payload(encoded: &str, dimensions: (u32, u32), image: &RgbaImage) {
+    assert!(!encoded.is_empty());
+    assert_eq!(dimensions, image.dimensions());
+}
+
+/// Builds the standard invoice around `signature` and asserts its amounts reconcile.
+fn reconciled_invoice(signature: SignaturePayload) -> Invoice<SignaturePayload> {
+    let invoice = build_base_invoice(signature, 154.06);
+    assert!(invoice.validate_amount_plus_tax_equals_total().is_ok());
+    invoice
+}
+
 fn build_base_invoice<S>(signature: S, total: f64) -> Invoice<S> {
     Invoice {
         merchant: Merchant {
@@ -330,29 +351,20 @@ fn test_signature_variant_mask_only(
     assert_eq!(bow_black as u32, white_pixels);
 
     // Encode mask to PNG base64 for SignaturePayload::Mask via visual_region helper
-    let mask_region = VisualRegion::new(mask.clone(), bbox);
-    let mask_crop = mask_region.to_image_crop(CropFormat::Png).unwrap();
-
-    let signature_variant = SignaturePayload::Mask {
-        mask_png_base64: mask_crop.encoded_data,
+    let invoice = reconciled_invoice(SignaturePayload::Mask {
+        mask_png_base64: png_base64(&mask, bbox),
         width: mask.width(),
         height: mask.height(),
+    });
+    let SignaturePayload::Mask {
+        mask_png_base64,
+        width,
+        height,
+    } = &invoice.signature
+    else {
+        panic!("Expected Mask variant");
     };
-    let invoice = build_base_invoice(signature_variant, 154.06);
-
-    assert!(invoice.validate_amount_plus_tax_equals_total().is_ok());
-    match &invoice.signature {
-        SignaturePayload::Mask {
-            mask_png_base64,
-            width,
-            height,
-        } => {
-            assert!(!mask_png_base64.is_empty());
-            assert_eq!(*width, mask.width());
-            assert_eq!(*height, mask.height());
-        }
-        _ => panic!("Expected Mask variant"),
-    }
+    assert_png_payload(mask_png_base64, (*width, *height), &mask);
 }
 
 #[rstest]
@@ -384,29 +396,20 @@ fn test_signature_variant_grayscale(
     }
 
     // Encode grayscale to PNG base64 for SignaturePayload::Grayscale
-    let gray_region = VisualRegion::new(gray_img.clone(), bbox);
-    let gray_crop = gray_region.to_image_crop(CropFormat::Png).unwrap();
-
-    let signature_variant = SignaturePayload::Grayscale {
-        grayscale_png_base64: gray_crop.encoded_data,
+    let invoice = reconciled_invoice(SignaturePayload::Grayscale {
+        grayscale_png_base64: png_base64(&gray_img, bbox),
         width: gray_img.width(),
         height: gray_img.height(),
+    });
+    let SignaturePayload::Grayscale {
+        grayscale_png_base64,
+        width,
+        height,
+    } = &invoice.signature
+    else {
+        panic!("Expected Grayscale variant");
     };
-    let invoice = build_base_invoice(signature_variant, 154.06);
-
-    assert!(invoice.validate_amount_plus_tax_equals_total().is_ok());
-    match &invoice.signature {
-        SignaturePayload::Grayscale {
-            grayscale_png_base64,
-            width,
-            height,
-        } => {
-            assert!(!grayscale_png_base64.is_empty());
-            assert_eq!(*width, gray_img.width());
-            assert_eq!(*height, gray_img.height());
-        }
-        _ => panic!("Expected Grayscale variant"),
-    }
+    assert_png_payload(grayscale_png_base64, (*width, *height), &gray_img);
 }
 
 #[rstest]

@@ -146,6 +146,45 @@ impl DocuValidate for ItemizedApplication {
     }
 }
 
+fn date(year: i32, month: u32, day: u32) -> NaiveDate {
+    NaiveDate::from_ymd_opt(year, month, day).unwrap()
+}
+
+/// An application with a single employment entry and the standard contact details.
+fn application(
+    start_date: NaiveDate,
+    end_date: Option<NaiveDate>,
+    position_held: &str,
+    reason_for_leaving: Option<ReasonForLeaving>,
+) -> Application {
+    Application {
+        phone_number: "555-0100".to_string(),
+        address: "123 Any Street, Any Town, USA".to_string(),
+        employment_history: vec![EmploymentHistory {
+            start_date,
+            end_date,
+        }],
+        position_held: position_held.to_string(),
+        reason_for_leaving,
+    }
+}
+
+fn record(
+    start_date: NaiveDate,
+    end_date: Option<NaiveDate>,
+    employer_name: &str,
+    position_held: &str,
+    reason_for_leaving: Option<ReasonForLeaving>,
+) -> DetailedEmploymentRecord {
+    DetailedEmploymentRecord {
+        start_date,
+        end_date,
+        employer_name: employer_name.to_string(),
+        position_held: position_held.to_string(),
+        reason_for_leaving,
+    }
+}
+
 #[fixture]
 fn fixture_application_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -311,16 +350,12 @@ async fn test_handwritten_application_prior_job_relocated_reason(
     fixture_application_path: PathBuf,
 ) {
     let path = fixture_application_path;
-    let app_prior = Aplication {
-        phone_number: "555-0100".to_string(),
-        address: "123 Any Street, Any Town, USA".to_string(),
-        employment_history: vec![EmploymentHistory {
-            start_date: NaiveDate::from_ymd_opt(2009, 1, 15).unwrap(),
-            end_date: Some(NaiveDate::from_ymd_opt(2011, 6, 30).unwrap()),
-        }],
-        position_held: "Assistant baker".to_string(),
-        reason_for_leaving: Some(ReasonForLeaving::Relocated),
-    };
+    let app_prior = application(
+        date(2009, 1, 15),
+        Some(date(2011, 6, 30)),
+        "Assistant baker",
+        Some(ReasonForLeaving::Relocated),
+    );
 
     let canned_json = serde_json::to_string(&app_prior).unwrap();
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
@@ -343,16 +378,12 @@ async fn test_handwritten_application_better_op_reason_serialization(
     fixture_application_path: PathBuf,
 ) {
     let path = fixture_application_path;
-    let app = Application {
-        phone_number: "555-0100".to_string(),
-        address: "123 Any Street, Any Town, USA".to_string(),
-        employment_history: vec![EmploymentHistory {
-            start_date: NaiveDate::from_ymd_opt(2011, 7, 1).unwrap(),
-            end_date: Some(NaiveDate::from_ymd_opt(2013, 8, 10).unwrap()),
-        }],
-        position_held: "Baker".to_string(),
-        reason_for_leaving: Some(ReasonForLeaving::BetterOp),
-    };
+    let app = application(
+        date(2011, 7, 1),
+        Some(date(2013, 8, 10)),
+        "Baker",
+        Some(ReasonForLeaving::BetterOp),
+    );
 
     let canned_json = serde_json::to_string(&app).unwrap();
     assert!(canned_json.contains("\"reason_for_leaving\":\"better_op\""));
@@ -415,16 +446,12 @@ async fn test_handwritten_application_chronological_integrity_validation(
     let path = fixture_application_path;
 
     // Inverted chronologic dates: start_date > end_date
-    let inverted_app = Application {
-        phone_number: "555-0100".to_string(),
-        address: "123 Any Street, Any Town, USA".to_string(),
-        employment_history: vec![EmploymentHistory {
-            start_date: NaiveDate::from_ymd_opt(2015, 1, 1).unwrap(),
-            end_date: Some(NaiveDate::from_ymd_opt(2010, 1, 1).unwrap()),
-        }],
-        position_held: "Baker".to_string(),
-        reason_for_leaving: Some(ReasonForLeaving::BetterOp),
-    };
+    let inverted_app = application(
+        date(2015, 1, 1),
+        Some(date(2010, 1, 1)),
+        "Baker",
+        Some(ReasonForLeaving::BetterOp),
+    );
 
     let canned_json = serde_json::to_string(&inverted_app).unwrap();
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
@@ -457,27 +484,21 @@ async fn test_handwritten_application_itemized_table_extraction(fixture_applicat
         phone_number: "555-0100".to_string(),
         address: "123 Any Street, Any Town, USA".to_string(),
         records: vec![
-            DetailedEmploymentRecord {
-                start_date: NaiveDate::from_ymd_opt(2009, 1, 15).unwrap(),
-                end_date: Some(NaiveDate::from_ymd_opt(2011, 6, 30).unwrap()),
-                employer_name: "Any Company".to_string(),
-                position_held: "Assistant baker".to_string(),
-                reason_for_leaving: Some(ReasonForLeaving::Relocated),
-            },
-            DetailedEmploymentRecord {
-                start_date: NaiveDate::from_ymd_opt(2011, 7, 1).unwrap(),
-                end_date: Some(NaiveDate::from_ymd_opt(2013, 8, 10).unwrap()),
-                employer_name: "Example Corp.".to_string(),
-                position_held: "Baker".to_string(),
-                reason_for_leaving: Some(ReasonForLeaving::BetterOp),
-            },
-            DetailedEmploymentRecord {
-                start_date: NaiveDate::from_ymd_opt(2013, 8, 15).unwrap(),
-                end_date: None,
-                employer_name: "AnyCompany".to_string(),
-                position_held: "head baker".to_string(),
-                reason_for_leaving: None,
-            },
+            record(
+                date(2009, 1, 15),
+                Some(date(2011, 6, 30)),
+                "Any Company",
+                "Assistant baker",
+                Some(ReasonForLeaving::Relocated),
+            ),
+            record(
+                date(2011, 7, 1),
+                Some(date(2013, 8, 10)),
+                "Example Corp.",
+                "Baker",
+                Some(ReasonForLeaving::BetterOp),
+            ),
+            record(date(2013, 8, 15), None, "AnyCompany", "head baker", None),
         ],
     };
 

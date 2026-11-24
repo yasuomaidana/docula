@@ -1,6 +1,6 @@
 use docula_domains::{InvoiceData, LineItem, PaymentInfo};
 use docula_schema::DocuValidate;
-use rstest::rstest;
+use rstest::{fixture, rstest};
 
 #[test]
 fn test_invoice_valid_arithmetic_passes() {
@@ -80,6 +80,24 @@ fn test_invoice_line_item_math_fails() {
     assert!(errors.iter().any(|e| e.field_path == "line_items[0].total"));
 }
 
+#[fixture]
+fn blank_invoice() -> InvoiceData {
+    InvoiceData {
+        vendor_name: "Acme Corp".to_string(),
+        vendor_tax_id: None,
+        invoice_number: None,
+        issue_date: "2026-10-12".to_string(),
+        due_date: None,
+        currency: "USD".to_string(),
+        line_items: vec![],
+        subtotal_amount: 0.0,
+        tax_amount: 0.0,
+        discount_amount: None,
+        total_amount: 0.0,
+        payment_info: None,
+    }
+}
+
 #[rstest]
 #[case::lowercase_currency("Acme Corp", "usd", "currency")]
 #[case::blank_vendor_name("   ", "EUR", "vendor_name")]
@@ -87,20 +105,12 @@ fn test_invoice_header_validation_flags_field(
     #[case] vendor_name: &str,
     #[case] currency: &str,
     #[case] flagged_field: &str,
+    #[from(blank_invoice)] base: InvoiceData,
 ) {
     let invoice = InvoiceData {
         vendor_name: vendor_name.to_string(),
-        vendor_tax_id: None,
-        invoice_number: None,
-        issue_date: "2026-10-12".to_string(),
-        due_date: None,
         currency: currency.to_string(),
-        line_items: vec![],
-        subtotal_amount: 0.0,
-        tax_amount: 0.0,
-        discount_amount: None,
-        total_amount: 0.0,
-        payment_info: None,
+        ..base
     };
 
     let errors = invoice
@@ -110,23 +120,17 @@ fn test_invoice_header_validation_flags_field(
 }
 
 #[cfg(feature = "vision-codes")]
-#[test]
-fn test_invoice_sepa_epc_adapter() {
+#[rstest]
+fn test_invoice_sepa_epc_adapter(#[from(blank_invoice)] base: InvoiceData) {
     use docula_vision_codes::types::SepaEpcPayload;
 
     let mut invoice = InvoiceData {
         vendor_name: "Euro Widgets GmbH".to_string(),
-        vendor_tax_id: None,
         invoice_number: Some("INV-990".to_string()),
-        issue_date: "2026-10-12".to_string(),
-        due_date: None,
         currency: "".to_string(),
         line_items: vec![LineItem::new("Item A", 1.0, 450.75)],
         subtotal_amount: 450.75,
-        tax_amount: 0.0,
-        discount_amount: None,
-        total_amount: 0.0,
-        payment_info: None,
+        ..base
     };
 
     let epc = SepaEpcPayload {
@@ -155,23 +159,15 @@ fn test_invoice_sepa_epc_adapter() {
 }
 
 #[cfg(feature = "vision-codes")]
-#[test]
-fn test_invoice_sat_cfdi_adapter() {
+#[rstest]
+fn test_invoice_sat_cfdi_adapter(#[from(blank_invoice)] base: InvoiceData) {
     use docula_vision_codes::types::MexicanSatCfdiPayload;
 
     let mut invoice = InvoiceData {
         vendor_name: "Empresa Mexicana SA de CV".to_string(),
-        vendor_tax_id: None,
-        invoice_number: None,
-        issue_date: "2026-10-12".to_string(),
-        due_date: None,
-        currency: "USD".to_string(),
-        line_items: vec![],
         subtotal_amount: 1000.0,
         tax_amount: 160.0,
-        discount_amount: None,
-        total_amount: 0.0,
-        payment_info: None,
+        ..base
     };
 
     let cfdi = MexicanSatCfdiPayload {
@@ -194,23 +190,15 @@ fn test_invoice_sat_cfdi_adapter() {
 }
 
 #[cfg(feature = "vision-codes")]
-#[test]
-fn test_invoice_swiss_qr_adapter() {
+#[rstest]
+fn test_invoice_swiss_qr_adapter(#[from(blank_invoice)] base: InvoiceData) {
     use docula_vision_codes::types::SwissQrPayload;
 
     let mut invoice = InvoiceData {
         vendor_name: "Schweizer AG".to_string(),
-        vendor_tax_id: None,
-        invoice_number: None,
-        issue_date: "2026-10-12".to_string(),
-        due_date: None,
         currency: "".to_string(),
-        line_items: vec![],
         subtotal_amount: 320.50,
-        tax_amount: 0.0,
-        discount_amount: None,
-        total_amount: 0.0,
-        payment_info: None,
+        ..base
     };
 
     let swiss = SwissQrPayload {
@@ -233,8 +221,8 @@ fn test_invoice_swiss_qr_adapter() {
     assert!(invoice.validate_integrity().is_ok());
 }
 
-#[test]
-fn test_invoice_serde_and_schema_reflection() {
+#[rstest]
+fn test_invoice_serde_and_schema_reflection(#[from(blank_invoice)] base: InvoiceData) {
     let schema = schemars::schema_for!(InvoiceData);
     let schema_json = serde_json::to_string(&schema).expect("valid schema JSON");
     assert!(schema_json.contains("vendor_name"));
@@ -243,17 +231,11 @@ fn test_invoice_serde_and_schema_reflection() {
 
     let invoice = InvoiceData {
         vendor_name: "Test Vendor".to_string(),
-        vendor_tax_id: None,
         invoice_number: Some("INV-1".to_string()),
-        issue_date: "2026-10-12".to_string(),
-        due_date: None,
-        currency: "USD".to_string(),
         line_items: vec![LineItem::new("Item 1", 1.0, 10.0)],
         subtotal_amount: 10.0,
-        tax_amount: 0.0,
-        discount_amount: None,
         total_amount: 10.0,
-        payment_info: None,
+        ..base
     };
 
     let serialized = serde_json::to_string(&invoice).expect("serialization succeeds");

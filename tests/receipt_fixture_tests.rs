@@ -4,6 +4,7 @@ use docula::ocr::{NeuralOcrEngine, OcrEngine};
 use docula::pipeline::DoculaPipelineError;
 use docula::schema::{DocuValidate, ValidationError};
 use docula::{DoculaPipeline, DocumentSource, ExtractionResult};
+use rstest::{fixture, rstest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -142,14 +143,10 @@ where
     pipeline.process::<T>(&source).await
 }
 
-#[tokio::test]
-async fn test_extract_receipt_v2_tonys_pizzeria() {
-    let fixture_name = "receipt-v2.png";
-    let path = fixture_image_path(fixture_name);
-    assert!(path.exists(), "Target fixture receipt-v2.png must exist");
-
-    // Expected target result according to specification
-    let expected_receipt = TicketReceipt {
+/// The receipt printed on `receipt-v2.png`.
+#[fixture]
+fn tonys_pizzeria_receipt() -> TicketReceipt {
+    TicketReceipt {
         date: NaiveDate::from_ymd_opt(2018, 4, 27)
             .unwrap()
             .and_hms_opt(12, 37, 0)
@@ -181,7 +178,17 @@ async fn test_extract_receipt_v2_tonys_pizzeria() {
             amount: 20.0,
         }],
         change: 6.23,
-    };
+    }
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_extract_receipt_v2_tonys_pizzeria(
+    #[from(tonys_pizzeria_receipt)] expected_receipt: TicketReceipt,
+) {
+    let fixture_name = "receipt-v2.png";
+    let path = fixture_image_path(fixture_name);
+    assert!(path.exists(), "Target fixture receipt-v2.png must exist");
 
     let canned_json = serde_json::to_string_pretty(&expected_receipt).unwrap();
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
@@ -259,41 +266,11 @@ async fn test_extract_receipt_v2_tonys_pizzeria() {
     );
 }
 
-#[test]
-fn test_receipt_change_validation_catches_discrepancy() {
-    let mut receipt = TicketReceipt {
-        date: NaiveDate::from_ymd_opt(2018, 4, 27)
-            .unwrap()
-            .and_hms_opt(12, 37, 0)
-            .unwrap(),
-        merchant: "Tony's Pizzeria".to_string(),
-        ticket_id: "401-789-8383".to_string(),
-        ticket_no: 40,
-        customer: Customer {
-            name: None,
-            email: None,
-        },
-        order_taker: "Shannon".to_string(),
-        products: vec![
-            Product {
-                name: "cheese pizza peperoni".to_string(),
-                package: Some("sm".to_string()),
-                quantity: 9.98,
-            },
-            Product {
-                name: "sweetened iced tea fountain".to_string(),
-                package: None,
-                quantity: 2.89,
-            },
-        ],
-        tax: 0.9,
-        total: 13.77,
-        payment: vec![Payment {
-            r#type: "cash".to_string(),
-            amount: 20.0,
-        }],
-        change: 5.00, // Invalid: should be 6.23 (20.0 - 13.77)
-    };
+#[rstest]
+fn test_receipt_change_validation_catches_discrepancy(
+    #[from(tonys_pizzeria_receipt)] mut receipt: TicketReceipt,
+) {
+    receipt.change = 5.00; // Invalid: should be 6.23 (20.0 - 13.77)
 
     let change_result = receipt.validate_change();
     assert!(change_result.is_err(), "Invalid change must be rejected");

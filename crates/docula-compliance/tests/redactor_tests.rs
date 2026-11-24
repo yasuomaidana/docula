@@ -1,6 +1,7 @@
 use docula_compliance::{ActionDirective, CensorPattern, ComplianceRedactor};
 use docula_core::{BoundingBox, SpatialSpan};
 use image::{Rgba, RgbaImage};
+use rstest::rstest;
 
 #[test]
 fn test_blackout_boundary_pixels() {
@@ -73,36 +74,27 @@ fn test_auto_censor_regex_iban() {
     assert_eq!(image.get_pixel(40, 110), &Rgba([255, 255, 255, 255]));
 }
 
-#[test]
-fn test_auto_censor_regex_credit_card() {
+#[rstest]
+#[case::credit_card("4532 1122 3344 5566", (0.1, 0.1, 0.6, 0.3), 0.95, (30, 20))]
+#[case::ssn("987-65-4321", (0.2, 0.2, 0.6, 0.4), 0.99, (35, 30))]
+fn test_auto_censor_regex_pii(
+    #[case] text: &str,
+    #[case] (x0, y0, x1, y1): (f32, f32, f32, f32),
+    #[case] confidence: f32,
+    #[case] probe: (u32, u32),
+) {
     let mut image = RgbaImage::from_pixel(100, 100, Rgba([255, 255, 255, 255]));
     let redactor = ComplianceRedactor::default();
 
-    let bbox_cc = BoundingBox::from_coords_clamped(0.1, 0.1, 0.6, 0.3);
-    let span_cc = SpatialSpan::new("4532 1122 3344 5566".to_string(), bbox_cc, 0, 0.95).unwrap();
+    let bbox = BoundingBox::from_coords_clamped(x0, y0, x1, y1);
+    let span = SpatialSpan::new(text.to_string(), bbox, 0, confidence).unwrap();
 
-    let mut spans = vec![span_cc];
+    let mut spans = vec![span];
     let redacted_count = redactor.auto_censor(&mut image, &mut spans);
 
     assert_eq!(redacted_count, 1);
     assert!(spans.is_empty());
-    assert_eq!(image.get_pixel(30, 20), &Rgba([0, 0, 0, 255]));
-}
-
-#[test]
-fn test_auto_censor_regex_ssn() {
-    let mut image = RgbaImage::from_pixel(100, 100, Rgba([255, 255, 255, 255]));
-    let redactor = ComplianceRedactor::default();
-
-    let bbox_ssn = BoundingBox::from_coords_clamped(0.2, 0.2, 0.6, 0.4);
-    let span_ssn = SpatialSpan::new("987-65-4321".to_string(), bbox_ssn, 0, 0.99).unwrap();
-
-    let mut spans = vec![span_ssn];
-    let redacted_count = redactor.auto_censor(&mut image, &mut spans);
-
-    assert_eq!(redacted_count, 1);
-    assert!(spans.is_empty());
-    assert_eq!(image.get_pixel(35, 30), &Rgba([0, 0, 0, 255]));
+    assert_eq!(image.get_pixel(probe.0, probe.1), &Rgba([0, 0, 0, 255]));
 }
 
 #[test]
