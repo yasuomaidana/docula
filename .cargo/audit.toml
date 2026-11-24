@@ -1,0 +1,26 @@
+# Advisories that no change in this repository can fix: each affected version is required by the
+# latest release of an upstream crate. Remove an entry as soon as an update drops the crate from
+# Cargo.lock. Any advisory not listed here still fails `cargo audit`. Review by 2026-12-24.
+
+[advisories]
+ignore = [
+    # zip 8.6: candle-core 0.11 (docula-llm) loads model archives with it. docula-ingest, which reads
+    # untrusted office files, already uses zip 9 and is not affected.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+    "RUSTSEC-2026-0429",
+    "RUSTSEC-2026-0545",
+    "RUSTSEC-2026-0546",
+    "RUSTSEC-2026-0547",
+    "RUSTSEC-2026-0548",
+    # quick-xml 0.37: oxirs-core 0.4.1 via oxrdfxml (docula-rag).
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+    # crypto-bigint 0.5 and rsa 0.9: oxirs-core 0.4.1 via oxitls (docula-rag); rsa has no fixed release.
+    "RUSTSEC-2026-0387",
+    "RUSTSEC-2023-0071",
+    # libsqlite3-sys 0.38 (bundled C SQLite): diesel 2.3.14 (docula-hitl), the latest release, requires
+    # libsqlite3-sys < 0.39, so the fixed 0.39 cannot be resolved.
+    "RUSTSEC-2026-0459",
+]

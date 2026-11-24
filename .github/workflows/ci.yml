@@ -120,10 +120,23 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run unit & integration tests
+        if: runner.os == 'Linux'
         run: cargo test --all-targets --all-features --verbose
 
       - name: Run documentation tests
+        if: runner.os == 'Linux'
         run: cargo test --doc
+
+      # docula-hitl enables Diesel's sqlite and postgres backends, which link libpq and sqlite3. Only the
+      # Linux runner has them, so macOS and Windows type-check everything and test the crates that
+      # do not link Diesel (docula, docula-cli and docula-hitl are the ones that do).
+      - name: Type-check workspace (macOS, Windows)
+        if: runner.os != 'Linux'
+        run: cargo check --workspace --all-targets
+
+      - name: Run portable tests (macOS, Windows)
+        if: runner.os != 'Linux'
+        run: cargo test --workspace --exclude docula --exclude docula-cli --exclude docula-hitl --all-targets
 
   persistence-integration:
     name: Mandatory Persistent Layer Tests (Testcontainers)
