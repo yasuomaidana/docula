@@ -2991,7 +2991,9 @@ checksum = "454c8301a208c9416e9bbc15573b34ecfa4ad803bf6af41df9338dceea9946ae"
 
 [[package]]
 name = "oxipix"
-version = "0.2.0"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61481971752f611db635a60a239e47feb229d305cd626f4500e851e96a17eb67"
 dependencies = [
  "image",
  "oximedia-cv",

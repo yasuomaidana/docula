@@ -34,7 +34,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clone sibling repositories (oxipix, embedag)
+      - name: Clone sibling repository (embedag)
         uses: ./.github/actions/sibling-repos
 
       - name: Install Rust toolchain
@@ -52,7 +52,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clone sibling repositories (oxipix, embedag)
+      - name: Clone sibling repository (embedag)
         uses: ./.github/actions/sibling-repos
 
       - name: Install Rust toolchain
@@ -108,7 +108,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clone sibling repositories (oxipix, embedag)
+      - name: Clone sibling repository (embedag)
         uses: ./.github/actions/sibling-repos
 
       - name: Install native database libraries
@@ -135,7 +135,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clone sibling repositories (oxipix, embedag)
+      - name: Clone sibling repository (embedag)
         uses: ./.github/actions/sibling-repos
 
       - name: Install Rust toolchain
@@ -159,7 +159,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Clone sibling repositories (oxipix, embedag)
+      - name: Clone sibling repository (embedag)
         uses: ./.github/actions/sibling-repos
 
       - name: Install Rust toolchain
