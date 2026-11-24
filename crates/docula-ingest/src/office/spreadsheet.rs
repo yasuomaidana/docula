@@ -207,7 +207,7 @@ impl SpreadsheetReader {
             let file = archive
                 .by_index(i)
                 .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-            let name = file.name().to_string();
+            let name = String::from_utf8_lossy(file.name_raw()).into_owned();
             if name.starts_with("xl/worksheets/sheet") && name.ends_with(".xml") {
                 sheet_names.push(name);
             }
