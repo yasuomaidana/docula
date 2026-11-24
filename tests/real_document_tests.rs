@@ -140,20 +140,6 @@ fn draw_textured_rows(
     }
 }
 
-/// Paints a solid rectangle.
-fn fill_rect(
-    img: &mut RgbaImage,
-    xs: std::ops::Range<u32>,
-    ys: std::ops::Range<u32>,
-    color: Rgba<u8>,
-) {
-    for y in ys {
-        for x in xs.clone() {
-            img.put_pixel(x, y, color);
-        }
-    }
-}
-
 /// Paints a paper card whose text bands (rows where `y % 16 < 4`) span `text_xs`.
 fn draw_card(
     scene: &mut RgbaImage,

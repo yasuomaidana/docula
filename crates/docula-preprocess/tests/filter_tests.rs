@@ -52,13 +52,13 @@ fn rotate_test_image(img: &RgbaImage, angle_deg: f32) -> RgbaImage {
     )
     .expect("warp should succeed");
 
-    for chunk in warped.as_chunks_mut::<4>().0 {
-        if chunk[3] == 0 {
-            chunk[0] = 255;
-            chunk[1] = 255;
-            chunk[2] = 255;
-            chunk[3] = 255;
-        }
+    for pixel in warped
+        .as_chunks_mut::<4>()
+        .0
+        .iter_mut()
+        .filter(|p| p[3] == 0)
+    {
+        pixel.fill(255);
     }
 
     RgbaImage::from_raw(width, height, warped).expect("valid RgbaImage buffer")

@@ -9,6 +9,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
+#[path = "../crates/docula-vision-codes/tests/common/qr_image.rs"]
+mod qr_image;
+use qr_image::bitmatrix_to_rgba;
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, JsonSchema)]
 struct LineItem {
     description: String,
@@ -137,19 +141,7 @@ async fn test_pipeline_optical_code_enrichment() {
         .encode(epc_payload, &BarcodeFormat::QR_CODE, 200, 200)
         .expect("QR encode");
 
-    let width = bitmatrix.getWidth();
-    let height = bitmatrix.getHeight();
-    let mut img = RgbaImage::new(width, height);
-    for y in 0..height {
-        for x in 0..width {
-            let pixel = if bitmatrix.get(x, y) {
-                Rgba([0, 0, 0, 255])
-            } else {
-                Rgba([255, 255, 255, 255])
-            };
-            img.put_pixel(x, y, pixel);
-        }
-    }
+    let img = bitmatrix_to_rgba(&bitmatrix);
 
     let mut bytes = Vec::new();
     let encoder = image::codecs::png::PngEncoder::new(&mut bytes);

@@ -1,24 +1,10 @@
 use docula_vision_codes::{FinancialQrPayload, OpticalCodeDetector, OpticalCodeType};
-use image::{Rgba, RgbaImage};
-use rxing::{BarcodeFormat, MultiFormatWriter, Writer, common::BitMatrix};
+use image::RgbaImage;
+use rxing::{BarcodeFormat, MultiFormatWriter, Writer};
 
-fn bitmatrix_to_rgba(matrix: &BitMatrix) -> RgbaImage {
-    let width = matrix.getWidth();
-    let height = matrix.getHeight();
-    let mut img = RgbaImage::new(width, height);
-
-    for y in 0..height {
-        for x in 0..width {
-            let pixel = if matrix.get(x, y) {
-                Rgba([0, 0, 0, 255])
-            } else {
-                Rgba([255, 255, 255, 255])
-            };
-            img.put_pixel(x, y, pixel);
-        }
-    }
-    img
-}
+#[path = "common/qr_image.rs"]
+mod qr_image;
+use qr_image::bitmatrix_to_rgba;
 
 #[test]
 fn test_decode_sepa_epc_qr() {

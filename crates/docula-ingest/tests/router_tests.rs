@@ -1,231 +1,153 @@
 use docula_core::DocumentSource;
 use docula_ingest::{DocumentRouter, PageRoute, RouterConfig};
-use lopdf::{Document, Object, Stream, dictionary};
+use lopdf::{Dictionary, Document, Object, ObjectId, Stream, dictionary};
+
+/// Assembles in-memory PDFs page by page.
+struct PdfBuilder {
+    doc: Document,
+    pages_id: ObjectId,
+    kids: Vec<Object>,
+}
+
+impl PdfBuilder {
+    fn new() -> Self {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        Self {
+            doc,
+            pages_id,
+            kids: Vec::new(),
+        }
+    }
+
+    /// Adds a `Type1` Helvetica font object.
+    fn helvetica(&mut self) -> ObjectId {
+        self.doc.add_object(dictionary! {
+            "Type" => "Font",
+            "Subtype" => "Type1",
+            "BaseFont" => "Helvetica",
+            "Encoding" => "WinAnsiEncoding",
+        })
+    }
+
+    /// Adds an uncompressed `size` x `size` RGB image XObject filled with `fill`.
+    fn image(&mut self, size: i64, fill: u8) -> ObjectId {
+        let bytes = vec![fill; (size * size * 3) as usize];
+        self.doc.add_object(Stream::new(
+            dictionary! {
+                "Type" => "XObject",
+                "Subtype" => "Image",
+                "Width" => size,
+                "Height" => size,
+                "ColorSpace" => "DeviceRGB",
+                "BitsPerComponent" => 8,
+            },
+            bytes,
+        ))
+    }
+
+    /// Appends a page drawing `content` with the given `resources`.
+    fn page(&mut self, resources: Dictionary, content: &[u8]) {
+        let resources_id = self.doc.add_object(resources);
+        let content_id = self
+            .doc
+            .add_object(Stream::new(dictionary! {}, content.to_vec()));
+        let page_id = self.doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => self.pages_id,
+            "Contents" => content_id,
+            "Resources" => resources_id,
+            "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+        });
+        self.kids.push(page_id.into());
+    }
+
+    fn finish(mut self) -> Vec<u8> {
+        let count = self.kids.len() as i64;
+        let pages_dict = dictionary! {
+            "Type" => "Pages",
+            "Kids" => self.kids,
+            "Count" => count,
+        };
+        self.doc
+            .set_object(self.pages_id, Object::Dictionary(pages_dict));
+
+        let catalog_id = self.doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => self.pages_id,
+        });
+        self.doc.trailer.set("Root", catalog_id);
+
+        let mut bytes = Vec::new();
+        self.doc.save_to(&mut bytes).expect("save pdf to bytes");
+        bytes
+    }
+}
 
 /// Helper to create a valid single-page born-digital PDF in memory.
 fn create_born_digital_pdf(text: &str) -> Vec<u8> {
-    let mut doc = Document::with_version("1.5");
-    let pages_id = doc.new_object_id();
-
-    let font_id = doc.add_object(dictionary! {
-        "Type" => "Font",
-        "Subtype" => "Type1",
-        "BaseFont" => "Helvetica",
-        "Encoding" => "WinAnsiEncoding",
-    });
-
-    let resources_id = doc.add_object(dictionary! {
-        "Font" => dictionary! {
-            "F1" => font_id,
-        },
-    });
-
-    let content_stream = format!("BT /F1 12 Tf 72 712 Td ({text}) Tj ET");
-    let content_id = doc.add_object(Stream::new(dictionary! {}, content_stream.into_bytes()));
-
-    let page_id = doc.add_object(dictionary! {
-        "Type" => "Page",
-        "Parent" => pages_id,
-        "Contents" => content_id,
-        "Resources" => resources_id,
-        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
-    });
-
-    let pages_dict = dictionary! {
-        "Type" => "Pages",
-        "Kids" => vec![page_id.into()],
-        "Count" => 1,
-    };
-    doc.set_object(pages_id, Object::Dictionary(pages_dict));
-
-    let catalog_id = doc.add_object(dictionary! {
-        "Type" => "Catalog",
-        "Pages" => pages_id,
-    });
-    doc.trailer.set("Root", catalog_id);
-
-    let mut bytes = Vec::new();
-    doc.save_to(&mut bytes).expect("save pdf to bytes");
-    bytes
+    let mut pdf = PdfBuilder::new();
+    let font_id = pdf.helvetica();
+    let content = format!("BT /F1 12 Tf 72 712 Td ({text}) Tj ET");
+    pdf.page(
+        dictionary! { "Font" => dictionary! { "F1" => font_id } },
+        content.as_bytes(),
+    );
+    pdf.finish()
 }
 
 /// Helper to create a scanned PDF (Image XObject only, zero text layer).
 fn create_scanned_image_pdf() -> Vec<u8> {
-    let mut doc = Document::with_version("1.5");
-    let pages_id = doc.new_object_id();
-
-    let image_xobject_id = doc.add_object(Stream::new(
-        dictionary! {
-            "Type" => "XObject",
-            "Subtype" => "Image",
-            "Width" => 200,
-            "Height" => 200,
-            "ColorSpace" => "DeviceRGB",
-            "BitsPerComponent" => 8,
-        },
-        vec![200u8; 120000],
-    ));
-
-    let resources_id = doc.add_object(dictionary! {
-        "XObject" => dictionary! {
-            "Im1" => image_xobject_id,
-        },
-    });
-
-    let content_stream = b"q 200 0 0 200 50 50 cm /Im1 Do Q".to_vec();
-    let content_id = doc.add_object(Stream::new(dictionary! {}, content_stream));
-
-    let page_id = doc.add_object(dictionary! {
-        "Type" => "Page",
-        "Parent" => pages_id,
-        "Contents" => content_id,
-        "Resources" => resources_id,
-        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
-    });
-
-    let pages_dict = dictionary! {
-        "Type" => "Pages",
-        "Kids" => vec![page_id.into()],
-        "Count" => 1,
-    };
-    doc.set_object(pages_id, Object::Dictionary(pages_dict));
-
-    let catalog_id = doc.add_object(dictionary! {
-        "Type" => "Catalog",
-        "Pages" => pages_id,
-    });
-    doc.trailer.set("Root", catalog_id);
-
-    let mut bytes = Vec::new();
-    doc.save_to(&mut bytes).expect("save scanned pdf");
-    bytes
+    let mut pdf = PdfBuilder::new();
+    let image_id = pdf.image(200, 200);
+    pdf.page(
+        dictionary! { "XObject" => dictionary! { "Im1" => image_id } },
+        b"q 200 0 0 200 50 50 cm /Im1 Do Q",
+    );
+    pdf.finish()
 }
 
 /// Helper to create a PDF with a corrupt `/ToUnicode` stream.
 fn create_corrupt_tounicode_pdf() -> Vec<u8> {
-    let mut doc = Document::with_version("1.5");
-    let pages_id = doc.new_object_id();
+    let mut pdf = PdfBuilder::new();
 
     // Stream marked as ToUnicode, but containing broken garbage with no valid CMap markers
-    let corrupt_stream_id = doc.add_object(Stream::new(
+    let corrupt_stream_id = pdf.doc.add_object(Stream::new(
         dictionary! {},
         b"BROKEN_CORRUPTED_STREAM_GARBAGE_NO_CMAP".to_vec(),
     ));
-
-    let font_id = doc.add_object(dictionary! {
+    let font_id = pdf.doc.add_object(dictionary! {
         "Type" => "Font",
         "Subtype" => "Type0",
         "BaseFont" => "CorruptedFont-Identity-H",
         "Encoding" => "Identity-H",
         "ToUnicode" => corrupt_stream_id,
     });
-
-    let resources_id = doc.add_object(dictionary! {
-        "Font" => dictionary! {
-            "F1" => font_id,
-        },
-    });
-
-    let content_stream =
-        b"BT /F1 12 Tf 50 700 Td (Unreadable text due to broken font) Tj ET".to_vec();
-    let content_id = doc.add_object(Stream::new(dictionary! {}, content_stream));
-
-    let page_id = doc.add_object(dictionary! {
-        "Type" => "Page",
-        "Parent" => pages_id,
-        "Contents" => content_id,
-        "Resources" => resources_id,
-        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
-    });
-
-    let pages_dict = dictionary! {
-        "Type" => "Pages",
-        "Kids" => vec![page_id.into()],
-        "Count" => 1,
-    };
-    doc.set_object(pages_id, Object::Dictionary(pages_dict));
-
-    let catalog_id = doc.add_object(dictionary! {
-        "Type" => "Catalog",
-        "Pages" => pages_id,
-    });
-    doc.trailer.set("Root", catalog_id);
-
-    let mut bytes = Vec::new();
-    doc.save_to(&mut bytes).expect("save corrupt tounicode pdf");
-    bytes
+    pdf.page(
+        dictionary! { "Font" => dictionary! { "F1" => font_id } },
+        b"BT /F1 12 Tf 50 700 Td (Unreadable text due to broken font) Tj ET",
+    );
+    pdf.finish()
 }
 
 /// Helper to create a 2-page hybrid PDF (page 0 digital, page 1 scanned).
 fn create_hybrid_pdf() -> Vec<u8> {
-    let mut doc = Document::with_version("1.5");
-    let pages_id = doc.new_object_id();
+    let mut pdf = PdfBuilder::new();
 
     // Page 1: Digital
-    let font_id = doc.add_object(dictionary! {
-        "Type" => "Font",
-        "Subtype" => "Type1",
-        "BaseFont" => "Helvetica",
-        "Encoding" => "WinAnsiEncoding",
-    });
-    let res1_id = doc.add_object(dictionary! {
-        "Font" => dictionary! { "F1" => font_id },
-    });
-    let c1_id = doc.add_object(Stream::new(
-        dictionary! {},
-        b"BT /F1 12 Tf 72 700 Td (Page One Born-Digital Invoice Total $1,250.00) Tj ET".to_vec(),
-    ));
-    let p1_id = doc.add_object(dictionary! {
-        "Type" => "Page",
-        "Parent" => pages_id,
-        "Contents" => c1_id,
-        "Resources" => res1_id,
-        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
-    });
+    let font_id = pdf.helvetica();
+    pdf.page(
+        dictionary! { "Font" => dictionary! { "F1" => font_id } },
+        b"BT /F1 12 Tf 72 700 Td (Page One Born-Digital Invoice Total $1,250.00) Tj ET",
+    );
 
     // Page 2: Scanned Image
-    let img_id = doc.add_object(Stream::new(
-        dictionary! {
-            "Type" => "XObject",
-            "Subtype" => "Image",
-            "Width" => 100,
-            "Height" => 100,
-            "ColorSpace" => "DeviceRGB",
-            "BitsPerComponent" => 8,
-        },
-        vec![128u8; 30000],
-    ));
-    let res2_id = doc.add_object(dictionary! {
-        "XObject" => dictionary! { "Im1" => img_id },
-    });
-    let c2_id = doc.add_object(Stream::new(
-        dictionary! {},
-        b"q 100 0 0 100 50 50 cm /Im1 Do Q".to_vec(),
-    ));
-    let p2_id = doc.add_object(dictionary! {
-        "Type" => "Page",
-        "Parent" => pages_id,
-        "Contents" => c2_id,
-        "Resources" => res2_id,
-        "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
-    });
-
-    let pages_dict = dictionary! {
-        "Type" => "Pages",
-        "Kids" => vec![p1_id.into(), p2_id.into()],
-        "Count" => 2,
-    };
-    doc.set_object(pages_id, Object::Dictionary(pages_dict));
-
-    let catalog_id = doc.add_object(dictionary! {
-        "Type" => "Catalog",
-        "Pages" => pages_id,
-    });
-    doc.trailer.set("Root", catalog_id);
-
-    let mut bytes = Vec::new();
-    doc.save_to(&mut bytes).expect("save hybrid pdf");
-    bytes
+    let image_id = pdf.image(100, 128);
+    pdf.page(
+        dictionary! { "XObject" => dictionary! { "Im1" => image_id } },
+        b"q 100 0 0 100 50 50 cm /Im1 Do Q",
+    );
+    pdf.finish()
 }
 
 #[test]
