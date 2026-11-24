@@ -106,24 +106,42 @@ pub fn validate_line_item(
     }
 }
 
+/// Fails with an error on `field_path` when `actual` differs from `stated` by more than `tolerance`.
+/// `describe` renders the message from the two values.
+pub(crate) fn check_sum_matches(
+    field_path: &str,
+    actual: f64,
+    stated: f64,
+    tolerance: f64,
+    describe: impl FnOnce(f64, f64) -> String,
+) -> Result<(), ValidationError> {
+    if (actual - stated).abs() > tolerance {
+        return Err(ValidationError {
+            field_path: field_path.to_string(),
+            error_message: describe(actual, stated),
+        });
+    }
+    Ok(())
+}
+
 pub fn validate_line_items_sum(
     items: &[LineItem],
     subtotal: f64,
     tolerance: f64,
 ) -> Result<(), ValidationError> {
-    if !items.is_empty() {
-        let items_sum: f64 = items.iter().map(|item| item.total).sum();
-        if (items_sum - subtotal).abs() > tolerance {
-            return Err(ValidationError {
-                field_path: "subtotal_amount".to_string(),
-                error_message: format!(
-                    "Sum of line items ({:.2}) does not match subtotal_amount ({:.2})",
-                    items_sum, subtotal
-                ),
-            });
-        }
+    if items.is_empty() {
+        return Ok(());
     }
-    Ok(())
+    let items_sum: f64 = items.iter().map(|item| item.total).sum();
+    check_sum_matches(
+        "subtotal_amount",
+        items_sum,
+        subtotal,
+        tolerance,
+        |sum, stated| {
+            format!("Sum of line items ({sum:.2}) does not match subtotal_amount ({stated:.2})")
+        },
+    )
 }
 
 pub fn validate_invoice_totals(
@@ -178,81 +196,45 @@ pub fn validate_non_empty_vendor(vendor_name: &str) -> Result<(), ValidationErro
 /// custom user fields, flexible discount strategies, and automatic `DocuValidate` math checks.
 #[macro_export]
 macro_rules! docula_invoice {
+    // Entry: explicit discount policy as the first item of the body.
     (
         $(#[$meta:meta])*
         $vis:vis struct $name:ident {
-            discount_policy = both,
-            $($(#[$field_meta:meta])* $field_vis:vis $field_name:ident : $field_ty:ty),* $(,)?
+            discount_policy = $policy:ident,
+            $($fields:tt)*
         }
     ) => {
-        $crate::docula_invoice!(@internal_emit
-            $(#[$meta])*
-            $vis struct $name {
-                optional_discount: [
-                    #[schemars(description = "Discount deducted from subtotal")]
-                    pub discount_amount: Option<f64>,
-                ],
-                has_discount: true,
-                custom_fields: [$($(#[$field_meta])* $field_vis $field_name : $field_ty),*]
-            }
-        );
+        $crate::docula_invoice!(@policy $policy $(#[$meta])* $vis struct $name { $($fields)* });
     };
 
+    // Entry: no policy given, which behaves like `both`.
     (
         $(#[$meta:meta])*
-        $vis:vis struct $name:ident {
-            discount_policy = invoice,
-            $($(#[$field_meta:meta])* $field_vis:vis $field_name:ident : $field_ty:ty),* $(,)?
-        }
+        $vis:vis struct $name:ident { $($fields:tt)* }
     ) => {
-        $crate::docula_invoice!(@internal_emit
-            $(#[$meta])*
-            $vis struct $name {
-                optional_discount: [
-                    #[schemars(description = "Discount deducted from subtotal")]
-                    pub discount_amount: Option<f64>,
-                ],
-                has_discount: true,
-                custom_fields: [$($(#[$field_meta])* $field_vis $field_name : $field_ty),*]
-            }
-        );
+        $crate::docula_invoice!(@policy both $(#[$meta])* $vis struct $name { $($fields)* });
     };
 
-    (
-        $(#[$meta:meta])*
-        $vis:vis struct $name:ident {
-            discount_policy = line_item,
-            $($(#[$field_meta:meta])* $field_vis:vis $field_name:ident : $field_ty:ty),* $(,)?
-        }
-    ) => {
-        $crate::docula_invoice!(@internal_emit
-            $(#[$meta])*
-            $vis struct $name {
-                optional_discount: [],
-                has_discount: false,
-                custom_fields: [$($(#[$field_meta])* $field_vis $field_name : $field_ty),*]
-            }
-        );
+    // Policies that carry an invoice-level `discount_amount` field.
+    (@policy both $($rest:tt)*) => {
+        $crate::docula_invoice!(@build true [
+            #[schemars(description = "Discount deducted from subtotal")]
+            pub discount_amount: Option<f64>,
+        ] $($rest)*);
+    };
+    (@policy invoice $($rest:tt)*) => {
+        $crate::docula_invoice!(@policy both $($rest)*);
     };
 
-    (
-        $(#[$meta:meta])*
-        $vis:vis struct $name:ident {
-            discount_policy = none,
-            $($(#[$field_meta:meta])* $field_vis:vis $field_name:ident : $field_ty:ty),* $(,)?
-        }
-    ) => {
-        $crate::docula_invoice!(@internal_emit
-            $(#[$meta])*
-            $vis struct $name {
-                optional_discount: [],
-                has_discount: false,
-                custom_fields: [$($(#[$field_meta])* $field_vis $field_name : $field_ty),*]
-            }
-        );
+    // Policies without one (discounts live on the line items or do not exist).
+    (@policy line_item $($rest:tt)*) => {
+        $crate::docula_invoice!(@build false [] $($rest)*);
+    };
+    (@policy none $($rest:tt)*) => {
+        $crate::docula_invoice!(@policy line_item $($rest)*);
     };
 
-    (
+    (@build $has_disc:tt [$($disc:tt)*]
         $(#[$meta:meta])*
         $vis:vis struct $name:ident {
             $($(#[$field_meta:meta])* $field_vis:vis $field_name:ident : $field_ty:ty),* $(,)?
@@ -261,11 +243,8 @@ macro_rules! docula_invoice {
         $crate::docula_invoice!(@internal_emit
             $(#[$meta])*
             $vis struct $name {
-                optional_discount: [
-                    #[schemars(description = "Discount deducted from subtotal")]
-                    pub discount_amount: Option<f64>,
-                ],
-                has_discount: true,
+                optional_discount: [$($disc)*],
+                has_discount: $has_disc,
                 custom_fields: [$($(#[$field_meta])* $field_vis $field_name : $field_ty),*]
             }
         );

@@ -159,19 +159,21 @@ pub fn validate_cargo_weight_sum(
     total_weight: f64,
     tolerance: f64,
 ) -> Result<(), ValidationError> {
-    if !cargo.is_empty() {
-        let items_sum: f64 = cargo.iter().map(|item| item.gross_weight_kg).sum();
-        if (items_sum - total_weight).abs() > tolerance {
-            return Err(ValidationError {
-                field_path: "total_weight_kg".to_string(),
-                error_message: format!(
-                    "Sum of cargo items gross weight ({:.2} kg) does not match total_weight_kg ({:.2} kg)",
-                    items_sum, total_weight
-                ),
-            });
-        }
+    if cargo.is_empty() {
+        return Ok(());
     }
-    Ok(())
+    let items_sum: f64 = cargo.iter().map(|item| item.gross_weight_kg).sum();
+    crate::invoice::check_sum_matches(
+        "total_weight_kg",
+        items_sum,
+        total_weight,
+        tolerance,
+        |sum, stated| {
+            format!(
+                "Sum of cargo items gross weight ({sum:.2} kg) does not match total_weight_kg ({stated:.2} kg)"
+            )
+        },
+    )
 }
 
 // =========================================================================
@@ -184,53 +186,46 @@ pub fn validate_cargo_weight_sum(
 macro_rules! docula_bill_of_lading {
     (
         $(#[$meta:meta])*
-        $vis:vis struct $name:ident {
-            $(
-                $(#[$field_meta:meta])*
-                $field_vis:vis $field_name:ident : $field_ty:ty
-            ),* $(,)?
-        }
+        $vis:vis struct $name:ident { $($custom:tt)* }
     ) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)]
-        $vis struct $name {
-            #[schemars(description = "Bill of Lading tracking or booking identifier")]
-            pub bol_number: String,
+        $crate::docula_schema::__docula_model_struct! {
+            $(#[$meta])*
+            $vis struct $name {
+                #[schemars(description = "Bill of Lading tracking or booking identifier")]
+                pub bol_number: String,
 
-            #[schemars(description = "Ocean or freight carrier line name")]
-            pub carrier_name: String,
+                #[schemars(description = "Ocean or freight carrier line name")]
+                pub carrier_name: String,
 
-            #[schemars(description = "Shipper or consignor name and details")]
-            pub shipper_name: String,
+                #[schemars(description = "Shipper or consignor name and details")]
+                pub shipper_name: String,
 
-            #[schemars(description = "Consignee or recipient entity")]
-            pub consignee_name: String,
+                #[schemars(description = "Consignee or recipient entity")]
+                pub consignee_name: String,
 
-            #[schemars(description = "Commercial vessel or ship name")]
-            pub vessel_name: Option<String>,
+                #[schemars(description = "Commercial vessel or ship name")]
+                pub vessel_name: Option<String>,
 
-            #[schemars(description = "Voyage or route reference number")]
-            pub voyage_number: Option<String>,
+                #[schemars(description = "Voyage or route reference number")]
+                pub voyage_number: Option<String>,
 
-            #[schemars(description = "Port or terminal of origin loading")]
-            pub port_of_loading: String,
+                #[schemars(description = "Port or terminal of origin loading")]
+                pub port_of_loading: String,
 
-            #[schemars(description = "Port or terminal of final discharge")]
-            pub port_of_discharge: String,
+                #[schemars(description = "Port or terminal of final discharge")]
+                pub port_of_discharge: String,
 
-            #[schemars(description = "Assigned shipping containers")]
-            pub containers: Vec<$crate::logistics::ShippingContainer>,
+                #[schemars(description = "Assigned shipping containers")]
+                pub containers: Vec<$crate::logistics::ShippingContainer>,
 
-            #[schemars(description = "Itemized cargo freight breakdown")]
-            pub cargo_items: Vec<$crate::logistics::CargoItem>,
+                #[schemars(description = "Itemized cargo freight breakdown")]
+                pub cargo_items: Vec<$crate::logistics::CargoItem>,
 
-            #[schemars(description = "Total manifest gross weight in kilograms")]
-            pub total_weight_kg: f64,
+                #[schemars(description = "Total manifest gross weight in kilograms")]
+                pub total_weight_kg: f64,
 
-            $(
-                $(#[$field_meta])*
-                $field_vis $field_name: $field_ty,
-            )*
+                $($custom)*
+            }
         }
 
         impl $crate::docula_schema::DocuValidate for $name {

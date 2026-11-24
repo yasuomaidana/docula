@@ -51,30 +51,32 @@ pub struct BankTransaction {
 }
 
 impl BankTransaction {
-    /// Constructs a new credit transaction.
-    #[must_use]
-    pub fn credit(date: impl Into<String>, description: impl Into<String>, amount: f64) -> Self {
+    fn new(
+        transaction_type: TransactionType,
+        date: impl Into<String>,
+        description: impl Into<String>,
+        amount: f64,
+    ) -> Self {
         Self {
             date: date.into(),
             description: description.into(),
             amount: (amount * 100.0).round() / 100.0,
-            transaction_type: TransactionType::Credit,
+            transaction_type,
             reference: None,
             balance_after: None,
         }
     }
 
+    /// Constructs a new credit transaction.
+    #[must_use]
+    pub fn credit(date: impl Into<String>, description: impl Into<String>, amount: f64) -> Self {
+        Self::new(TransactionType::Credit, date, description, amount)
+    }
+
     /// Constructs a new debit transaction.
     #[must_use]
     pub fn debit(date: impl Into<String>, description: impl Into<String>, amount: f64) -> Self {
-        Self {
-            date: date.into(),
-            description: description.into(),
-            amount: (amount * 100.0).round() / 100.0,
-            transaction_type: TransactionType::Debit,
-            reference: None,
-            balance_after: None,
-        }
+        Self::new(TransactionType::Debit, date, description, amount)
     }
 }
 
@@ -118,44 +120,39 @@ pub fn validate_flow_totals(
     total_debits: Option<f64>,
     tolerance: f64,
 ) -> Vec<ValidationError> {
-    let mut errors = Vec::new();
-    let sum_credits: f64 = transactions
-        .iter()
-        .filter(|t| t.transaction_type == TransactionType::Credit)
-        .map(|t| t.amount)
-        .sum();
+    let sum_of = |kind: TransactionType| -> f64 {
+        transactions
+            .iter()
+            .filter(|t| t.transaction_type == kind)
+            .map(|t| t.amount)
+            .sum()
+    };
 
-    let sum_debits: f64 = transactions
-        .iter()
-        .filter(|t| t.transaction_type == TransactionType::Debit)
-        .map(|t| t.amount)
-        .sum();
-
-    if let Some(expected_credits) = total_credits
-        && (sum_credits - expected_credits).abs() > tolerance
-    {
-        errors.push(ValidationError {
-            field_path: "total_credits".to_string(),
-            error_message: format!(
-                "Sum of credit transactions ({:.2}) does not match stated total_credits ({:.2})",
-                sum_credits, expected_credits
-            ),
-        });
-    }
-
-    if let Some(expected_debits) = total_debits
-        && (sum_debits - expected_debits).abs() > tolerance
-    {
-        errors.push(ValidationError {
-            field_path: "total_debits".to_string(),
-            error_message: format!(
-                "Sum of debit transactions ({:.2}) does not match stated total_debits ({:.2})",
-                sum_debits, expected_debits
-            ),
-        });
-    }
-
-    errors
+    [
+        (
+            "credit",
+            "total_credits",
+            total_credits,
+            TransactionType::Credit,
+        ),
+        (
+            "debit",
+            "total_debits",
+            total_debits,
+            TransactionType::Debit,
+        ),
+    ]
+    .into_iter()
+    .filter_map(|(label, field, stated, kind)| {
+        let stated = stated?;
+        crate::invoice::check_sum_matches(field, sum_of(kind), stated, tolerance, |sum, stated| {
+            format!(
+                "Sum of {label} transactions ({sum:.2}) does not match stated {field} ({stated:.2})"
+            )
+        })
+        .err()
+    })
+    .collect()
 }
 
 /// Validates sequential running balance for transactions with `balance_after`.
@@ -199,50 +196,43 @@ pub fn validate_running_balances(
 macro_rules! docula_bank_statement {
     (
         $(#[$meta:meta])*
-        $vis:vis struct $name:ident {
-            $(
-                $(#[$field_meta:meta])*
-                $field_vis:vis $field_name:ident : $field_ty:ty
-            ),* $(,)?
-        }
+        $vis:vis struct $name:ident { $($custom:tt)* }
     ) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)]
-        $vis struct $name {
-            #[schemars(description = "Legal issuing bank or financial institution name")]
-            pub bank_name: String,
+        $crate::docula_schema::__docula_model_struct! {
+            $(#[$meta])*
+            $vis struct $name {
+                #[schemars(description = "Legal issuing bank or financial institution name")]
+                pub bank_name: String,
 
-            #[schemars(description = "Account number or IBAN")]
-            pub account_number: String,
+                #[schemars(description = "Account number or IBAN")]
+                pub account_number: String,
 
-            #[schemars(description = "Statement period start date (YYYY-MM-DD)")]
-            pub statement_period_start: String,
+                #[schemars(description = "Statement period start date (YYYY-MM-DD)")]
+                pub statement_period_start: String,
 
-            #[schemars(description = "Statement period end date (YYYY-MM-DD)")]
-            pub statement_period_end: String,
+                #[schemars(description = "Statement period end date (YYYY-MM-DD)")]
+                pub statement_period_end: String,
 
-            #[schemars(description = "ISO-4217 3-letter currency code (e.g. USD, EUR)")]
-            pub currency: String,
+                #[schemars(description = "ISO-4217 3-letter currency code (e.g. USD, EUR)")]
+                pub currency: String,
 
-            #[schemars(description = "Starting account balance at beginning of period")]
-            pub opening_balance: f64,
+                #[schemars(description = "Starting account balance at beginning of period")]
+                pub opening_balance: f64,
 
-            #[schemars(description = "Ending account balance at close of period")]
-            pub closing_balance: f64,
+                #[schemars(description = "Ending account balance at close of period")]
+                pub closing_balance: f64,
 
-            #[schemars(description = "List of posted transactions within statement period")]
-            pub transactions: Vec<$crate::bank::BankTransaction>,
+                #[schemars(description = "List of posted transactions within statement period")]
+                pub transactions: Vec<$crate::bank::BankTransaction>,
 
-            #[schemars(description = "Total credit inflow amount")]
-            pub total_credits: Option<f64>,
+                #[schemars(description = "Total credit inflow amount")]
+                pub total_credits: Option<f64>,
 
-            #[schemars(description = "Total debit outflow amount")]
-            pub total_debits: Option<f64>,
+                #[schemars(description = "Total debit outflow amount")]
+                pub total_debits: Option<f64>,
 
-            $(
-                $(#[$field_meta])*
-                $field_vis $field_name: $field_ty,
-            )*
+                $($custom)*
+            }
         }
 
         impl $crate::docula_schema::DocuValidate for $name {

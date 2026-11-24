@@ -281,6 +281,22 @@ impl<T> ValidationOutcome<T> {
 // Declarative Macro: docula_model!
 // =========================================================================
 
+/// Emits a model struct with the derives every docula document model carries.
+///
+/// Used by [`docula_model!`] and the domain macros so the derive list lives in one place.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __docula_model_struct {
+    (
+        $(#[$meta:meta])*
+        $vis:vis struct $name:ident { $($body:tt)* }
+    ) => {
+        $(#[$meta])*
+        #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)]
+        $vis struct $name { $($body)* }
+    };
+}
+
 /// Declarative macro for defining custom document models with arbitrary fields
 /// and ergonomic, modular validation assertions.
 #[macro_export]
@@ -296,13 +312,14 @@ macro_rules! docula_model {
         }
         validate($self:ident, $v:ident) $val_body:block
     ) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)]
-        $vis struct $name {
-            $(
-                $(#[$field_meta])*
-                $field_vis $field_name : $field_ty,
-            )*
+        $crate::__docula_model_struct! {
+            $(#[$meta])*
+            $vis struct $name {
+                $(
+                    $(#[$field_meta])*
+                    $field_vis $field_name : $field_ty,
+                )*
+            }
         }
 
         impl $crate::DocuValidate for $name {
@@ -324,13 +341,14 @@ macro_rules! docula_model {
             ),* $(,)?
         }
     ) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)]
-        $vis struct $name {
-            $(
-                $(#[$field_meta])*
-                $field_vis $field_name : $field_ty,
-            )*
+        $crate::__docula_model_struct! {
+            $(#[$meta])*
+            $vis struct $name {
+                $(
+                    $(#[$field_meta])*
+                    $field_vis $field_name : $field_ty,
+                )*
+            }
         }
 
         impl $crate::DocuValidate for $name {

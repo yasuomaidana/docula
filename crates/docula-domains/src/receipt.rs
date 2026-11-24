@@ -127,56 +127,49 @@ pub fn validate_receipt_items_sum(
 macro_rules! docula_receipt {
     (
         $(#[$meta:meta])*
-        $vis:vis struct $name:ident {
-            $(
-                $(#[$field_meta:meta])*
-                $field_vis:vis $field_name:ident : $field_ty:ty
-            ),* $(,)?
-        }
+        $vis:vis struct $name:ident { $($custom:tt)* }
     ) => {
-        $(#[$meta])*
-        #[derive(Clone, Debug, PartialEq, ::serde::Serialize, ::serde::Deserialize, ::schemars::JsonSchema)]
-        $vis struct $name {
-            #[schemars(description = "Merchant or establishment name")]
-            pub merchant_name: String,
+        $crate::docula_schema::__docula_model_struct! {
+            $(#[$meta])*
+            $vis struct $name {
+                #[schemars(description = "Merchant or establishment name")]
+                pub merchant_name: String,
 
-            #[schemars(description = "Merchant tax registration number or VAT ID")]
-            pub merchant_tax_id: Option<String>,
+                #[schemars(description = "Merchant tax registration number or VAT ID")]
+                pub merchant_tax_id: Option<String>,
 
-            #[schemars(description = "Physical address or store location")]
-            pub merchant_address: Option<String>,
+                #[schemars(description = "Physical address or store location")]
+                pub merchant_address: Option<String>,
 
-            #[schemars(description = "Transaction date (YYYY-MM-DD)")]
-            pub transaction_date: String,
+                #[schemars(description = "Transaction date (YYYY-MM-DD)")]
+                pub transaction_date: String,
 
-            #[schemars(description = "Transaction time (HH:MM or HH:MM:SS)")]
-            pub transaction_time: Option<String>,
+                #[schemars(description = "Transaction time (HH:MM or HH:MM:SS)")]
+                pub transaction_time: Option<String>,
 
-            #[schemars(description = "ISO-4217 3-letter currency code (e.g. USD, EUR)")]
-            pub currency: String,
+                #[schemars(description = "ISO-4217 3-letter currency code (e.g. USD, EUR)")]
+                pub currency: String,
 
-            #[schemars(description = "Subtotal before tax and tip")]
-            pub subtotal_amount: Option<f64>,
+                #[schemars(description = "Subtotal before tax and tip")]
+                pub subtotal_amount: Option<f64>,
 
-            #[schemars(description = "Tax or VAT amount")]
-            pub tax_amount: Option<f64>,
+                #[schemars(description = "Tax or VAT amount")]
+                pub tax_amount: Option<f64>,
 
-            #[schemars(description = "Gratuity or tip amount")]
-            pub tip_amount: Option<f64>,
+                #[schemars(description = "Gratuity or tip amount")]
+                pub tip_amount: Option<f64>,
 
-            #[schemars(description = "Grand total paid")]
-            pub total_amount: f64,
+                #[schemars(description = "Grand total paid")]
+                pub total_amount: f64,
 
-            #[schemars(description = "Payment method (e.g. Cash, Visa, Mastercard)")]
-            pub payment_method: Option<String>,
+                #[schemars(description = "Payment method (e.g. Cash, Visa, Mastercard)")]
+                pub payment_method: Option<String>,
 
-            #[schemars(description = "List of purchased items")]
-            pub items: Vec<$crate::receipt::ReceiptItem>,
+                #[schemars(description = "List of purchased items")]
+                pub items: Vec<$crate::receipt::ReceiptItem>,
 
-            $(
-                $(#[$field_meta])*
-                $field_vis $field_name: $field_ty,
-            )*
+                $($custom)*
+            }
         }
 
         impl $crate::docula_schema::DocuValidate for $name {
