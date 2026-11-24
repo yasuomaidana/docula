@@ -1,10 +1,10 @@
+use super::born_digital_routes;
+use super::zipio::read_single_entry;
 use crate::error::IngestError;
 use crate::types::PageRoute;
 use docula_core::{BoundingBox, SpatialSpan, WordSubtype};
 use quick_xml::Reader;
 use quick_xml::events::Event;
-use std::io::{Cursor, Read};
-use zip::ZipArchive;
 
 /// Extracted textual document partitioned into paginated sections.
 #[derive(Clone, Debug, PartialEq)]
@@ -17,14 +17,7 @@ impl WordDocument {
     /// Converts word document pages into born-digital page routes.
     #[must_use]
     pub fn to_page_routes(&self) -> Vec<PageRoute> {
-        self.pages
-            .iter()
-            .enumerate()
-            .map(|(idx, page_spans)| PageRoute::BornDigital {
-                page_index: idx,
-                text_layer: page_spans.clone(),
-            })
-            .collect()
+        born_digital_routes(self.pages.iter().cloned())
     }
 }
 
@@ -34,53 +27,22 @@ pub struct WordProcessingReader;
 impl WordProcessingReader {
     /// Ingests document bytes based on subtype into a [`WordDocument`].
     pub fn read_bytes(subtype: WordSubtype, bytes: &[u8]) -> Result<WordDocument, IngestError> {
-        if bytes.is_empty() {
-            return Err(IngestError::EmptyPayload);
-        }
-
-        match subtype {
-            WordSubtype::Docx => Self::read_docx(bytes),
-            WordSubtype::Odt => Self::read_odt(bytes),
-            WordSubtype::PlainText => Self::read_plain_text(bytes),
-            WordSubtype::Rtf => Self::read_rtf(bytes),
-            WordSubtype::Doc => Err(IngestError::OfficeFormat(
-                "Legacy binary .doc format is deprecated; please convert to .docx or .pdf".into(),
-            )),
-        }
+        dispatch_subtype!(subtype, bytes;
+            WordSubtype::Docx => Self::read_docx,
+            WordSubtype::Odt => Self::read_odt,
+            WordSubtype::PlainText => Self::read_plain_text,
+            WordSubtype::Rtf => Self::read_rtf;
+        WordSubtype::Doc => "Legacy binary .doc format is deprecated; please convert to .docx or .pdf")
     }
 
     /// Parses Microsoft Word OpenXML (`.docx`) ZIP streams.
     pub fn read_docx(bytes: &[u8]) -> Result<WordDocument, IngestError> {
-        let mut archive = ZipArchive::new(Cursor::new(bytes))
-            .map_err(|e| IngestError::OfficeFormat(format!("Failed to open DOCX zip: {e}")))?;
-
-        let mut doc_file = archive.by_name("word/document.xml").map_err(|e| {
-            IngestError::OfficeFormat(format!("DOCX missing word/document.xml: {e}"))
-        })?;
-
-        let mut xml_data = String::new();
-        doc_file
-            .read_to_string(&mut xml_data)
-            .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-
-        parse_docx_xml(&xml_data)
+        parse_docx_xml(&read_single_entry(bytes, "DOCX", "word/document.xml")?)
     }
 
     /// Parses OpenDocument Text (`.odt`) ZIP streams.
     pub fn read_odt(bytes: &[u8]) -> Result<WordDocument, IngestError> {
-        let mut archive = ZipArchive::new(Cursor::new(bytes))
-            .map_err(|e| IngestError::OfficeFormat(format!("Failed to open ODT zip: {e}")))?;
-
-        let mut doc_file = archive
-            .by_name("content.xml")
-            .map_err(|e| IngestError::OfficeFormat(format!("ODT missing content.xml: {e}")))?;
-
-        let mut xml_data = String::new();
-        doc_file
-            .read_to_string(&mut xml_data)
-            .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-
-        parse_odt_xml(&xml_data)
+        parse_odt_xml(&read_single_entry(bytes, "ODT", "content.xml")?)
     }
 
     /// Parses plain text bytes into paginated spatial spans.

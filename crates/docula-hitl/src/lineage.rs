@@ -14,6 +14,33 @@ use diesel::{Connection, RunQueryDsl, dsl::sql, sql_query, sql_types::Integer};
 use diesel_cte_ext::{RecursiveCTEExt, RecursiveParts};
 use serde::{Deserialize, Serialize};
 
+/// Runs `$body` against whichever backend connection the tracker holds, binding it to `$c`.
+macro_rules! on_conn {
+    ($conn:expr, $c:ident => $body:expr) => {
+        match $conn {
+            TrackerConnection::Sqlite(ref mut $c) => $body,
+            TrackerConnection::Postgres(ref mut $c) => $body,
+        }
+    };
+}
+
+/// Loads the ids produced by a recursive CTE (`$method` is `with_recursive` or `with_recursive_not_all`).
+macro_rules! lineage_rows {
+    ($conn:expr, $method:ident, $seed:expr, $step:expr, $body:expr) => {
+        on_conn!($conn, c => c
+            .$method(
+                "lineage",
+                &["id", "parent_id"],
+                RecursiveParts::new(
+                    sql::<Integer>($seed),
+                    sql::<Integer>($step),
+                    sql::<Integer>($body),
+                ),
+            )
+            .load(c)?)
+    };
+}
+
 /// Declarative macro for developers to define custom lineage tables following the Diesel DSL convention.
 ///
 /// # Example
@@ -142,10 +169,7 @@ impl CorrectionLineageTracker {
         config: LineageTableConfig,
     ) -> Result<Self, HitlError> {
         let conn = SqliteConnection::establish(database_url)?;
-        Ok(Self {
-            conn: TrackerConnection::Sqlite(conn),
-            config,
-        })
+        Ok(Self::from_sqlite_connection(conn, config))
     }
 
     /// Establishes a tracker targeting a PostgreSQL server connection with a custom configuration.
@@ -154,10 +178,7 @@ impl CorrectionLineageTracker {
         config: LineageTableConfig,
     ) -> Result<Self, HitlError> {
         let conn = PgConnection::establish(database_url)?;
-        Ok(Self {
-            conn: TrackerConnection::Postgres(conn),
-            config,
-        })
+        Ok(Self::from_postgres_connection(conn, config))
     }
 
     /// Wraps an existing established SQLite connection with a custom table configuration.
@@ -217,14 +238,7 @@ impl CorrectionLineageTracker {
              VALUES ({id}, {parent_val}, '{escaped_item}', '{escaped_author}', '{escaped_patch}')"
         );
 
-        match self.conn {
-            TrackerConnection::Sqlite(ref mut c) => {
-                sql_query(insert_sql).execute(c)?;
-            }
-            TrackerConnection::Postgres(ref mut c) => {
-                sql_query(insert_sql).execute(c)?;
-            }
-        }
+        on_conn!(self.conn, c => sql_query(insert_sql).execute(c)?);
         Ok(())
     }
 
@@ -244,14 +258,7 @@ impl CorrectionLineageTracker {
              VALUES ({id}, {parent_val})"
         );
 
-        match self.conn {
-            TrackerConnection::Sqlite(ref mut c) => {
-                sql_query(insert_sql).execute(c)?;
-            }
-            TrackerConnection::Postgres(ref mut c) => {
-                sql_query(insert_sql).execute(c)?;
-            }
-        }
+        on_conn!(self.conn, c => sql_query(insert_sql).execute(c)?);
         Ok(())
     }
 
@@ -260,6 +267,17 @@ impl CorrectionLineageTracker {
     ///
     /// Returns IDs ordered from closest (target itself) to oldest ancestor (root).
     pub fn get_ancestor_lineage(&mut self, start_id: i32) -> Result<Vec<i32>, HitlError> {
+        self.trace_lineage(start_id, true)
+    }
+
+    /// Recursively traces descendant revisions branching out from the given parent revision
+    /// using `diesel-cte-ext` `with_recursive_not_all` (UNION distinct deduplication).
+    pub fn get_descendant_lineage(&mut self, root_id: i32) -> Result<Vec<i32>, HitlError> {
+        self.trace_lineage(root_id, false)
+    }
+
+    /// Walks the lineage tree from `start_id`, upwards to the root (`ancestors`) or downwards.
+    fn trace_lineage(&mut self, start_id: i32, ancestors: bool) -> Result<Vec<i32>, HitlError> {
         let table = &self.config.table_name;
         let id_col = &self.config.id_column;
         let parent_col = &self.config.parent_id_column;
@@ -267,82 +285,27 @@ impl CorrectionLineageTracker {
         let seed = format!(
             "SELECT {id_col} AS id, {parent_col} AS parent_id FROM {table} WHERE {id_col} = {start_id}"
         );
+        let (join, body) = if ancestors {
+            (
+                format!("r.{id_col} = l.parent_id"),
+                "SELECT id FROM lineage",
+            )
+        } else {
+            (
+                format!("r.{parent_col} = l.id"),
+                "SELECT id FROM lineage ORDER BY id ASC",
+            )
+        };
         let step = format!(
             "SELECT r.{id_col} AS id, r.{parent_col} AS parent_id FROM {table} r \
-             INNER JOIN lineage l ON r.{id_col} = l.parent_id"
+             INNER JOIN lineage l ON {join}"
         );
-        let body = "SELECT id FROM lineage";
 
-        let ancestors: Vec<i32> = match self.conn {
-            TrackerConnection::Sqlite(ref mut c) => c
-                .with_recursive(
-                    "lineage",
-                    &["id", "parent_id"],
-                    RecursiveParts::new(
-                        sql::<Integer>(&seed),
-                        sql::<Integer>(&step),
-                        sql::<Integer>(body),
-                    ),
-                )
-                .load(c)?,
-            TrackerConnection::Postgres(ref mut c) => c
-                .with_recursive(
-                    "lineage",
-                    &["id", "parent_id"],
-                    RecursiveParts::new(
-                        sql::<Integer>(&seed),
-                        sql::<Integer>(&step),
-                        sql::<Integer>(body),
-                    ),
-                )
-                .load(c)?,
-        };
-
-        Ok(ancestors)
-    }
-
-    /// Recursively traces descendant revisions branching out from the given parent revision
-    /// using `diesel-cte-ext` `with_recursive_not_all` (UNION distinct deduplication).
-    pub fn get_descendant_lineage(&mut self, root_id: i32) -> Result<Vec<i32>, HitlError> {
-        let table = &self.config.table_name;
-        let id_col = &self.config.id_column;
-        let parent_col = &self.config.parent_id_column;
-
-        let seed = format!(
-            "SELECT {id_col} AS id, {parent_col} AS parent_id FROM {table} WHERE {id_col} = {root_id}"
-        );
-        let step = format!(
-            "SELECT r.{id_col} AS id, r.{parent_col} AS parent_id FROM {table} r \
-             INNER JOIN lineage l ON r.{parent_col} = l.id"
-        );
-        let body = "SELECT id FROM lineage ORDER BY id ASC";
-
-        let descendants: Vec<i32> = match self.conn {
-            TrackerConnection::Sqlite(ref mut c) => c
-                .with_recursive_not_all(
-                    "lineage",
-                    &["id", "parent_id"],
-                    RecursiveParts::new(
-                        sql::<Integer>(&seed),
-                        sql::<Integer>(&step),
-                        sql::<Integer>(body),
-                    ),
-                )
-                .load(c)?,
-            TrackerConnection::Postgres(ref mut c) => c
-                .with_recursive_not_all(
-                    "lineage",
-                    &["id", "parent_id"],
-                    RecursiveParts::new(
-                        sql::<Integer>(&seed),
-                        sql::<Integer>(&step),
-                        sql::<Integer>(body),
-                    ),
-                )
-                .load(c)?,
-        };
-
-        Ok(descendants)
+        Ok(if ancestors {
+            lineage_rows!(self.conn, with_recursive, &seed, &step, body)
+        } else {
+            lineage_rows!(self.conn, with_recursive_not_all, &seed, &step, body)
+        })
     }
 
     /// Computes the depth of a revision node (distance from the root revision).

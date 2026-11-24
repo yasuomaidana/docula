@@ -73,30 +73,8 @@ impl DocumentRouter {
                     raster_job: RasterJob::new(0, self.config.default_dpi),
                 }]))
             }
-            DocumentSource::BatchImages(batch) => {
-                if batch.is_empty() {
-                    return Err(IngestError::EmptyPayload);
-                }
-                let routes = (0..batch.len())
-                    .map(|idx| PageRoute::NeedsOcr {
-                        page_index: idx,
-                        raster_job: RasterJob::new(idx, self.config.default_dpi),
-                    })
-                    .collect();
-                Ok(DocumentRoutingReport::new(routes))
-            }
-            DocumentSource::BatchFiles(paths) => {
-                if paths.is_empty() {
-                    return Err(IngestError::EmptyPayload);
-                }
-                let routes = (0..paths.len())
-                    .map(|idx| PageRoute::NeedsOcr {
-                        page_index: idx,
-                        raster_job: RasterJob::new(idx, self.config.default_dpi),
-                    })
-                    .collect();
-                Ok(DocumentRoutingReport::new(routes))
-            }
+            DocumentSource::BatchImages(batch) => self.route_batch(batch.len()),
+            DocumentSource::BatchFiles(paths) => self.route_batch(paths.len()),
         }
     }
 
@@ -105,6 +83,20 @@ impl DocumentRouter {
     /// # Errors
     /// Returns [`IngestError::EmptyPayload`] if bytes are empty.
     /// Returns [`IngestError::ParseError`] if PDF binary format is invalid.
+    /// Routes a batch of `count` images or files, each page needing OCR.
+    fn route_batch(&self, count: usize) -> Result<DocumentRoutingReport, IngestError> {
+        if count == 0 {
+            return Err(IngestError::EmptyPayload);
+        }
+        let routes = (0..count)
+            .map(|idx| PageRoute::NeedsOcr {
+                page_index: idx,
+                raster_job: RasterJob::new(idx, self.config.default_dpi),
+            })
+            .collect();
+        Ok(DocumentRoutingReport::new(routes))
+    }
+
     pub fn route_pdf_bytes(&self, bytes: &[u8]) -> Result<DocumentRoutingReport, IngestError> {
         if bytes.is_empty() {
             return Err(IngestError::EmptyPayload);

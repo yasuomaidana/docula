@@ -136,32 +136,23 @@ impl PdfInspector {
         }
     }
 
+    /// Resolves `dict[key]` (following an indirect reference) to a dictionary, if it is one.
+    fn dictionary_entry<'a>(
+        doc: &'a Document,
+        dict: &'a lopdf::Dictionary,
+        key: &[u8],
+    ) -> Option<&'a lopdf::Dictionary> {
+        let entry = dict.get(key).ok()?;
+        doc.dereference(entry).ok()?.1.as_dict().ok()
+    }
+
     /// Inspects whether the page references any `/XObject` with subtype `/Image`.
     fn inspect_embedded_images(doc: &Document, page_dict: &lopdf::Dictionary) -> bool {
-        let resources = match page_dict.get(b"Resources") {
-            Ok(r) => match doc.dereference(r) {
-                Ok((_, obj)) => obj.as_dict().ok(),
-                Err(_) => None,
-            },
-            Err(_) => None,
+        let Some(resources_dict) = Self::dictionary_entry(doc, page_dict, b"Resources") else {
+            return false;
         };
-
-        let resources_dict = match resources {
-            Some(d) => d,
-            None => return false,
-        };
-
-        let xobjects = match resources_dict.get(b"XObject") {
-            Ok(xo) => match doc.dereference(xo) {
-                Ok((_, obj)) => obj.as_dict().ok(),
-                Err(_) => None,
-            },
-            Err(_) => None,
-        };
-
-        let xobject_dict = match xobjects {
-            Some(d) => d,
-            None => return false,
+        let Some(xobject_dict) = Self::dictionary_entry(doc, resources_dict, b"XObject") else {
+            return false;
         };
 
         for (_key, val) in xobject_dict.iter() {

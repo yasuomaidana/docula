@@ -1,10 +1,11 @@
+use super::born_digital_routes;
+use super::zipio::{OfficeArchive, open_archive, read_entry, read_single_entry, xml_entry_names};
 use crate::error::IngestError;
 use crate::types::PageRoute;
 use docula_core::{BoundingBox, SpatialSpan, SpreadsheetSubtype};
 use quick_xml::Reader;
 use quick_xml::events::Event;
 use std::io::{Cursor, Read};
-use zip::ZipArchive;
 
 /// Extracted tabular cell containing text, grid coordinates, and cell reference.
 #[derive(Clone, Debug, PartialEq)]
@@ -99,14 +100,7 @@ impl SpreadsheetWorkbook {
     /// Converts workbook sheets into born-digital page routes.
     #[must_use]
     pub fn to_page_routes(&self) -> Vec<PageRoute> {
-        self.sheets
-            .iter()
-            .enumerate()
-            .map(|(idx, sheet)| PageRoute::BornDigital {
-                page_index: idx,
-                text_layer: sheet.to_spatial_spans(),
-            })
-            .collect()
+        born_digital_routes(self.sheets.iter().map(SpreadsheetSheet::to_spatial_spans))
     }
 }
 
@@ -119,55 +113,27 @@ impl SpreadsheetReader {
         subtype: SpreadsheetSubtype,
         bytes: &[u8],
     ) -> Result<SpreadsheetWorkbook, IngestError> {
-        if bytes.is_empty() {
-            return Err(IngestError::EmptyPayload);
-        }
-
-        match subtype {
-            SpreadsheetSubtype::Csv => Self::read_csv(bytes),
-            SpreadsheetSubtype::Tsv => Self::read_tsv(bytes),
-            SpreadsheetSubtype::Xlsx => Self::read_xlsx(bytes),
-            SpreadsheetSubtype::Ods => Self::read_ods(bytes),
-            SpreadsheetSubtype::Xls => Err(IngestError::OfficeFormat(
-                "Legacy binary .xls format is deprecated; please convert to .xlsx or .csv".into(),
-            )),
-        }
+        dispatch_subtype!(subtype, bytes;
+            SpreadsheetSubtype::Csv => Self::read_csv,
+            SpreadsheetSubtype::Tsv => Self::read_tsv,
+            SpreadsheetSubtype::Xlsx => Self::read_xlsx,
+            SpreadsheetSubtype::Ods => Self::read_ods;
+        SpreadsheetSubtype::Xls => "Legacy binary .xls format is deprecated; please convert to .xlsx or .csv")
     }
 
     /// Parses RFC 4180 CSV byte streams.
     pub fn read_csv(bytes: &[u8]) -> Result<SpreadsheetWorkbook, IngestError> {
-        let mut rdr = csv::ReaderBuilder::new()
-            .has_headers(false)
-            .flexible(true)
-            .from_reader(Cursor::new(bytes));
-
-        let mut sheet = SpreadsheetSheet::new("Sheet1", 0);
-
-        for (row_idx, result) in rdr.records().enumerate() {
-            let record = result.map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-            for (col_idx, field) in record.iter().enumerate() {
-                let trimmed = field.trim();
-                if !trimmed.is_empty() {
-                    let cell_ref = format_cell_reference(row_idx, col_idx);
-                    sheet.add_cell(SpreadsheetCell {
-                        reference: cell_ref,
-                        row: row_idx,
-                        col: col_idx,
-                        value: trimmed.to_string(),
-                    });
-                }
-            }
-        }
-
-        Ok(SpreadsheetWorkbook {
-            sheets: vec![sheet],
-        })
+        Self::read_delimited(bytes, b',')
     }
 
     /// Parses tab-separated value (TSV) byte streams.
     pub fn read_tsv(bytes: &[u8]) -> Result<SpreadsheetWorkbook, IngestError> {
+        Self::read_delimited(bytes, b'\t')
+    }
+
+    fn read_delimited(bytes: &[u8], delimiter: u8) -> Result<SpreadsheetWorkbook, IngestError> {
         let mut rdr = csv::ReaderBuilder::new()
-            .delimiter(b'\t')
+            .delimiter(delimiter)
             .has_headers(false)
             .flexible(true)
             .from_reader(Cursor::new(bytes));
@@ -197,21 +163,11 @@ impl SpreadsheetReader {
 
     /// Parses Microsoft Excel OpenXML (`.xlsx`) ZIP streams.
     pub fn read_xlsx(bytes: &[u8]) -> Result<SpreadsheetWorkbook, IngestError> {
-        let mut archive = ZipArchive::new(Cursor::new(bytes))
-            .map_err(|e| IngestError::OfficeFormat(format!("Failed to open XLSX zip: {e}")))?;
+        let mut archive = open_archive(bytes, "XLSX")?;
 
         let shared_strings = extract_shared_strings(&mut archive);
 
-        let mut sheet_names = Vec::new();
-        for i in 0..archive.len() {
-            let file = archive
-                .by_index(i)
-                .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-            let name = String::from_utf8_lossy(file.name_raw()).into_owned();
-            if name.starts_with("xl/worksheets/sheet") && name.ends_with(".xml") {
-                sheet_names.push(name);
-            }
-        }
+        let mut sheet_names = xml_entry_names(&mut archive, "xl/worksheets/sheet")?;
         sheet_names.sort();
 
         if sheet_names.is_empty() {
@@ -223,16 +179,8 @@ impl SpreadsheetReader {
         let mut sheets = Vec::with_capacity(sheet_names.len());
 
         for (sheet_idx, name) in sheet_names.into_iter().enumerate() {
-            let mut sheet_file = archive
-                .by_name(&name)
-                .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-            let mut xml_data = String::new();
-            sheet_file
-                .read_to_string(&mut xml_data)
-                .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-
-            let sheet = parse_worksheet_xml(&xml_data, &shared_strings, sheet_idx)?;
-            sheets.push(sheet);
+            let xml_data = read_entry(&mut archive, &name, "XLSX")?;
+            sheets.push(parse_worksheet_xml(&xml_data, &shared_strings, sheet_idx)?);
         }
 
         Ok(SpreadsheetWorkbook { sheets })
@@ -240,24 +188,12 @@ impl SpreadsheetReader {
 
     /// Parses OpenDocument Spreadsheet (`.ods`) ZIP streams.
     pub fn read_ods(bytes: &[u8]) -> Result<SpreadsheetWorkbook, IngestError> {
-        let mut archive = ZipArchive::new(Cursor::new(bytes))
-            .map_err(|e| IngestError::OfficeFormat(format!("Failed to open ODS zip: {e}")))?;
-
-        let mut content_file = archive
-            .by_name("content.xml")
-            .map_err(|e| IngestError::OfficeFormat(format!("ODS missing content.xml: {e}")))?;
-
-        let mut xml_data = String::new();
-        content_file
-            .read_to_string(&mut xml_data)
-            .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-
-        parse_ods_content_xml(&xml_data)
+        parse_ods_content_xml(&read_single_entry(bytes, "ODS", "content.xml")?)
     }
 }
 
 /// Resolves shared strings table from `xl/sharedStrings.xml`.
-fn extract_shared_strings(archive: &mut ZipArchive<Cursor<&[u8]>>) -> Vec<String> {
+fn extract_shared_strings(archive: &mut OfficeArchive<'_>) -> Vec<String> {
     let mut strings = Vec::new();
     if let Ok(mut file) = archive.by_name("xl/sharedStrings.xml") {
         let mut xml = String::new();

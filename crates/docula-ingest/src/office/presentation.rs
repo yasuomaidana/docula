@@ -1,10 +1,9 @@
+use super::zipio::{open_archive, read_entry, read_single_entry, xml_entry_names};
 use crate::error::IngestError;
 use crate::types::PageRoute;
 use docula_core::{BoundingBox, PresentationSubtype, SpatialSpan};
 use quick_xml::Reader;
 use quick_xml::events::Event;
-use std::io::{Cursor, Read};
-use zip::ZipArchive;
 
 /// Extracted presentation slide with ordered text elements and spatial positions.
 #[derive(Clone, Debug, PartialEq)]
@@ -53,34 +52,17 @@ impl PresentationReader {
         subtype: PresentationSubtype,
         bytes: &[u8],
     ) -> Result<PresentationDeck, IngestError> {
-        if bytes.is_empty() {
-            return Err(IngestError::EmptyPayload);
-        }
-
-        match subtype {
-            PresentationSubtype::Pptx => Self::read_pptx(bytes),
-            PresentationSubtype::Odp => Self::read_odp(bytes),
-            PresentationSubtype::Ppt => Err(IngestError::OfficeFormat(
-                "Legacy binary .ppt format is deprecated; please convert to .pptx".into(),
-            )),
-        }
+        dispatch_subtype!(subtype, bytes;
+            PresentationSubtype::Pptx => Self::read_pptx,
+            PresentationSubtype::Odp => Self::read_odp;
+        PresentationSubtype::Ppt => "Legacy binary .ppt format is deprecated; please convert to .pptx")
     }
 
     /// Parses Microsoft PowerPoint OpenXML (`.pptx`) ZIP streams.
     pub fn read_pptx(bytes: &[u8]) -> Result<PresentationDeck, IngestError> {
-        let mut archive = ZipArchive::new(Cursor::new(bytes))
-            .map_err(|e| IngestError::OfficeFormat(format!("Failed to open PPTX zip: {e}")))?;
+        let mut archive = open_archive(bytes, "PPTX")?;
 
-        let mut slide_names = Vec::new();
-        for i in 0..archive.len() {
-            let file = archive
-                .by_index(i)
-                .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-            let name = String::from_utf8_lossy(file.name_raw()).into_owned();
-            if name.starts_with("ppt/slides/slide") && name.ends_with(".xml") {
-                slide_names.push(name);
-            }
-        }
+        let mut slide_names = xml_entry_names(&mut archive, "ppt/slides/slide")?;
         slide_names.sort_by_key(|n| extract_slide_number(n));
 
         if slide_names.is_empty() {
@@ -92,16 +74,8 @@ impl PresentationReader {
         let mut slides = Vec::with_capacity(slide_names.len());
 
         for (slide_idx, name) in slide_names.into_iter().enumerate() {
-            let mut slide_file = archive
-                .by_name(&name)
-                .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-            let mut xml_data = String::new();
-            slide_file
-                .read_to_string(&mut xml_data)
-                .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-
-            let slide = parse_pptx_slide_xml(&xml_data, slide_idx)?;
-            slides.push(slide);
+            let xml_data = read_entry(&mut archive, &name, "PPTX")?;
+            slides.push(parse_pptx_slide_xml(&xml_data, slide_idx)?);
         }
 
         Ok(PresentationDeck { slides })
@@ -109,20 +83,31 @@ impl PresentationReader {
 
     /// Parses OpenDocument Presentation (`.odp`) ZIP streams.
     pub fn read_odp(bytes: &[u8]) -> Result<PresentationDeck, IngestError> {
-        let mut archive = ZipArchive::new(Cursor::new(bytes))
-            .map_err(|e| IngestError::OfficeFormat(format!("Failed to open ODP zip: {e}")))?;
-
-        let mut content_file = archive
-            .by_name("content.xml")
-            .map_err(|e| IngestError::OfficeFormat(format!("ODP missing content.xml: {e}")))?;
-
-        let mut xml_data = String::new();
-        content_file
-            .read_to_string(&mut xml_data)
-            .map_err(|e| IngestError::OfficeFormat(e.to_string()))?;
-
-        parse_odp_content_xml(&xml_data)
+        parse_odp_content_xml(&read_single_entry(bytes, "ODP", "content.xml")?)
     }
+}
+
+/// Stacks `paragraphs` top to bottom as spatial spans on page `page_index`.
+fn stack_paragraphs(
+    paragraphs: impl ExactSizeIterator<Item = String>,
+    page_index: usize,
+) -> Vec<SpatialSpan> {
+    let total = paragraphs.len().max(1) as f32;
+    let step = 0.85 / total;
+
+    paragraphs
+        .enumerate()
+        .map(|(i, text)| {
+            let y0 = (0.08 + i as f32 * step).clamp(0.0, 1.0);
+            let y1 = (y0 + step * 0.80).clamp(0.0, 1.0);
+            SpatialSpan {
+                text,
+                bbox: BoundingBox::from_coords_clamped(0.08, y0, 0.92, y1),
+                page_index,
+                confidence: 1.0,
+            }
+        })
+        .collect()
 }
 
 #[inline]
@@ -163,26 +148,9 @@ fn parse_pptx_slide_xml(xml: &str, slide_idx: usize) -> Result<PresentationSlide
         buf.clear();
     }
 
-    let total = paragraphs.len().max(1) as f32;
-    let step = 0.85 / total;
-    let mut spans = Vec::with_capacity(paragraphs.len());
-
-    for (i, p) in paragraphs.into_iter().enumerate() {
-        let y0 = (0.08 + i as f32 * step).clamp(0.0, 1.0);
-        let y1 = (y0 + step * 0.80).clamp(0.0, 1.0);
-
-        let bbox = BoundingBox::from_coords_clamped(0.08, y0, 0.92, y1);
-        spans.push(SpatialSpan {
-            text: p,
-            bbox,
-            page_index: slide_idx,
-            confidence: 1.0,
-        });
-    }
-
     Ok(PresentationSlide {
         slide_index: slide_idx,
-        spans,
+        spans: stack_paragraphs(paragraphs.into_iter(), slide_idx),
     })
 }
 
@@ -203,23 +171,7 @@ fn parse_odp_content_xml(xml: &str) -> Result<PresentationDeck, IngestError> {
                 current_paras.clear();
             }
             Event::End(ref e) if e.name().as_ref() == "draw:page" => {
-                let total = current_paras.len().max(1) as f32;
-                let step = 0.85 / total;
-                let mut spans = Vec::new();
-
-                for (i, p) in current_paras.drain(..).enumerate() {
-                    let y0 = (0.08 + i as f32 * step).clamp(0.0, 1.0);
-                    let y1 = (y0 + step * 0.80).clamp(0.0, 1.0);
-
-                    let bbox = BoundingBox::from_coords_clamped(0.08, y0, 0.92, y1);
-                    spans.push(SpatialSpan {
-                        text: p,
-                        bbox,
-                        page_index: slide_idx,
-                        confidence: 1.0,
-                    });
-                }
-
+                let spans = stack_paragraphs(current_paras.drain(..), slide_idx);
                 slides.push(PresentationSlide {
                     slide_index: slide_idx,
                     spans,

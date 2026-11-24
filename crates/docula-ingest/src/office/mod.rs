@@ -1,14 +1,29 @@
+/// Rejects empty payloads, then dispatches `$subtype` to its reader; `$legacy` is the deprecated
+/// binary variant that is refused with `$message`.
+macro_rules! dispatch_subtype {
+    ($subtype:expr, $bytes:expr; $($variant:path => $reader:path),+; $legacy:path => $message:expr) => {{
+        if $bytes.is_empty() {
+            return Err(IngestError::EmptyPayload);
+        }
+        match $subtype {
+            $($variant => $reader($bytes),)+
+            $legacy => Err(IngestError::OfficeFormat($message.into())),
+        }
+    }};
+}
+
 pub mod presentation;
 pub mod spreadsheet;
 pub mod word;
+mod zipio;
 
 pub use presentation::{PresentationDeck, PresentationReader, PresentationSlide};
 pub use spreadsheet::{SpreadsheetCell, SpreadsheetReader, SpreadsheetSheet, SpreadsheetWorkbook};
 pub use word::{WordDocument, WordProcessingReader};
 
 use crate::error::IngestError;
-use crate::types::DocumentRoutingReport;
-use docula_core::{DocumentSource, OfficeFormat};
+use crate::types::{DocumentRoutingReport, PageRoute};
+use docula_core::{DocumentSource, OfficeFormat, SpatialSpan};
 use std::fs;
 
 /// Central orchestrator for inspecting and routing ofimatic and office suite documents.
@@ -51,4 +66,17 @@ impl OfficeInspector {
             )),
         }
     }
+}
+
+/// Turns one text layer per page into born-digital page routes.
+pub(crate) fn born_digital_routes(
+    layers: impl Iterator<Item = Vec<SpatialSpan>>,
+) -> Vec<PageRoute> {
+    layers
+        .enumerate()
+        .map(|(page_index, text_layer)| PageRoute::BornDigital {
+            page_index,
+            text_layer,
+        })
+        .collect()
 }
