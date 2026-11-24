@@ -178,10 +178,7 @@ async fn test_embedag_adapter_query_verified() {
     assert!(!ans.is_empty());
     assert!(ans.contains("[1] Invoice #10023 issued by Acme Corp"));
 
-    let err = retriever
-        .query_verified("zzzzqqqq")
-        .await
-        .unwrap_err();
+    let err = retriever.query_verified("zzzzqqqq").await.unwrap_err();
     assert!(matches!(err, docula_rag::RagError::VerificationFailure(_)));
 }
 
