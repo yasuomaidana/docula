@@ -7,7 +7,7 @@ A sovereign, zero-FFI, pure-Rust multi-modal document intelligence engine for tr
 - **Pure Rust (Zero-FFI)**: No dynamic linkage against C/C++ libraries (`tesseract`, `poppler`, `opencv`, `zbar`, `mupdf`). Compiles everywhere Rust compiles.
 - **Two-Step Architecture**:
   1. *Step 1: Ingestion & Spatial Layout Reconstruction*: PDF unpacking, `tiny-skia` pure-Rust rendering, PP-OCRv6 neural text detection/recognition, optical code detection, document screenshots & visual ROI region cropping, and 2D spatial layout reconstruction.
-  2. *Step 2: Schema-Driven Structured Extraction*: Local/embedded LLM backends (`oxibonsai`, `candle`, `tract`), constrained decoding with DFA logits masking, strongly typed Serde deserialization & validation.
+  2. *Step 2: Schema-Driven Structured Extraction*: Local/embedded LLM backends (`candle`, `tract`), constrained decoding with DFA logits masking, strongly typed Serde deserialization & validation. (`oxirag`, `oxillama` and `oxibonsai` were removed due to the 2026-11 licence change; use `candle`, `tract` and `embedag_rag::VerifiedRagEngine` instead).
 
 ## Documentation Suite
 
