@@ -3,9 +3,11 @@ use docula::{
     SpreadsheetSubtype, WordSubtype, docula_model,
 };
 use docula_llm::MockLlmBackend;
-use std::io::Write;
 use std::sync::Arc;
-use zip::write::SimpleFileOptions;
+
+#[path = "../crates/docula-ingest/tests/common/zip_fixture.rs"]
+mod zip_fixture;
+use zip_fixture::zip_archive;
 
 docula_model! {
     pub struct OfficeInvoice {
@@ -53,27 +55,20 @@ docula_model! {
 
 /// Helper constructing valid XLSX bytes with invoice table.
 fn create_mock_xlsx_invoice() -> Vec<u8> {
-    let mut buf = Vec::new();
-    {
-        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-        zip.start_file("xl/sharedStrings.xml", options).unwrap();
-        zip.write_all(
-            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    zip_archive(&[
+        (
+            "xl/sharedStrings.xml",
+            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" count="4" uniqueCount="4">
     <si><t>INV-2026-XLSX-01</t></si>
     <si><t>Subtotal</t></si>
     <si><t>Tax</t></si>
     <si><t>Total</t></si>
 </sst>"#,
-        )
-        .unwrap();
-
-        zip.start_file("xl/worksheets/sheet1.xml", options).unwrap();
-        zip.write_all(
-            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        ),
+        (
+            "xl/worksheets/sheet1.xml",
+            r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
     <sheetData>
         <row r="1">
@@ -93,25 +88,15 @@ fn create_mock_xlsx_invoice() -> Vec<u8> {
         </row>
     </sheetData>
 </worksheet>"#,
-        )
-        .unwrap();
-
-        zip.finish().unwrap();
-    }
-    buf
+        ),
+    ])
 }
 
 /// Helper constructing valid PPTX bytes with executive slides.
 fn create_mock_pptx_deck() -> Vec<u8> {
-    let mut buf = Vec::new();
-    {
-        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-        zip.start_file("ppt/slides/slide1.xml", options).unwrap();
-        zip.write_all(
-            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    zip_archive(&[(
+        "ppt/slides/slide1.xml",
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
        xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
     <p:cSld>
@@ -126,25 +111,14 @@ fn create_mock_pptx_deck() -> Vec<u8> {
         </p:spTree>
     </p:cSld>
 </p:sld>"#,
-        )
-        .unwrap();
-
-        zip.finish().unwrap();
-    }
-    buf
+    )])
 }
 
 /// Helper constructing valid DOCX bytes with contract clauses.
 fn create_mock_docx_contract() -> Vec<u8> {
-    let mut buf = Vec::new();
-    {
-        let mut zip = zip::ZipWriter::new(std::io::Cursor::new(&mut buf));
-        let options =
-            SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
-
-        zip.start_file("word/document.xml", options).unwrap();
-        zip.write_all(
-            br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    zip_archive(&[(
+        "word/document.xml",
+        r#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
     <w:body>
         <w:p><w:r><w:t>Service Level Agreement 2026</w:t></w:r></w:p>
@@ -153,12 +127,7 @@ fn create_mock_docx_contract() -> Vec<u8> {
         <w:p><w:r><w:t>Net Days: 45</w:t></w:r></w:p>
     </w:body>
 </w:document>"#,
-        )
-        .unwrap();
-
-        zip.finish().unwrap();
-    }
-    buf
+    )])
 }
 
 #[tokio::test]

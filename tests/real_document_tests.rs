@@ -75,6 +75,101 @@ fn fixture_dir() -> PathBuf {
 }
 
 /// Generates or loads a real single-page PDF invoice.
+impl InvoiceLineItem {
+    fn new(description: &str, quantity: u32, unit_price: f64) -> Self {
+        Self {
+            description: description.to_string(),
+            quantity,
+            unit_price,
+            total: f64::from(quantity) * unit_price,
+        }
+    }
+}
+
+impl RealPdfInvoice {
+    /// Totals `items` and adds 10% tax.
+    fn with_ten_percent_tax(
+        invoice_number: &str,
+        vendor_name: &str,
+        items: Vec<InvoiceLineItem>,
+    ) -> Self {
+        let subtotal: f64 = items.iter().map(|item| item.total).sum();
+        let tax = subtotal / 10.0;
+        Self {
+            invoice_number: invoice_number.to_string(),
+            vendor_name: vendor_name.to_string(),
+            items,
+            subtotal,
+            tax,
+            total: subtotal + tax,
+        }
+    }
+}
+
+/// Paints `color` on every pixel of `xs` x `ys` where `(x + y) % skip_modulus != 0`.
+fn draw_dotted_band(
+    img: &mut RgbaImage,
+    ys: std::ops::Range<u32>,
+    xs: std::ops::Range<u32>,
+    skip_modulus: u32,
+    color: Rgba<u8>,
+) {
+    for y in ys {
+        for x in xs.clone() {
+            if (x + y) % skip_modulus != 0 {
+                img.put_pixel(x, y, color);
+            }
+        }
+    }
+}
+
+/// Paints non-repeating grey text rows (`y % period < height`) inside a 10px side margin.
+fn draw_textured_rows(
+    img: &mut RgbaImage,
+    (period, height): (u32, u32),
+    (mul_x, mul_y): (u32, u32),
+) {
+    let (width, rows) = img.dimensions();
+    for y in 0..rows {
+        for x in 0..width {
+            if (x > 10 && x < width - 10) && (y % period < height) {
+                let val = (((x * mul_x + y * mul_y) % 180) + 30) as u8;
+                img.put_pixel(x, y, Rgba([val, val, val, 255]));
+            }
+        }
+    }
+}
+
+/// Paints a solid rectangle.
+fn fill_rect(
+    img: &mut RgbaImage,
+    xs: std::ops::Range<u32>,
+    ys: std::ops::Range<u32>,
+    color: Rgba<u8>,
+) {
+    for y in ys {
+        for x in xs.clone() {
+            img.put_pixel(x, y, color);
+        }
+    }
+}
+
+/// Paints a paper card whose text bands (rows where `y % 16 < 4`) span `text_xs`.
+fn draw_card(
+    scene: &mut RgbaImage,
+    xs: std::ops::Range<u32>,
+    ys: std::ops::Range<u32>,
+    text_xs: std::ops::Range<u32>,
+    (text, paper): (Rgba<u8>, Rgba<u8>),
+) {
+    for y in ys {
+        for x in xs.clone() {
+            let is_text = (y % 16 < 4) && (x > text_xs.start && x < text_xs.end);
+            scene.put_pixel(x, y, if is_text { text } else { paper });
+        }
+    }
+}
+
 #[fixture]
 fn get_or_create_real_pdf_invoice() -> (PathBuf, Vec<u8>) {
     let path = fixture_dir().join("sample_invoice.pdf");
@@ -217,13 +312,7 @@ fn get_or_create_real_receipt_png() -> (PathBuf, Vec<u8>) {
     // Draw simulated printed receipt text lines (dark grey horizontal bands)
     let line_y_coords = [60, 80, 100, 140, 170, 200, 230, 260, 310, 340, 380, 420];
     for &ly in &line_y_coords {
-        for y in ly..(ly + 6) {
-            for x in 50..340 {
-                if (x + y) % 5 != 0 {
-                    img.put_pixel(x, y, Rgba([30, 41, 59, 255]));
-                }
-            }
-        }
+        draw_dotted_band(&mut img, ly..(ly + 6), 50..340, 5, Rgba([30, 41, 59, 255]));
     }
 
     // Draw simulated 1D barcode stripes at bottom
@@ -343,13 +432,13 @@ fn get_or_create_real_qr_bill_png() -> (PathBuf, Vec<u8>) {
     }
     for line in 0..6 {
         let y_l = 100 + line * 20;
-        for y in y_l..(y_l + 5) {
-            for x in 30..180 {
-                if (x + y) % 4 != 0 {
-                    img.put_pixel(x, y, Rgba([50, 50, 50, 255]));
-                }
-            }
-        }
+        draw_dotted_band(
+            &mut img,
+            y_l..(y_l + 5),
+            30..180,
+            4,
+            Rgba([50, 50, 50, 255]),
+        );
     }
 
     let mut bytes = Vec::new();
@@ -586,27 +675,14 @@ async fn test_real_pdf_end_to_end_pipeline_extraction(
 ) {
     let (pdf_path, _pdf_bytes) = get_or_create_real_pdf_invoice;
 
-    let expected_invoice = RealPdfInvoice {
-        invoice_number: "INV-REAL-2026-999".to_string(),
-        vendor_name: "KitaSan Sovereign Technologies".to_string(),
-        items: vec![
-            InvoiceLineItem {
-                description: "Pure-Rust Cloud Server Cluster".to_string(),
-                quantity: 2,
-                unit_price: 250.0,
-                total: 500.0,
-            },
-            InvoiceLineItem {
-                description: "OxiBonsai Fine-Tuning License".to_string(),
-                quantity: 1,
-                unit_price: 150.0,
-                total: 150.0,
-            },
+    let expected_invoice = RealPdfInvoice::with_ten_percent_tax(
+        "INV-REAL-2026-999",
+        "KitaSan Sovereign Technologies",
+        vec![
+            InvoiceLineItem::new("Pure-Rust Cloud Server Cluster", 2, 250.0),
+            InvoiceLineItem::new("OxiBonsai Fine-Tuning License", 1, 150.0),
         ],
-        subtotal: 650.0,
-        tax: 65.0,
-        total: 715.0,
-    };
+    );
     let canned_json = serde_json::to_string(&expected_invoice).unwrap();
 
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
@@ -634,14 +710,7 @@ async fn test_scenario_1_large_document_multishot_reconstruction_and_extraction(
     let mut full_invoice = RgbaImage::from_pixel(canvas_w, canvas_h, Rgba([255, 255, 255, 255]));
 
     // Draw header, table rows, and footer
-    for y in 0..canvas_h {
-        for x in 0..canvas_w {
-            if (x > 10 && x < canvas_w - 10) && (y % 18 < 6) {
-                let val = (((x * 17 + y * 31) % 180) + 30) as u8;
-                full_invoice.put_pixel(x, y, Rgba([val, val, val, 255]));
-            }
-        }
-    }
+    draw_textured_rows(&mut full_invoice, (18, 6), (17, 31));
 
     // Split into 2 overlapping camera shots:
     // Top shot: [0..140]
@@ -690,27 +759,14 @@ async fn test_scenario_1_large_document_multishot_reconstruction_and_extraction(
     let src2 = DocumentSource::from_image_bytes(bot_bytes, Some("png"));
     let fragment_sources = vec![src1, src2];
 
-    let expected_invoice = RealPdfInvoice {
-        invoice_number: "INV-RECONSTRUCT-2026".to_string(),
-        vendor_name: "Mega Warehouse Hardware".to_string(),
-        items: vec![
-            InvoiceLineItem {
-                description: "Industrial Bolt Set 500ct".to_string(),
-                quantity: 4,
-                unit_price: 45.0,
-                total: 180.0,
-            },
-            InvoiceLineItem {
-                description: "Hydraulic Jack Stand 3T".to_string(),
-                quantity: 2,
-                unit_price: 110.0,
-                total: 220.0,
-            },
+    let expected_invoice = RealPdfInvoice::with_ten_percent_tax(
+        "INV-RECONSTRUCT-2026",
+        "Mega Warehouse Hardware",
+        vec![
+            InvoiceLineItem::new("Industrial Bolt Set 500ct", 4, 45.0),
+            InvoiceLineItem::new("Hydraulic Jack Stand 3T", 2, 110.0),
         ],
-        subtotal: 400.0,
-        tax: 40.0,
-        total: 440.0,
-    };
+    );
     let canned_json = serde_json::to_string(&expected_invoice).unwrap();
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
     let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
@@ -753,36 +809,22 @@ async fn test_scenario_2_singleshot_multidocument_segmentation_identity_and_batc
     let mut scene = RgbaImage::from_pixel(300, 300, Rgba([25, 25, 30, 255]));
 
     // Draw Document 1 at top (20, 20), size 110x110
-    for y in 20..130 {
-        for x in 20..130 {
-            let is_text = (y % 16 < 4) && (x > 30 && x < 120);
-            scene.put_pixel(
-                x,
-                y,
-                if is_text {
-                    Rgba([40, 40, 40, 255])
-                } else {
-                    Rgba([245, 245, 245, 255])
-                },
-            );
-        }
-    }
+    draw_card(
+        &mut scene,
+        20..130,
+        20..130,
+        30..120,
+        (Rgba([40, 40, 40, 255]), Rgba([245, 245, 245, 255])),
+    );
 
     // Draw Document 2 at bottom (150, 160), size 120x110
-    for y in 160..270 {
-        for x in 150..270 {
-            let is_text = (y % 16 < 4) && (x > 160 && x < 260);
-            scene.put_pixel(
-                x,
-                y,
-                if is_text {
-                    Rgba([50, 50, 50, 255])
-                } else {
-                    Rgba([235, 235, 240, 255])
-                },
-            );
-        }
-    }
+    draw_card(
+        &mut scene,
+        150..270,
+        160..270,
+        160..260,
+        (Rgba([50, 50, 50, 255]), Rgba([235, 235, 240, 255])),
+    );
 
     let mut scene_bytes = Vec::new();
     scene
@@ -793,19 +835,11 @@ async fn test_scenario_2_singleshot_multidocument_segmentation_identity_and_batc
         .unwrap();
     let scene_source = DocumentSource::from_image_bytes(scene_bytes, Some("png"));
 
-    let expected_invoice = RealPdfInvoice {
-        invoice_number: "INV-BATCH-001".to_string(),
-        vendor_name: "QuickMart Retail".to_string(),
-        items: vec![InvoiceLineItem {
-            description: "Stationery Supplies".to_string(),
-            quantity: 1,
-            unit_price: 35.0,
-            total: 35.0,
-        }],
-        subtotal: 35.0,
-        tax: 3.5,
-        total: 38.5,
-    };
+    let expected_invoice = RealPdfInvoice::with_ten_percent_tax(
+        "INV-BATCH-001",
+        "QuickMart Retail",
+        vec![InvoiceLineItem::new("Stationery Supplies", 1, 35.0)],
+    );
     let canned_json = serde_json::to_string(&expected_invoice).unwrap();
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
     let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
