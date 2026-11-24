@@ -82,11 +82,11 @@ jobs:
       - name: Analyze Cyclomatic & Cognitive Complexity
         run: |
           mkdir -p metrics-out
-          rust-code-analysis-cli --metrics -p src/ -O json -o metrics-out/metrics.json
+          rust-code-analysis-cli --metrics -p src/ -O json -o metrics-out
           echo "### Code Complexity Metrics Summary" >> $GITHUB_STEP_SUMMARY
           if command -v jq >/dev/null 2>&1; then
             echo '```json' >> $GITHUB_STEP_SUMMARY
-            jq '.' metrics-out/metrics.json | head -n 40 >> $GITHUB_STEP_SUMMARY
+            find metrics-out -name '*.json' | head -n 5 | xargs -r jq -c '{name, cyclomatic: .metrics.cyclomatic.sum, cognitive: .metrics.cognitive.sum}' | head -n 40 >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
 
@@ -94,7 +94,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: complexity-metrics
-          path: metrics-out/metrics.json
+          path: metrics-out/
 
   test-matrix:
     name: Build & Test Matrix (${{ matrix.os }}, Rust ${{ matrix.rust }})
