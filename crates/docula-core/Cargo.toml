@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "Core primitives, geometry, and abstractions for the docula document intelligence engine"
+readme = "README.md"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

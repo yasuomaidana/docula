@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "JSON Schema to DFA compiler, autoregressive logits masking, and validation for docula"
+readme = "README.md"
 
 [dependencies]
 schemars = { version = "1.0", features = ["chrono04"] }

@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "Sovereign local-embedded and remote LLM backends with DFA logits masking for docula"
+readme = "README.md"
 
 [features]
 default = ["local-embedded", "local-candle"]

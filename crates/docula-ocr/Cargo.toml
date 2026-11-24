@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "Multi-lingual PP-OCRv6 text detection, CRNN recognition, and spatial layout clustering for docula"
+readme = "README.md"
 
 [features]
 default = ["ocr-latin"]

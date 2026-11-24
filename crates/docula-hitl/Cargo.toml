@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "Human-in-the-loop triage gates, correction triads, and active learning flywheel for docula"
+readme = "README.md"
 
 [dependencies]
 docula-exemplar = { path = "../docula-exemplar" }

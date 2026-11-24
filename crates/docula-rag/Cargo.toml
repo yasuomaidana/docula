@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "Layout-aware table chunking, in-memory vector store, and hybrid BM25 retrieval for docula"
+readme = "README.md"
 
 [features]
 default = ["embedag-integration"]

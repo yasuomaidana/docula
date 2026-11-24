@@ -5,6 +5,7 @@ edition = "2024"
 authors = ["docula contributors"]
 license = "MIT OR Apache-2.0"
 description = "Compliance action tags, spatial blackout, and PII sanitization for docula"
+readme = "README.md"
 
 [dependencies]
 docula-core = { path = "../docula-core" }
