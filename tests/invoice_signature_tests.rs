@@ -3,6 +3,7 @@ use docula::preprocess::{PageRasterBuffer, VectorizedRegion, VisualRegion};
 use docula::schema::{DocuValidate, ValidationError};
 use docula::{BoundingBox, CropFormat, DoculaPipeline, DocumentSource, ImageCrop};
 use image::GenericImageView;
+use rstest::{fixture, rstest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -148,6 +149,7 @@ impl<S: Send + Sync + Clone> DocuValidate for Invoice<S> {
     }
 }
 
+#[fixture]
 fn fixture_invoice_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
@@ -155,6 +157,7 @@ fn fixture_invoice_path() -> PathBuf {
 }
 
 /// Normalized bounding box bounding the "John Smith" handwritten signature in `invoice_example.png`.
+#[fixture]
 fn signature_bounding_box() -> BoundingBox {
     // Exact pixels: x in [540, 715], y in [610, 720] on 750x1061 image
     BoundingBox::from_coords(0.71, 0.57, 0.96, 0.69).expect("valid normalized bbox")
@@ -229,9 +232,12 @@ fn test_invoice_math_validation_failure_on_imbalance() {
     assert_eq!(integrity_errs[0].field_path, "total");
 }
 
-#[test]
-fn test_signature_variant_image_section() {
-    let path = fixture_invoice_path();
+#[rstest]
+fn test_signature_variant_image_section(
+    fixture_invoice_path: PathBuf,
+    signature_bounding_box: BoundingBox,
+) {
+    let path = fixture_invoice_path;
     assert!(path.exists(), "fixture invoice_example.png must exist");
 
     let dyn_img = image::open(&path).expect("open invoice image");
@@ -239,7 +245,7 @@ fn test_signature_variant_image_section() {
     assert_eq!(w, 750);
     assert_eq!(h, 1061);
 
-    let bbox = signature_bounding_box();
+    let bbox = signature_bounding_box;
     let rgba_img = dyn_img.to_rgba8();
 
     // Direct extraction via VisualRegion
@@ -278,11 +284,14 @@ fn test_signature_variant_image_section() {
     }
 }
 
-#[test]
-fn test_signature_variant_mask_only() {
-    let path = fixture_invoice_path();
+#[rstest]
+fn test_signature_variant_mask_only(
+    fixture_invoice_path: PathBuf,
+    signature_bounding_box: BoundingBox,
+) {
+    let path = fixture_invoice_path;
     let dyn_img = image::open(&path).expect("open invoice image");
-    let bbox = signature_bounding_box();
+    let bbox = signature_bounding_box;
     let visual_region = VisualRegion::extract_from_image(&dyn_img.to_rgba8(), &bbox);
 
     // Generate binary segmentation mask
@@ -346,11 +355,14 @@ fn test_signature_variant_mask_only() {
     }
 }
 
-#[test]
-fn test_signature_variant_grayscale() {
-    let path = fixture_invoice_path();
+#[rstest]
+fn test_signature_variant_grayscale(
+    fixture_invoice_path: PathBuf,
+    signature_bounding_box: BoundingBox,
+) {
+    let path = fixture_invoice_path;
     let dyn_img = image::open(&path).expect("open invoice image");
-    let bbox = signature_bounding_box();
+    let bbox = signature_bounding_box;
     let visual_region = VisualRegion::extract_from_image(&dyn_img.to_rgba8(), &bbox);
 
     // Convert to grayscale keeping only grayscale luminance
@@ -397,11 +409,14 @@ fn test_signature_variant_grayscale() {
     }
 }
 
-#[test]
-fn test_signature_variant_vectorized() {
-    let path = fixture_invoice_path();
+#[rstest]
+fn test_signature_variant_vectorized(
+    fixture_invoice_path: PathBuf,
+    signature_bounding_box: BoundingBox,
+) {
+    let path = fixture_invoice_path;
     let dyn_img = image::open(&path).expect("open invoice image");
-    let bbox = signature_bounding_box();
+    let bbox = signature_bounding_box;
     let visual_region = VisualRegion::extract_from_image(&dyn_img.to_rgba8(), &bbox);
 
     // Vectorize the signature region into SVG and polygons
@@ -473,12 +488,16 @@ fn test_signature_variant_vectorized() {
     }
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_end_to_end_invoice_example_pipeline_extraction() {
-    let path = fixture_invoice_path();
+async fn test_end_to_end_invoice_example_pipeline_extraction(
+    fixture_invoice_path: PathBuf,
+    signature_bounding_box: BoundingBox,
+) {
+    let path = fixture_invoice_path;
     assert!(path.exists());
 
-    let bbox = signature_bounding_box();
+    let bbox = signature_bounding_box;
     let dyn_img = image::open(&path).expect("open invoice image");
     let visual_region = VisualRegion::extract_from_image(&dyn_img.to_rgba8(), &bbox);
     let sig_crop = visual_region.to_image_crop(CropFormat::Png).unwrap();

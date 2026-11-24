@@ -6,9 +6,14 @@ use docula_preprocess::{
 };
 use image::{Rgba, RgbaImage};
 use oximedia_cv::transform::{AffineTransform, warp_affine_image};
+use rstest::{fixture, rstest};
 
 /// Helper to generate a test image with clean horizontal dark lines on white background.
-fn create_horizontal_lines_image(width: u32, height: u32) -> RgbaImage {
+#[fixture]
+fn create_horizontal_lines_image(
+    #[default(600)] width: u32,
+    #[default(600)] height: u32,
+) -> RgbaImage {
     let mut img = RgbaImage::from_pixel(width, height, Rgba([255, 255, 255, 255]));
     let black = Rgba([0, 0, 0, 255]);
 
@@ -164,10 +169,13 @@ fn test_simd_resize_zero_dimension_rejected() {
     assert!(err.to_string().contains("positive"));
 }
 
-#[test]
-fn test_deskew_rotated_image() {
+#[rstest]
+fn test_deskew_rotated_image(
+    #[from(create_horizontal_lines_image)]
+    #[with(600, 600)]
+    base_img: RgbaImage,
+) {
     // Generate horizontal lines image
-    let base_img = create_horizontal_lines_image(600, 600);
 
     // Rotate by 15.0 degrees clockwise
     let rotated_15 = rotate_test_image(&base_img, 15.0);
@@ -201,9 +209,12 @@ fn test_deskew_rotated_image() {
     }
 }
 
-#[test]
-fn test_deskew_zero_skew_no_op() {
-    let base_img = create_horizontal_lines_image(500, 500);
+#[rstest]
+fn test_deskew_zero_skew_no_op(
+    #[from(create_horizontal_lines_image)]
+    #[with(500, 500)]
+    base_img: RgbaImage,
+) {
     let deskewer = HoughDeskewFilter::new().with_vote_threshold(80);
 
     let angle = deskewer.detect_skew_angle(&base_img).expect("detection");
@@ -215,9 +226,12 @@ fn test_deskew_zero_skew_no_op() {
     }
 }
 
-#[test]
-fn test_deskew_below_min_threshold_ignored() {
-    let base_img = create_horizontal_lines_image(200, 200);
+#[rstest]
+fn test_deskew_below_min_threshold_ignored(
+    #[from(create_horizontal_lines_image)]
+    #[with(200, 200)]
+    base_img: RgbaImage,
+) {
     let mut test_img = base_img.clone();
 
     // Default min_threshold is 0.1°. With zero skew, apply() is a no-op and preserves image
@@ -277,9 +291,12 @@ fn test_adaptive_binarize_gradient_shadow() {
     assert_eq!(img.get_pixel(150, 40)[0], 0, "dark region stroke is black");
 }
 
-#[test]
-fn test_adaptive_binarize_otsu() {
-    let mut img = create_horizontal_lines_image(100, 100);
+#[rstest]
+fn test_adaptive_binarize_otsu(
+    #[from(create_horizontal_lines_image)]
+    #[with(100, 100)]
+    mut img: RgbaImage,
+) {
     let otsu_binarizer = AdaptiveBinarizeFilter::otsu();
 
     otsu_binarizer.apply(&mut img).expect("otsu binarize");
@@ -293,9 +310,12 @@ fn test_adaptive_binarize_otsu() {
     }
 }
 
-#[test]
-fn test_adaptive_binarize_zero_radius_rejected() {
-    let mut img = create_horizontal_lines_image(100, 100);
+#[rstest]
+fn test_adaptive_binarize_zero_radius_rejected(
+    #[from(create_horizontal_lines_image)]
+    #[with(100, 100)]
+    mut img: RgbaImage,
+) {
     let binarizer = AdaptiveBinarizeFilter::adaptive(0);
 
     let err = binarizer.apply(&mut img).unwrap_err();
@@ -311,10 +331,12 @@ fn test_adaptive_binarize_empty_image_error() {
     assert!(err.to_string().contains("empty"));
 }
 
-#[test]
-fn test_filter_chain_composition() {
-    let base_img = create_horizontal_lines_image(800, 600);
-
+#[rstest]
+fn test_filter_chain_composition(
+    #[from(create_horizontal_lines_image)]
+    #[with(800, 600)]
+    base_img: RgbaImage,
+) {
     // Rotate by 10 degrees
     let rotated = rotate_test_image(&base_img, 10.0);
 
@@ -464,14 +486,17 @@ fn test_degraded_document_faded_low_contrast() {
     );
 }
 
-#[test]
-fn test_robust_degraded_document_pipeline_end_to_end() {
+#[rstest]
+fn test_robust_degraded_document_pipeline_end_to_end(
+    #[from(create_horizontal_lines_image)]
+    #[with(600, 500)]
+    base_img: RgbaImage,
+) {
     // Generate realistic bad-condition document:
     // 1. Horizontal lines
     // 2. Tilted by 8 degrees
     // 3. Salt and pepper noise
     // 4. Gradient shadow
-    let base_img = create_horizontal_lines_image(600, 500);
 
     let tilted = rotate_test_image(&base_img, 8.0);
     let mut degraded_img = tilted;

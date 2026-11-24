@@ -2,6 +2,7 @@ use docula::llm::MockLlmBackend;
 use docula::schema::{DocuValidate, ValidationError};
 use docula::{DoculaPipeline, DocumentSource};
 use image::{ImageEncoder, Rgba, RgbaImage};
+use rstest::{fixture, rstest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -25,6 +26,7 @@ impl DocuValidate for SimpleReceipt {
     }
 }
 
+#[fixture]
 fn create_test_image_bytes() -> Vec<u8> {
     let mut img = RgbaImage::new(100, 100);
     for pixel in img.pixels_mut() {
@@ -43,8 +45,11 @@ fn create_test_image_bytes() -> Vec<u8> {
     bytes
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_ergonomic_process_infers_document_id_from_file_path() {
+async fn test_ergonomic_process_infers_document_id_from_file_path(
+    create_test_image_bytes: Vec<u8>,
+) {
     // Use Case 2: Developer only has a file and a schema struct.
     let receipt = SimpleReceipt {
         merchant: "Acme Coffee".to_string(),
@@ -56,7 +61,7 @@ async fn test_ergonomic_process_infers_document_id_from_file_path() {
 
     let temp_file = NamedTempFile::with_prefix("receipt_coffee_101").unwrap();
     let path = temp_file.path().with_extension("png");
-    std::fs::write(&path, create_test_image_bytes()).unwrap();
+    std::fs::write(&path, create_test_image_bytes).unwrap();
 
     let source = DocumentSource::from_image_path(&path);
 
@@ -77,8 +82,11 @@ async fn test_ergonomic_process_infers_document_id_from_file_path() {
     let _ = std::fs::remove_file(&path);
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_ergonomic_process_infers_deterministic_id_from_bytes() {
+async fn test_ergonomic_process_infers_deterministic_id_from_bytes(
+    create_test_image_bytes: Vec<u8>,
+) {
     // Use Case 2: Developer has in-memory bytes and a schema struct.
     let receipt = SimpleReceipt {
         merchant: "Online Store".to_string(),
@@ -88,7 +96,7 @@ async fn test_ergonomic_process_infers_deterministic_id_from_bytes() {
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
     let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
 
-    let bytes = create_test_image_bytes();
+    let bytes = create_test_image_bytes;
     let source = DocumentSource::from_image_bytes(bytes, Some("png"));
 
     let result = pipeline
@@ -104,8 +112,9 @@ async fn test_ergonomic_process_infers_deterministic_id_from_bytes() {
     assert_eq!(result.data, Some(receipt));
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_explicit_process_document_preserves_caller_id() {
+async fn test_explicit_process_document_preserves_caller_id(create_test_image_bytes: Vec<u8>) {
     // Use Case 1: An external orchestrator / queue provides an explicit ID.
     let receipt = SimpleReceipt {
         merchant: "Warehouse Supplies".to_string(),
@@ -115,7 +124,7 @@ async fn test_explicit_process_document_preserves_caller_id() {
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
     let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
 
-    let bytes = create_test_image_bytes();
+    let bytes = create_test_image_bytes;
     let source = DocumentSource::from_image_bytes(bytes, Some("png"));
 
     let explicit_id = "sqs-msg-order-987654";

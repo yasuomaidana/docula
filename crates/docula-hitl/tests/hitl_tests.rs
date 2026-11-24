@@ -6,10 +6,15 @@ use docula_hitl::{
 };
 use docula_ocr::SpatialLayoutMap;
 use docula_schema::ValidationError;
+use rstest::{fixture, rstest};
 use tempfile::tempdir;
 use uuid::Uuid;
 
-fn sample_triad(vendor: Option<&str>, fp: u64) -> CorrectionTriad {
+#[fixture]
+fn sample_triad(
+    #[default(Some("VendorA"))] vendor: Option<&str>,
+    #[default(0x1234)] fp: u64,
+) -> CorrectionTriad {
     let bbox = BoundingBox::from_coords_clamped(0.1, 0.1, 0.9, 0.3);
     let span = SpatialSpan::new("Test Document".to_string(), bbox, 0, 0.99).unwrap();
     let layout = SpatialLayoutMap::from_spans(vec![span], (1000, 1000));
@@ -41,10 +46,12 @@ fn sample_triad(vendor: Option<&str>, fp: u64) -> CorrectionTriad {
     }
 }
 
-#[test]
-fn test_triad_serialization_and_hash_integrity() {
-    let triad = sample_triad(Some("Acme Inc"), 0xDEADBEEF);
-
+#[rstest]
+fn test_triad_serialization_and_hash_integrity(
+    #[from(sample_triad)]
+    #[with(Some("Acme Inc"), 0xDEADBEEF)]
+    triad: CorrectionTriad,
+) {
     let hash = triad.compute_record_hash();
     assert_eq!(hash.len(), 64);
 
@@ -107,20 +114,26 @@ fn test_triage_queue_fifo() {
     assert_eq!(queue.pending_count(), 0);
 }
 
-#[test]
-fn test_promotion_policy_blocks_single_occurrence() {
+#[rstest]
+fn test_promotion_policy_blocks_single_occurrence(
+    #[from(sample_triad)]
+    #[with(Some("VendorA"), 0x1234)]
+    triad: CorrectionTriad,
+) {
     let policy = ThresholdPromotionPolicy::new(3);
-    let triad = sample_triad(Some("VendorA"), 0x1234);
 
     // Recurrence count 1 should be blocked (< 3)
     let qualified = policy.evaluate_promotion(&triad, 1, &[]);
     assert!(!qualified, "Single occurrence must not be promoted");
 }
 
-#[test]
-fn test_promotion_policy_accepts_recurring_triad() {
+#[rstest]
+fn test_promotion_policy_accepts_recurring_triad(
+    #[from(sample_triad)]
+    #[with(Some("VendorA"), 0x1234)]
+    triad: CorrectionTriad,
+) {
     let policy = ThresholdPromotionPolicy::new(3);
-    let triad = sample_triad(Some("VendorA"), 0x1234);
 
     // Recurrence count 3 qualifies
     let qualified = policy.evaluate_promotion(&triad, 3, &[]);
@@ -134,13 +147,17 @@ fn test_promotion_policy_accepts_recurring_triad() {
     );
 }
 
-#[test]
-fn test_cold_archive_append_and_read_back() {
+#[rstest]
+fn test_cold_archive_append_and_read_back(
+    #[from(sample_triad)]
+    #[with(Some("Vendor 1"), 0x1111)]
+    triad1: CorrectionTriad,
+    #[from(sample_triad)]
+    #[with(Some("Vendor 2"), 0x2222)]
+    triad2: CorrectionTriad,
+) {
     let dir = tempdir().unwrap();
     let store = ColdArchiveStore::new(dir.path()).unwrap();
-
-    let triad1 = sample_triad(Some("Vendor 1"), 0x1111);
-    let triad2 = sample_triad(Some("Vendor 2"), 0x2222);
 
     store.append(&triad1).unwrap();
     store.append(&triad2).unwrap();

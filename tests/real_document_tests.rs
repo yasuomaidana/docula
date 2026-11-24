@@ -7,6 +7,7 @@
 //! - Pure-Rust computer vision enhancement via KitaSan `OxiMediaFilter` and `OxiMediaStitcher`
 //! - 1D/2D optical code detection and EPC financial payload decoding
 //! - End-to-end extraction through `DoculaPipeline`
+use rstest::{fixture, rstest};
 
 use docula::llm::MockLlmBackend;
 use docula::preprocess::{
@@ -74,6 +75,7 @@ fn fixture_dir() -> PathBuf {
 }
 
 /// Generates or loads a real single-page PDF invoice.
+#[fixture]
 fn get_or_create_real_pdf_invoice() -> (PathBuf, Vec<u8>) {
     let path = fixture_dir().join("sample_invoice.pdf");
     if path.exists() {
@@ -185,6 +187,7 @@ fn get_or_create_real_multipage_pdf() -> (PathBuf, Vec<u8>) {
 }
 
 /// Generates or loads a real high-resolution PNG receipt image.
+#[fixture]
 fn get_or_create_real_receipt_png() -> (PathBuf, Vec<u8>) {
     let path = fixture_dir().join("sample_receipt.png");
     if path.exists() {
@@ -364,9 +367,11 @@ fn get_or_create_real_qr_bill_png() -> (PathBuf, Vec<u8>) {
     (path, bytes)
 }
 
-#[test]
-fn test_real_pdf_invoice_rasterization_multi_dpi() {
-    let (pdf_path, pdf_bytes) = get_or_create_real_pdf_invoice();
+#[rstest]
+fn test_real_pdf_invoice_rasterization_multi_dpi(
+    get_or_create_real_pdf_invoice: (PathBuf, Vec<u8>),
+) {
+    let (pdf_path, pdf_bytes) = get_or_create_real_pdf_invoice;
     assert!(pdf_path.exists());
     assert!(!pdf_bytes.is_empty());
 
@@ -406,9 +411,9 @@ fn test_real_pdf_invoice_rasterization_multi_dpi() {
     );
 }
 
-#[test]
-fn test_real_pdf_roi_region_cropper() {
-    let (_pdf_path, pdf_bytes) = get_or_create_real_pdf_invoice();
+#[rstest]
+fn test_real_pdf_roi_region_cropper(get_or_create_real_pdf_invoice: (PathBuf, Vec<u8>)) {
+    let (_pdf_path, pdf_bytes) = get_or_create_real_pdf_invoice;
     let cropper = PdfRegionCropper::new(&pdf_bytes).with_dpi(150);
 
     // Capture full page
@@ -453,9 +458,11 @@ fn test_real_multipage_pdf_traversal() {
     assert!(pages[1].width() > 0 && pages[1].height() > 0);
 }
 
-#[test]
-fn test_real_receipt_png_oximedia_cv_enhancement() {
-    let (png_path, png_bytes) = get_or_create_real_receipt_png();
+#[rstest]
+fn test_real_receipt_png_oximedia_cv_enhancement(
+    get_or_create_real_receipt_png: (PathBuf, Vec<u8>),
+) {
+    let (png_path, png_bytes) = get_or_create_real_receipt_png;
     assert!(png_path.exists());
     assert!(!png_bytes.is_empty());
 
@@ -490,9 +497,9 @@ fn test_real_receipt_png_oximedia_cv_enhancement() {
     assert!((post_mean - orig_mean).abs() < 10.0);
 }
 
-#[test]
-fn test_real_image_stitching_with_oximedia() {
-    let (_png_path, png_bytes) = get_or_create_real_receipt_png();
+#[rstest]
+fn test_real_image_stitching_with_oximedia(get_or_create_real_receipt_png: (PathBuf, Vec<u8>)) {
+    let (_png_path, png_bytes) = get_or_create_real_receipt_png;
     let dyn_img = image::load_from_memory(&png_bytes).expect("decode real receipt PNG");
     let full_img = dyn_img.to_rgba8();
     let (w, h) = full_img.dimensions();
@@ -572,9 +579,12 @@ fn test_real_qr_code_image_detector_and_epc_payload() {
     }
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_real_pdf_end_to_end_pipeline_extraction() {
-    let (pdf_path, _pdf_bytes) = get_or_create_real_pdf_invoice();
+async fn test_real_pdf_end_to_end_pipeline_extraction(
+    get_or_create_real_pdf_invoice: (PathBuf, Vec<u8>),
+) {
+    let (pdf_path, _pdf_bytes) = get_or_create_real_pdf_invoice;
 
     let expected_invoice = RealPdfInvoice {
         invoice_number: "INV-REAL-2026-999".to_string(),

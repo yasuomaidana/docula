@@ -1,6 +1,7 @@
 use docula::{DoculaPipeline, DocumentSource, ExtractionResult, ValidationMode, docula_model};
 use docula_llm::MockLlmBackend;
 use image::{ExtendedColorType, ImageEncoder, Rgba, RgbaImage, codecs::png::PngEncoder};
+use rstest::{fixture, rstest};
 use std::sync::Arc;
 
 docula_model! {
@@ -28,6 +29,7 @@ docula_model! {
     }
 }
 
+#[fixture]
 fn create_test_image_source() -> DocumentSource {
     let mut img = RgbaImage::new(100, 100);
     for pixel in img.pixels_mut() {
@@ -47,9 +49,10 @@ fn create_test_image_source() -> DocumentSource {
     DocumentSource::from_image_bytes(bytes, Some("png"))
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_pipeline_strict_vs_soft_modes() {
-    let source = create_test_image_source();
+async fn test_pipeline_strict_vs_soft_modes(create_test_image_source: DocumentSource) {
+    let source = create_test_image_source;
 
     // 1. Matches subtotal - tax (100 - 10 = 90), which is valid under fallback!
     let valid_json = serde_json::json!({
@@ -130,9 +133,10 @@ async fn test_pipeline_strict_vs_soft_modes() {
     assert_eq!(res_soft.outcome.validation_errors()[0].field_path, "total");
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_pipeline_syntax_error_outcome() {
-    let source = create_test_image_source();
+async fn test_pipeline_syntax_error_outcome(create_test_image_source: DocumentSource) {
+    let source = create_test_image_source;
 
     let corrupt_json = "{ invalid json syntax !!".to_string();
     let mock_llm_corrupt = Arc::new(MockLlmBackend::with_raw_response(corrupt_json));

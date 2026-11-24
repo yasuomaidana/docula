@@ -4,9 +4,11 @@ use docula_exemplar::{
     hamming_distance,
 };
 use docula_ocr::SpatialLayoutMap;
+use rstest::{fixture, rstest};
 use std::time::Instant;
 
-fn sample_layout(offset_x: f32, offset_y: f32) -> SpatialLayoutMap {
+#[fixture]
+fn sample_layout(#[default(0.0)] offset_x: f32, #[default(0.0)] offset_y: f32) -> SpatialLayoutMap {
     let bbox1 = BoundingBox::from_coords_clamped(
         0.1 + offset_x,
         0.1 + offset_y,
@@ -32,11 +34,16 @@ fn sample_layout(offset_x: f32, offset_y: f32) -> SpatialLayoutMap {
     SpatialLayoutMap::from_spans(vec![span1, span2], (1000, 1000))
 }
 
-#[test]
-fn test_layout_fingerprint_rotation_tolerance() {
-    let layout_orig = sample_layout(0.0, 0.0);
+#[rstest]
+fn test_layout_fingerprint_rotation_tolerance(
+    #[from(sample_layout)]
+    #[with(0.0, 0.0)]
+    layout_orig: SpatialLayoutMap,
+    #[from(sample_layout)]
+    #[with(0.01, 0.01)]
+    layout_jitter: SpatialLayoutMap,
+) {
     // 1% jitter / offset
-    let layout_jitter = sample_layout(0.01, 0.01);
 
     let fp_orig = compute_layout_fingerprint(&layout_orig);
     let fp_jitter = compute_layout_fingerprint(&layout_jitter);
@@ -48,10 +55,13 @@ fn test_layout_fingerprint_rotation_tolerance() {
     );
 }
 
-#[test]
-fn test_stage1_retrieval_latency() {
+#[rstest]
+fn test_stage1_retrieval_latency(
+    #[from(sample_layout)]
+    #[with(0.0, 0.0)]
+    sample: SpatialLayoutMap,
+) {
     let mut pool = ExemplarPool::new();
-    let sample = sample_layout(0.0, 0.0);
     let target_fp = compute_layout_fingerprint(&sample);
 
     // Register 1,000 synthetic templates
@@ -87,9 +97,12 @@ fn test_stage1_retrieval_latency() {
     );
 }
 
-#[test]
-fn test_zero_shot_prompt_overhead() {
-    let layout = sample_layout(0.0, 0.0);
+#[rstest]
+fn test_zero_shot_prompt_overhead(
+    #[from(sample_layout)]
+    #[with(0.0, 0.0)]
+    layout: SpatialLayoutMap,
+) {
     let prompt = FewShotPromptBuilder::build("System Instructions", &[], &layout);
 
     // Zero-shot prompt must not contain few-shot example markers
@@ -100,10 +113,13 @@ fn test_zero_shot_prompt_overhead() {
     assert!(prompt.contains("Extract all data strictly matching the requested schema"));
 }
 
-#[test]
-fn test_dual_stage_retrieval_flow() {
+#[rstest]
+fn test_dual_stage_retrieval_flow(
+    #[from(sample_layout)]
+    #[with(0.0, 0.0)]
+    layout_a: SpatialLayoutMap,
+) {
     let mut pool = ExemplarPool::new();
-    let layout_a = sample_layout(0.0, 0.0);
     let fp_a = compute_layout_fingerprint(&layout_a);
 
     let template = TemplatePair {

@@ -21,5 +21,6 @@ diesel = { version = "2.3.14", features = ["sqlite", "postgres", "returning_clau
 diesel-cte-ext = { version = "0.3.0", features = ["sqlite", "postgres"] }
 
 [dev-dependencies]
+rstest = "0.28.0"
 docula-core = { path = "../docula-core" }
 tempfile = "3.27.0"

@@ -2,10 +2,15 @@ use docula_composer::{MultiDocumentSegmenter, SegmentationConfig};
 use docula_core::DocumentSource;
 use docula_preprocess::PageRasterBuffer;
 use image::{ImageFormat, Rgba, RgbaImage};
+use rstest::{fixture, rstest};
 
 /// Generates a test canvas on a dark gray surface (mimicking a table or desk)
 /// with multiple bright rectangular document cards (mimicking receipts or invoices).
-fn make_multi_document_scene(canvas_w: u32, canvas_h: u32) -> RgbaImage {
+#[fixture]
+fn make_multi_document_scene(
+    #[default(300)] canvas_w: u32,
+    #[default(300)] canvas_h: u32,
+) -> RgbaImage {
     // Dark background (desk/scanner background)
     let mut canvas = RgbaImage::from_pixel(canvas_w, canvas_h, Rgba([30, 30, 35, 255]));
 
@@ -41,9 +46,12 @@ fn draw_document_card(canvas: &mut RgbaImage, x0: u32, y0: u32, w: u32, h: u32, 
     }
 }
 
-#[test]
-fn test_segment_multi_documents_spatial_order_and_identity() {
-    let canvas = make_multi_document_scene(300, 300);
+#[rstest]
+fn test_segment_multi_documents_spatial_order_and_identity(
+    #[from(make_multi_document_scene)]
+    #[with(300, 300)]
+    canvas: RgbaImage,
+) {
     let buffer = PageRasterBuffer::new(0, canvas, 300).unwrap();
 
     let config = SegmentationConfig {
@@ -135,9 +143,12 @@ fn test_segment_fallback_to_canvas_when_no_subdocs_detected() {
     assert_eq!(subdocs[0].identity.reading_order_index, 0);
 }
 
-#[test]
-fn test_segment_from_document_source() {
-    let canvas = make_multi_document_scene(300, 300);
+#[rstest]
+fn test_segment_from_document_source(
+    #[from(make_multi_document_scene)]
+    #[with(300, 300)]
+    canvas: RgbaImage,
+) {
     let mut png_bytes = Vec::new();
     canvas
         .write_to(

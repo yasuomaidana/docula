@@ -19,4 +19,5 @@ oximedia-cv = "0.2.1"
 oxipix = { path = "../../../oxipix", default-features = false, features = ["mosaic", "vectorize"] }
 
 [dev-dependencies]
+rstest = "0.28.0"
 tempfile = "3.27.0"

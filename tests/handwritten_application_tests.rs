@@ -6,6 +6,7 @@
 //! - Top-level application schema (`Application` / `Aplication`)
 //! - Domain integrity validation via `DocuValidate` and self-repair handling
 //! - Full optical and computer vision verification over `application.png`
+use rstest::{fixture, rstest};
 
 use chrono::NaiveDate;
 use docula::llm::MockLlmBackend;
@@ -145,15 +146,16 @@ impl DocuValidate for ItemizedApplication {
     }
 }
 
+#[fixture]
 fn fixture_application_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/fixtures")
         .join("application.png")
 }
 
-#[test]
-fn test_fixture_application_png_properties() {
-    let path = fixture_application_path();
+#[rstest]
+fn test_fixture_application_png_properties(fixture_application_path: PathBuf) {
+    let path = fixture_application_path;
     assert!(path.exists(), "tests/fixtures/application.png must exist");
 
     let bytes = fs::read(&path).expect("read application.png");
@@ -172,9 +174,10 @@ fn test_fixture_application_png_properties() {
     assert!(source_bytes.is_image());
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_handwritten_application_png_extraction_end_to_end() {
-    let path = fixture_application_path();
+async fn test_handwritten_application_png_extraction_end_to_end(fixture_application_path: PathBuf) {
+    let path = fixture_application_path;
     assert!(path.exists());
 
     // Expected data matching handwritten content in application.png:
@@ -302,9 +305,12 @@ async fn test_handwritten_application_png_extraction_end_to_end() {
     assert_eq!(extracted.employment_history[2].end_date, None);
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_handwritten_application_prior_job_relocated_reason() {
-    let path = fixture_application_path();
+async fn test_handwritten_application_prior_job_relocated_reason(
+    fixture_application_path: PathBuf,
+) {
+    let path = fixture_application_path;
     let app_prior = Aplication {
         phone_number: "555-0100".to_string(),
         address: "123 Any Street, Any Town, USA".to_string(),
@@ -331,9 +337,12 @@ async fn test_handwritten_application_prior_job_relocated_reason() {
     assert_eq!(data.reason_for_leaving, Some(ReasonForLeaving::Relocated));
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_handwritten_application_better_op_reason_serialization() {
-    let path = fixture_application_path();
+async fn test_handwritten_application_better_op_reason_serialization(
+    fixture_application_path: PathBuf,
+) {
+    let path = fixture_application_path;
     let app = Application {
         phone_number: "555-0100".to_string(),
         address: "123 Any Street, Any Town, USA".to_string(),
@@ -362,9 +371,12 @@ async fn test_handwritten_application_better_op_reason_serialization() {
     assert_eq!(data.reason_for_leaving, Some(ReasonForLeaving::BetterOp));
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_handwritten_application_date_type_enforcement_rejects_string() {
-    let path = fixture_application_path();
+async fn test_handwritten_application_date_type_enforcement_rejects_string(
+    fixture_application_path: PathBuf,
+) {
+    let path = fixture_application_path;
 
     // Invalid payload where start_date is a plain string instead of ISO date YYYY-MM-DD
     let invalid_json = serde_json::json!({
@@ -395,9 +407,12 @@ async fn test_handwritten_application_date_type_enforcement_rejects_string() {
     assert!(result.routed_to_triage);
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_handwritten_application_chronological_integrity_validation() {
-    let path = fixture_application_path();
+async fn test_handwritten_application_chronological_integrity_validation(
+    fixture_application_path: PathBuf,
+) {
+    let path = fixture_application_path;
 
     // Inverted chronologic dates: start_date > end_date
     let inverted_app = Application {
@@ -433,9 +448,10 @@ async fn test_handwritten_application_chronological_integrity_validation() {
     );
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_handwritten_application_itemized_table_extraction() {
-    let path = fixture_application_path();
+async fn test_handwritten_application_itemized_table_extraction(fixture_application_path: PathBuf) {
+    let path = fixture_application_path;
     let expected_itemized = ItemizedApplication {
         full_name: "Jane Doe".to_string(),
         phone_number: "555-0100".to_string(),
@@ -490,9 +506,9 @@ async fn test_handwritten_application_itemized_table_extraction() {
     assert_eq!(data.records[2].reason_for_leaving, None);
 }
 
-#[test]
-fn test_handwritten_application_oximedia_preprocessing() {
-    let path = fixture_application_path();
+#[rstest]
+fn test_handwritten_application_oximedia_preprocessing(fixture_application_path: PathBuf) {
+    let path = fixture_application_path;
     let bytes = fs::read(&path).expect("read application.png");
     let dyn_img = image::load_from_memory(&bytes).expect("decode application.png");
     let mut rgba = dyn_img.to_rgba8();

@@ -1,5 +1,6 @@
 use docula_domains::{BillOfLadingData, CargoItem, ShippingContainer, docula_bill_of_lading};
 use docula_schema::DocuValidate;
+use rstest::rstest;
 
 docula_bill_of_lading! {
     pub struct CustomIntermodalBillOfLading {
@@ -40,8 +41,10 @@ fn test_bill_of_lading_valid_iso_checksum_passes() {
     assert!(bol.validate_integrity().is_ok());
 }
 
-#[test]
-fn test_bill_of_lading_corrupt_container_checksum_fails() {
+#[rstest]
+#[case::corrupt_check_digit("CSQU3054387")] // check digit should be 3, not 7
+#[case::too_short("CSQU305")] // only 7 characters
+fn test_bill_of_lading_invalid_container_number_fails(#[case] container_number: &str) {
     let bol = BillOfLadingData {
         bol_number: "MSC-10293".to_string(),
         carrier_name: "MSC".to_string(),
@@ -51,44 +54,14 @@ fn test_bill_of_lading_corrupt_container_checksum_fails() {
         voyage_number: None,
         port_of_loading: "Shanghai".to_string(),
         port_of_discharge: "Los Angeles".to_string(),
-        containers: vec![
-            ShippingContainer::new("CSQU3054387"), // Check digit should be 3, not 7!
-        ],
+        containers: vec![ShippingContainer::new(container_number)],
         cargo_items: vec![],
         total_weight_kg: 0.0,
     };
 
-    let res = bol.validate_integrity();
-    assert!(res.is_err());
-    let errors = res.unwrap_err();
-    assert!(
-        errors
-            .iter()
-            .any(|e| e.field_path == "containers[0].container_number")
-    );
-}
-
-#[test]
-fn test_bill_of_lading_invalid_container_length_fails() {
-    let bol = BillOfLadingData {
-        bol_number: "CMA-551".to_string(),
-        carrier_name: "CMA CGM".to_string(),
-        shipper_name: "Shipper".to_string(),
-        consignee_name: "Consignee".to_string(),
-        vessel_name: None,
-        voyage_number: None,
-        port_of_loading: "Le Havre".to_string(),
-        port_of_discharge: "New York".to_string(),
-        containers: vec![
-            ShippingContainer::new("CSQU305"), // Only 7 characters!
-        ],
-        cargo_items: vec![],
-        total_weight_kg: 0.0,
-    };
-
-    let res = bol.validate_integrity();
-    assert!(res.is_err());
-    let errors = res.unwrap_err();
+    let errors = bol
+        .validate_integrity()
+        .expect_err("container must be rejected");
     assert!(
         errors
             .iter()

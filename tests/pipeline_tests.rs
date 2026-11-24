@@ -3,6 +3,7 @@ use docula::schema::{DocuValidate, ValidationError};
 use docula::vision_codes::OpticalCodeType;
 use docula::{DoculaPipeline, DocumentSource};
 use image::{ImageEncoder, Rgba, RgbaImage};
+use rstest::{fixture, rstest};
 use rxing::{BarcodeFormat, MultiFormatWriter, Writer};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,7 @@ impl DocuValidate for TestInvoice {
     }
 }
 
+#[fixture]
 fn create_test_image_source() -> DocumentSource {
     let mut img = RgbaImage::new(200, 200);
     for pixel in img.pixels_mut() {
@@ -53,8 +55,9 @@ fn create_test_image_source() -> DocumentSource {
     DocumentSource::from_image_bytes(bytes, Some("png"))
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_pipeline_end_to_end_mock_success() {
+async fn test_pipeline_end_to_end_mock_success(create_test_image_source: DocumentSource) {
     let invoice = TestInvoice {
         invoice_number: "INV-2026-001".to_string(),
         items: vec![
@@ -74,7 +77,7 @@ async fn test_pipeline_end_to_end_mock_success() {
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
     let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
 
-    let source = create_test_image_source();
+    let source = create_test_image_source;
     let result = pipeline
         .process_document::<TestInvoice>("doc-test-1", &source)
         .await
@@ -88,8 +91,9 @@ async fn test_pipeline_end_to_end_mock_success() {
     assert_eq!(result.repair_attempts, 1);
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_pipeline_self_repair_and_triage_on_failure() {
+async fn test_pipeline_self_repair_and_triage_on_failure(create_test_image_source: DocumentSource) {
     // Arithmetic mismatch: items sum to 100.0, but total is 999.0
     let invalid_invoice = TestInvoice {
         invoice_number: "INV-FAIL".to_string(),
@@ -104,7 +108,7 @@ async fn test_pipeline_self_repair_and_triage_on_failure() {
     let mock_llm = Arc::new(MockLlmBackend::with_canned_response(canned_json));
     let pipeline = DoculaPipeline::builder().with_llm_backend(mock_llm).build();
 
-    let source = create_test_image_source();
+    let source = create_test_image_source;
     let result = pipeline
         .process_document::<TestInvoice>("doc-fail-1", &source)
         .await
@@ -179,8 +183,9 @@ async fn test_pipeline_optical_code_enrichment() {
     assert!(result.optical_codes[0].financial_payload.is_some());
 }
 
+#[rstest]
 #[tokio::test]
-async fn test_pipeline_rag_retrieval_enrichment_detected() {
+async fn test_pipeline_rag_retrieval_enrichment_detected(create_test_image_source: DocumentSource) {
     let invoice = TestInvoice {
         invoice_number: "INV-RAG-2026".to_string(),
         items: vec![LineItem {
@@ -212,7 +217,7 @@ async fn test_pipeline_rag_retrieval_enrichment_detected() {
         .with_llm_backend(mock_llm)
         .build();
 
-    let source = create_test_image_source();
+    let source = create_test_image_source;
     let result = pipeline
         .process_document::<TestInvoice>("INV-RAG-2026", &source)
         .await

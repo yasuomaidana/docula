@@ -1,9 +1,14 @@
 use docula_core::{BoundingBox, SpatialSpan};
 use docula_ocr::{DbNetDetector, MockOcrEngine, NeuralOcrEngine, OcrEngine, OcrError};
 use image::{Rgba, RgbaImage};
+use rstest::{fixture, rstest};
 
 /// Helper to render simulated text lines as high-contrast dark strokes on white background.
-fn create_simulated_receipt_image(width: u32, height: u32) -> RgbaImage {
+#[fixture]
+fn create_simulated_receipt_image(
+    #[default(600)] width: u32,
+    #[default(400)] height: u32,
+) -> RgbaImage {
     let mut img = RgbaImage::from_pixel(width, height, Rgba([255, 255, 255, 255]));
     let black = Rgba([10, 10, 10, 255]);
 
@@ -26,9 +31,12 @@ fn create_simulated_receipt_image(width: u32, height: u32) -> RgbaImage {
     img
 }
 
-#[test]
-fn test_ocr_latin_text() {
-    let img = create_simulated_receipt_image(600, 400);
+#[rstest]
+fn test_ocr_latin_text(
+    #[from(create_simulated_receipt_image)]
+    #[with(600, 400)]
+    img: RgbaImage,
+) {
     let engine = NeuralOcrEngine::new();
 
     // Register ground-truth patterns by row signature
@@ -120,9 +128,12 @@ fn test_mock_ocr_engine_polymorphism() {
     assert_eq!(extracted[0].confidence, 0.99);
 }
 
-#[test]
-fn test_dbnet_detector_unclip_and_sorting() {
-    let img = create_simulated_receipt_image(500, 300);
+#[rstest]
+fn test_dbnet_detector_unclip_and_sorting(
+    #[from(create_simulated_receipt_image)]
+    #[with(500, 300)]
+    img: RgbaImage,
+) {
     let detector = DbNetDetector::new(0.2, 1.6);
 
     let boxes = detector.detect(&img).expect("detect boxes");
@@ -137,9 +148,12 @@ fn test_dbnet_detector_unclip_and_sorting() {
     }
 }
 
-#[test]
-fn test_ocr_with_degraded_document_mode() {
-    let img = create_simulated_receipt_image(600, 400);
+#[rstest]
+fn test_ocr_with_degraded_document_mode(
+    #[from(create_simulated_receipt_image)]
+    #[with(600, 400)]
+    img: RgbaImage,
+) {
     let engine = NeuralOcrEngine::new().with_degraded_document_mode();
 
     assert!(engine.preprocessor().is_some());

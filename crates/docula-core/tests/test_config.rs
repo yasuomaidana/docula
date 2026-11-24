@@ -4,6 +4,7 @@
 //! `docs/15_CONSUMER_CONFIGURATION_AND_TOML.md` §4.
 
 use docula_core::{ConfigError, DoculaConfig, DoculaError, OpticalCodeAction};
+use rstest::rstest;
 use serde::Deserialize;
 use std::path::PathBuf;
 
@@ -134,30 +135,13 @@ fn test_from_toml_str_empty_yields_defaults() {
     assert_eq!(config, DoculaConfig::default());
 }
 
-// `test_config_from_toml_str_malformed`
-#[test]
-fn test_config_from_toml_str_malformed() {
-    let err = DoculaConfig::from_toml_str("[hitl\nmin_token_confidence = ").expect_err("malformed");
-    assert!(matches!(err, ConfigError::ParseFailure { .. }));
-}
-
-#[test]
-fn test_from_toml_str_unknown_key_is_rejected() {
-    let err = DoculaConfig::from_toml_str("[hitl]\nmin_token_confidance = 0.9\n")
-        .expect_err("typo must be rejected");
-    assert!(matches!(err, ConfigError::ParseFailure { .. }));
-}
-
-#[test]
-fn test_from_toml_str_wrong_type_is_rejected() {
-    let err = DoculaConfig::from_toml_str("[ocr]\ndpi = \"high\"\n").expect_err("wrong type");
-    assert!(matches!(err, ConfigError::ParseFailure { .. }));
-}
-
-#[test]
-fn test_from_toml_str_invalid_action_is_rejected() {
-    let err = DoculaConfig::from_toml_str("[compliance]\nunannotated_qr_code = \"shred\"\n")
-        .expect_err("unknown action");
+#[rstest]
+#[case::malformed("[hitl\nmin_token_confidence = ")]
+#[case::unknown_key("[hitl]\nmin_token_confidance = 0.9\n")]
+#[case::wrong_type("[ocr]\ndpi = \"high\"\n")]
+#[case::invalid_action("[compliance]\nunannotated_qr_code = \"shred\"\n")]
+fn test_from_toml_str_parse_failures_are_rejected(#[case] toml: &str) {
+    let err = DoculaConfig::from_toml_str(toml).expect_err("must be rejected");
     assert!(matches!(err, ConfigError::ParseFailure { .. }));
 }
 

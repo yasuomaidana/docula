@@ -1583,6 +1583,7 @@ dependencies = [
  "image",
  "pdf_oxide",
  "predicates",
+ "rstest",
  "rxing",
  "schemars",
  "serde",
@@ -1599,6 +1600,7 @@ dependencies = [
  "docula-core",
  "image",
  "regex",
+ "rstest",
  "serde",
  "thiserror 2.0.21",
 ]
@@ -1615,6 +1617,7 @@ dependencies = [
  "oximedia-core",
  "oximedia-cv",
  "oxipix",
+ "rstest",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -1626,6 +1629,7 @@ dependencies = [
 name = "docula-core"
 version = "0.1.0"
 dependencies = [
+ "rstest",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -1642,6 +1646,7 @@ dependencies = [
  "chrono",
  "docula-schema",
  "docula-vision-codes",
+ "rstest",
  "schemars",
  "serde",
  "serde_json",
@@ -1654,6 +1659,7 @@ version = "0.1.0"
 dependencies = [
  "docula-core",
  "docula-ocr",
+ "rstest",
  "serde",
  "serde_json",
  "strsim",
@@ -1671,6 +1677,7 @@ dependencies = [
  "docula-exemplar",
  "docula-ocr",
  "docula-schema",
+ "rstest",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -1687,6 +1694,7 @@ dependencies = [
  "docula-core",
  "lopdf",
  "quick-xml 0.42.0",
+ "rstest",
  "serde",
  "thiserror 2.0.21",
  "zip 9.1.2",
@@ -1716,6 +1724,7 @@ dependencies = [
  "image",
  "memmap2",
  "rayon",
+ "rstest",
  "serde",
  "tempfile",
  "thiserror 2.0.21",
@@ -1733,6 +1742,7 @@ dependencies = [
  "oximedia-cv",
  "oxipix",
  "pdf_oxide",
+ "rstest",
  "tempfile",
  "thiserror 2.0.21",
 ]
@@ -1756,6 +1766,7 @@ dependencies = [
 name = "docula-schema"
 version = "0.1.0"
 dependencies = [
+ "rstest",
  "schemars",
  "serde",
  "serde_json",
@@ -1768,6 +1779,7 @@ version = "0.1.0"
 dependencies = [
  "docula-core",
  "image",
+ "rstest",
  "rxing",
  "serde",
  "serde_json",

@@ -1,5 +1,6 @@
 use docula_domains::{InvoiceData, LineItem, PaymentInfo};
 use docula_schema::DocuValidate;
+use rstest::rstest;
 
 #[test]
 fn test_invoice_valid_arithmetic_passes() {
@@ -79,15 +80,21 @@ fn test_invoice_line_item_math_fails() {
     assert!(errors.iter().any(|e| e.field_path == "line_items[0].total"));
 }
 
-#[test]
-fn test_invoice_currency_validation() {
+#[rstest]
+#[case::lowercase_currency("Acme Corp", "usd", "currency")]
+#[case::blank_vendor_name("   ", "EUR", "vendor_name")]
+fn test_invoice_header_validation_flags_field(
+    #[case] vendor_name: &str,
+    #[case] currency: &str,
+    #[case] flagged_field: &str,
+) {
     let invoice = InvoiceData {
-        vendor_name: "Acme Corp".to_string(),
+        vendor_name: vendor_name.to_string(),
         vendor_tax_id: None,
         invoice_number: None,
         issue_date: "2026-10-12".to_string(),
         due_date: None,
-        currency: "usd".to_string(), // Lowercase invalid!
+        currency: currency.to_string(),
         line_items: vec![],
         subtotal_amount: 0.0,
         tax_amount: 0.0,
@@ -96,33 +103,10 @@ fn test_invoice_currency_validation() {
         payment_info: None,
     };
 
-    let res = invoice.validate_integrity();
-    assert!(res.is_err());
-    let errors = res.unwrap_err();
-    assert!(errors.iter().any(|e| e.field_path == "currency"));
-}
-
-#[test]
-fn test_invoice_vendor_name_empty() {
-    let invoice = InvoiceData {
-        vendor_name: "   ".to_string(),
-        vendor_tax_id: None,
-        invoice_number: None,
-        issue_date: "2026-10-12".to_string(),
-        due_date: None,
-        currency: "EUR".to_string(),
-        line_items: vec![],
-        subtotal_amount: 0.0,
-        tax_amount: 0.0,
-        discount_amount: None,
-        total_amount: 0.0,
-        payment_info: None,
-    };
-
-    let res = invoice.validate_integrity();
-    assert!(res.is_err());
-    let errors = res.unwrap_err();
-    assert!(errors.iter().any(|e| e.field_path == "vendor_name"));
+    let errors = invoice
+        .validate_integrity()
+        .expect_err("header must be rejected");
+    assert!(errors.iter().any(|e| e.field_path == flagged_field));
 }
 
 #[cfg(feature = "vision-codes")]

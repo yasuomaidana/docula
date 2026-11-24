@@ -2,10 +2,12 @@ use docula_core::{DocumentSource, OfficeFormat, PresentationSubtype, Spreadsheet
 use docula_ingest::{
     DocumentRouter, PageRoute, PresentationReader, SpreadsheetReader, WordProcessingReader,
 };
+use rstest::{fixture, rstest};
 use std::io::Write;
 use zip::write::SimpleFileOptions;
 
 /// Helper to construct a minimal valid in-memory XLSX ZIP archive.
+#[fixture]
 fn create_mock_xlsx_bytes() -> Vec<u8> {
     let mut buf = Vec::new();
     {
@@ -50,6 +52,7 @@ fn create_mock_xlsx_bytes() -> Vec<u8> {
 }
 
 /// Helper to construct a minimal valid in-memory PPTX ZIP archive with 2 slides.
+#[fixture]
 fn create_mock_pptx_bytes() -> Vec<u8> {
     let mut buf = Vec::new();
     {
@@ -153,9 +156,9 @@ fn test_csv_and_tsv_spreadsheet_ingestion() {
     assert_eq!(tsv_wb.sheets[0].cells[2].value, "Keyboard");
 }
 
-#[test]
-fn test_real_xlsx_spreadsheet_ingestion() {
-    let xlsx_bytes = create_mock_xlsx_bytes();
+#[rstest]
+fn test_real_xlsx_spreadsheet_ingestion(create_mock_xlsx_bytes: Vec<u8>) {
+    let xlsx_bytes = create_mock_xlsx_bytes;
     let workbook = SpreadsheetReader::read_xlsx(&xlsx_bytes).expect("parses xlsx");
 
     assert_eq!(workbook.sheets.len(), 1);
@@ -177,9 +180,9 @@ fn test_real_xlsx_spreadsheet_ingestion() {
     assert_eq!(spans[1].text, "INV-2026-9901");
 }
 
-#[test]
-fn test_real_pptx_presentation_ingestion() {
-    let pptx_bytes = create_mock_pptx_bytes();
+#[rstest]
+fn test_real_pptx_presentation_ingestion(create_mock_pptx_bytes: Vec<u8>) {
+    let pptx_bytes = create_mock_pptx_bytes;
     let deck = PresentationReader::read_pptx(&pptx_bytes).expect("parses pptx");
 
     assert_eq!(deck.slides.len(), 2);
@@ -224,12 +227,15 @@ fn test_real_docx_and_text_ingestion() {
     assert_eq!(txt_doc.pages[0][0].text, "Header: System Status Report");
 }
 
-#[test]
-fn test_document_router_office_integration() {
+#[rstest]
+fn test_document_router_office_integration(
+    create_mock_xlsx_bytes: Vec<u8>,
+    create_mock_pptx_bytes: Vec<u8>,
+) {
     let router = DocumentRouter::new();
 
     // 1. XLSX through DocumentRouter
-    let xlsx_bytes = create_mock_xlsx_bytes();
+    let xlsx_bytes = create_mock_xlsx_bytes;
     let source_xlsx = DocumentSource::from_office_bytes(
         xlsx_bytes,
         OfficeFormat::Spreadsheet(SpreadsheetSubtype::Xlsx),
@@ -249,7 +255,7 @@ fn test_document_router_office_integration() {
     }
 
     // 2. PPTX through DocumentRouter
-    let pptx_bytes = create_mock_pptx_bytes();
+    let pptx_bytes = create_mock_pptx_bytes;
     let source_pptx = DocumentSource::from_office_bytes(
         pptx_bytes,
         OfficeFormat::Presentation(PresentationSubtype::Pptx),
