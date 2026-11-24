@@ -1,0 +1,29 @@
+name: Sibling repositories
+description: >
+  Clones the repositories that docula references through relative path dependencies
+  (`../../../oxipix`, `../../../embedag`) next to the checkout, at pinned commits.
+  Bump the SHAs here when the siblings move; the synapse lock in dendrite tracks the same commits.
+inputs:
+  oxipix-sha:
+    description: oxipix commit (branch develop; provides the mosaic and vectorize features)
+    default: 81e30a0908d90fa465f7d443b228c93171cae10d
+  embedag-sha:
+    description: embedag commit (branch main)
+    default: 31f3258082120085ab8a4d908427bae3aafeccf5
+runs:
+  using: composite
+  steps:
+    - name: Clone oxipix and embedag beside the workspace
+      shell: bash
+      run: |
+        set -euo pipefail
+        parent="$(cd "$GITHUB_WORKSPACE/.." && pwd)"
+        clone() { # name sha
+          rm -rf "$parent/$1"
+          git init -q "$parent/$1"
+          git -C "$parent/$1" fetch -q --depth 1 "https://github.com/yasuomaidana/$1.git" "$2"
+          git -C "$parent/$1" checkout -q FETCH_HEAD
+          echo "$1 at $(git -C "$parent/$1" rev-parse --short HEAD)"
+        }
+        clone oxipix "${{ inputs.oxipix-sha }}"
+        clone embedag "${{ inputs.embedag-sha }}"
